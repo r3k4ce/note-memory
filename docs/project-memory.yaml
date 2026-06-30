@@ -50,3 +50,11 @@ entries:
       - "Ran .\\scripts\\check.ps1 from the repository root."
 
 
+  - time_utc: "2026-06-30T21:56:19Z"
+    time_local: "2026-06-30T18:56:16-03:00"
+    summary: "Added frontend static app shell for Slice 06."
+    changed:
+      - "Replaced the placeholder React app with a static notes workspace, disabled Add/Search/Ask panels, sample note cards, selected note detail, backend-shaped note type, and responsive CSS."
+    verification:
+      - "Ran npm.cmd run build from frontend/."`r`n      - "Ran .\\scripts\\check.ps1 from the repository root."`r`n
+
