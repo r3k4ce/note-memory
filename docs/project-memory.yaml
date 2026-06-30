@@ -13,3 +13,12 @@ entries:
       - "Initial FastAPI backend, React TypeScript frontend, checks, CI, hooks, AGENTS.md, and memory file."
     verification:
       - 'Not run yet; run .\scripts\check.ps1 before first commit.'
+  - time_utc: "2026-06-30T18:09:57Z"
+    time_local: "2026-06-30T15:09:57-03:00"
+    summary: "Added backend settings and health check for Slice 02."
+    changed:
+      - "Added pydantic-settings configuration, FastAPI app boot path, GET /health, backend health test, and backend run instructions."
+    verification:
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Confirmed backend/.env is absent and app imports with OPENAI_API_KEY unset."
+      - "Started Uvicorn locally and confirmed GET /health returned HTTP 200 in server logs."
