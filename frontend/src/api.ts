@@ -1,0 +1,82 @@
+import type { Note, NoteCreate } from "./types";
+
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+
+type ApiErrorBody = {
+  detail?: unknown;
+};
+
+function formatDetail(detail: unknown): string | null {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        if (item && typeof item === "object" && "msg" in item && typeof item.msg === "string") {
+          return item.msg;
+        }
+
+        return null;
+      })
+      .filter((message): message is string => message !== null)
+      .join(" ");
+  }
+
+  return null;
+}
+
+async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as ApiErrorBody;
+    const detail = formatDetail(body.detail);
+    return detail || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${BACKEND_BASE_URL}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+      ...init,
+    });
+  } catch {
+    throw new Error("Could not reach the backend. Confirm it is running at the configured URL.");
+  }
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response, `Request failed with status ${response.status}.`));
+  }
+
+  return (await response.json()) as T;
+}
+
+export function listNotes(): Promise<Note[]> {
+  return requestJson<Note[]>("/notes");
+}
+
+export function getNote(noteId: number): Promise<Note> {
+  return requestJson<Note>(`/notes/${noteId}`);
+}
+
+export function createNote(originalText: string): Promise<Note> {
+  const body: NoteCreate = { original_text: originalText };
+
+  return requestJson<Note>("/notes", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

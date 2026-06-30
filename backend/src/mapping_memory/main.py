@@ -2,11 +2,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from mapping_memory.db import init_db
 from mapping_memory.notes import create_note, get_note, list_notes
 from mapping_memory.schemas import NoteCreate, NoteRead
 from mapping_memory.settings import Settings
+
+LOCAL_FRONTEND_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -18,6 +21,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=LOCAL_FRONTEND_ORIGINS,
+        allow_methods=["GET", "POST"],
+        allow_headers=["content-type"],
+    )
 
     @app.get("/health")
     def health() -> dict[str, str]:

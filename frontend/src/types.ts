@@ -7,3 +7,7 @@ export type Note = {
   date_added: string;
   updated_at: string;
 };
+
+export type NoteCreate = {
+  original_text: string;
+};

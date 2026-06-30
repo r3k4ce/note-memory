@@ -56,5 +56,18 @@ entries:
     changed:
       - "Replaced the placeholder React app with a static notes workspace, disabled Add/Search/Ask panels, sample note cards, selected note detail, backend-shaped note type, and responsive CSS."
     verification:
-      - "Ran npm.cmd run build from frontend/."`r`n      - "Ran .\\scripts\\check.ps1 from the repository root."`r`n
+      - "Ran npm.cmd run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+  - time_utc: "2026-06-30T22:31:29Z"
+    time_local: "2026-06-30T19:31:29-03:00"
+    summary: "Wired frontend note capture and browsing for Slice 07."
+    changed:
+      - "Added frontend API helpers, React note loading/saving/detail selection state, active Add Note UI, local backend CORS for Vite, and run/config docs."
+      - "Kept Search and Ask visible but disabled, with no routing, edit/delete, AI, or search behavior."
+    verification:
+      - "Added CORS regression coverage; focused test failed before middleware and passed its assertion after middleware."
+      - "Ran uv run pytest from backend/."
+      - "Ran npm.cmd run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+      - "Started backend/frontend with a temp SQLite database; confirmed health, Vite HTTP 200, CORS preflight, POST /notes, GET /notes, and GET /notes/{id}."
 

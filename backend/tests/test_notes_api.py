@@ -65,3 +65,19 @@ def test_post_notes_rejects_empty_original_text(tmp_path: Path) -> None:
 
     assert response.status_code == 422
     assert "original_text must not be empty" in response.text
+
+
+def test_local_vite_origin_receives_cors_headers(tmp_path: Path) -> None:
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/notes",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
