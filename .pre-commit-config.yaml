@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: project-check
+        name: project check
+        entry: powershell -ExecutionPolicy Bypass -File scripts/check.ps1
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

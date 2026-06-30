@@ -1,0 +1,15 @@
+entries:
+  - time_utc: "2026-06-30T17:35:00Z"
+    time_local: "2026-06-30T14:35:00-03:00"
+    summary: "Normalized Slice 01 scaffold-only monorepo structure."
+    changed:
+      - "Aligned backend package path to backend/src/mapping_memory, added backend/.env.example and data/.gitkeep, removed generated API/frontend behavior."
+    verification:
+      - "Ran .\\scripts\\check.ps1: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-06-30T17:22:21Z"
+    time_local: "2026-06-30T14:22:21-03:00"
+    summary: "Created initial web app scaffold."
+    changed:
+      - "Initial FastAPI backend, React TypeScript frontend, checks, CI, hooks, AGENTS.md, and memory file."
+    verification:
+      - 'Not run yet; run .\scripts\check.ps1 before first commit.'
