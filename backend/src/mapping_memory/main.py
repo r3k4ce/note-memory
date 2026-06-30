@@ -1,11 +1,45 @@
-from fastapi import FastAPI
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI, HTTPException, status
+
+from mapping_memory.db import init_db
+from mapping_memory.notes import create_note, get_note, list_notes
+from mapping_memory.schemas import NoteCreate, NoteRead
 from mapping_memory.settings import Settings
 
-settings = Settings()
-app = FastAPI(title=settings.app_name)
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    app_settings = settings or Settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        init_db(app_settings.sqlite_path)
+        yield
+
+    app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
+    def create_note_endpoint(note: NoteCreate) -> NoteRead:
+        return create_note(app_settings.sqlite_path, note.original_text)
+
+    @app.get("/notes", response_model=list[NoteRead])
+    def list_notes_endpoint() -> list[NoteRead]:
+        return list_notes(app_settings.sqlite_path)
+
+    @app.get("/notes/{note_id}", response_model=NoteRead)
+    def get_note_endpoint(note_id: int) -> NoteRead:
+        note = get_note(app_settings.sqlite_path, note_id)
+        if note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+
+        return note
+
+    return app
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+app = create_app()

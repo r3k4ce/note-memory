@@ -22,3 +22,31 @@ entries:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
       - "Confirmed backend/.env is absent and app imports with OPENAI_API_KEY unset."
       - "Started Uvicorn locally and confirmed GET /health returned HTTP 200 in server logs."
+  - time_utc: "2026-06-30T18:57:50Z"
+    time_local: "2026-06-30T15:57:50-03:00"
+    summary: "Added SQLite notes table initialization for Slice 03."
+    changed:
+      - "Added sqlite3 database helpers, SQLITE_PATH resolution, FastAPI lifespan initialization, and focused temp-database tests for the notes table."
+    verification:
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+  - time_utc: "2026-06-30T19:59:31Z"
+    time_local: "2026-06-30T16:59:30-03:00"
+    summary: "Added backend note repository functions for Slice 04."
+    changed:
+      - "Added internal SQLite note create, fetch, and newest-first list functions with fallback metadata and Pydantic return objects."
+      - "Added repository tests for creation, fetching, listing order, original text preservation, fallback title behavior, empty-text rejection, and empty tag round-trip."
+    verification:
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+  - time_utc: "2026-06-30T21:37:06Z"
+    time_local: "2026-06-30T18:37:06-03:00"
+    summary: "Added fallback note API endpoints for Slice 05."
+    changed:
+      - "Added FastAPI note create, list, and get endpoints using existing SQLite repository functions and shared request/response schemas."
+      - "Added API tests for create, list, get, missing id, and empty input validation."
+      - "Documented note endpoint examples in the backend README."
+    verification:
+      - "Ran uv run pytest tests/test_notes_api.py from backend/."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_db.py tests/test_health.py from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+
