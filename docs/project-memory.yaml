@@ -97,3 +97,14 @@ entries:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_ai.py from backend/."
       - "Ran npm.cmd run build from frontend/."
       - "Ran .\\scripts\\check.ps1 from the repository root."
+  - time_utc: "2026-06-30T23:31:39Z"
+    time_local: "2026-06-30T20:31:39-03:00"
+    summary: "Added deterministic retrieval chunking for Slice 10."
+    changed:
+      - "Added a pure backend chunking module with frozen retrieval chunk metadata, fixed chunk headers, approximate token thresholds, summary chunks for longer notes, and paragraph-first content chunking."
+      - "Added chunking tests for short notes, longer notes, fixed headers, and retrieval metadata."
+    verification:
+      - "Ran uv run pytest tests/test_chunking.py from backend/: chunking tests passed, command failed only because single-file coverage was below global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
