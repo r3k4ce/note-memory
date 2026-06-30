@@ -20,6 +20,7 @@ entries:
       - "Added pydantic-settings configuration, FastAPI app boot path, GET /health, backend health test, and backend run instructions."
     verification:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
       - "Confirmed backend/.env is absent and app imports with OPENAI_API_KEY unset."
       - "Started Uvicorn locally and confirmed GET /health returned HTTP 200 in server logs."
   - time_utc: "2026-06-30T18:57:50Z"
@@ -29,6 +30,7 @@ entries:
       - "Added sqlite3 database helpers, SQLITE_PATH resolution, FastAPI lifespan initialization, and focused temp-database tests for the notes table."
     verification:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
   - time_utc: "2026-06-30T19:59:31Z"
     time_local: "2026-06-30T16:59:30-03:00"
     summary: "Added backend note repository functions for Slice 04."
@@ -37,6 +39,7 @@ entries:
       - "Added repository tests for creation, fetching, listing order, original text preservation, fallback title behavior, empty-text rejection, and empty tag round-trip."
     verification:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
   - time_utc: "2026-06-30T21:37:06Z"
     time_local: "2026-06-30T18:37:06-03:00"
     summary: "Added fallback note API endpoints for Slice 05."
@@ -70,4 +73,15 @@ entries:
       - "Ran npm.cmd run build from frontend/."
       - "Ran .\\scripts\\check.ps1 from the repository root."
       - "Started backend/frontend with a temp SQLite database; confirmed health, Vite HTTP 200, CORS preflight, POST /notes, GET /notes, and GET /notes/{id}."
+
+  - time_utc: "2026-06-30T22:54:15Z"
+    time_local: "2026-06-30T19:54:15-03:00"
+    summary: "Added isolated AI organizer module for Slice 08."
+    changed:
+      - "Added OpenAI SDK dependency, organizer settings, Pydantic organizer metadata validation, structured-output OpenAI call, and typed organizer errors without wiring POST /notes."
+      - "Added mocked organizer tests plus a real OpenAI API integration test using backend/.env when configured."
+    verification:
+      - "Ran uv run pytest tests/test_ai.py -q from backend/: all tests passed, command failed only because single-file coverage was below global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
 

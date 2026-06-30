@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     app_name: str = "Mapping Memory"
     environment: str = "local"
     sqlite_path: Path = Path("../data/mapping_memory.sqlite")
+    openai_api_key: SecretStr | None = None
+    openai_organizer_model: str = "gpt-5.4-mini"
 
     @field_validator("sqlite_path", mode="after")
     @classmethod
