@@ -1,15 +1,19 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from mapping_memory.ai import organize_mapping_text
 from mapping_memory.db import init_db
 from mapping_memory.notes import create_note, get_note, list_notes
 from mapping_memory.schemas import NoteCreate, NoteRead
 from mapping_memory.settings import Settings
 
 LOCAL_FRONTEND_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -34,7 +38,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
     def create_note_endpoint(note: NoteCreate) -> NoteRead:
-        return create_note(app_settings.sqlite_path, note.original_text)
+        try:
+            metadata = organize_mapping_text(note.original_text, settings=app_settings)
+        except Exception:
+            logger.warning("AI organizer unavailable; saved note with fallback metadata")
+            return create_note(app_settings.sqlite_path, note.original_text)
+
+        return create_note(
+            app_settings.sqlite_path,
+            note.original_text,
+            ai_title=metadata.title,
+            short_summary=metadata.summary,
+            tags=metadata.tags,
+        )
 
     @app.get("/notes", response_model=list[NoteRead])
     def list_notes_endpoint() -> list[NoteRead]:

@@ -36,6 +36,31 @@ def test_create_note_inserts_note_with_fallback_metadata(sqlite_path: Path) -> N
     assert tags_json == ("[]",)
 
 
+def test_create_note_persists_provided_metadata(sqlite_path: Path) -> None:
+    original_text = "Raw note text\nwith exact spacing"
+
+    note = create_note(
+        sqlite_path,
+        original_text,
+        ai_title="Organized title",
+        short_summary="Organized summary.",
+        tags=["routing", "retrieval"],
+    )
+
+    assert note.original_text == original_text
+    assert note.ai_title == "Organized title"
+    assert note.short_summary == "Organized summary."
+    assert note.tags == ["routing", "retrieval"]
+
+    with sqlite3.connect(sqlite_path) as connection:
+        tags_json = connection.execute(
+            "SELECT tags_json FROM notes WHERE id = ?",
+            (note.id,),
+        ).fetchone()
+
+    assert tags_json == ('["routing", "retrieval"]',)
+
+
 def test_get_note_returns_created_note(sqlite_path: Path) -> None:
     created_note = create_note(sqlite_path, "A note to fetch")
 

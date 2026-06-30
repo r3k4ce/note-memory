@@ -85,3 +85,15 @@ entries:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
       - "Ran .\\scripts\\check.ps1 from the repository root."
 
+  - time_utc: "2026-06-30T23:07:40Z"
+    time_local: "2026-06-30T20:07:40-03:00"
+    summary: "Wired AI organizer into note creation for Slice 09."
+    changed:
+      - "POST /notes now attempts organizer metadata, saves AI title/summary/tags on success, and falls back safely without changing the response shape."
+      - "Repository note creation accepts optional metadata while preserving existing fallback metadata and exact original text storage."
+      - "Added mocked API and repository tests for AI success, organizer failure, missing API key fallback, and exact original text preservation."
+    verification:
+      - "Ran uv run pytest tests/test_notes_api.py tests/test_notes.py from backend/ during red/green cycle."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_ai.py from backend/."
+      - "Ran npm.cmd run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."

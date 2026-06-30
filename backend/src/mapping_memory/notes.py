@@ -10,12 +10,20 @@ from mapping_memory.schemas import NoteRead
 UNTITLED_NOTE_TITLE = "Untitled mapping note"
 
 
-def create_note(sqlite_path: Path, original_text: str) -> NoteRead:
+def create_note(
+    sqlite_path: Path,
+    original_text: str,
+    *,
+    ai_title: str | None = None,
+    short_summary: str | None = None,
+    tags: list[str] | None = None,
+) -> NoteRead:
     if not original_text.strip():
         raise ValueError("original_text must not be empty")
 
     timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
-    tags_json = json.dumps([])
+    note_tags = tags if tags is not None else []
+    tags_json = json.dumps(note_tags)
 
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
@@ -32,8 +40,8 @@ def create_note(sqlite_path: Path, original_text: str) -> NoteRead:
             """,
             (
                 original_text,
-                _fallback_title(original_text),
-                original_text[:250],
+                ai_title if ai_title is not None else _fallback_title(original_text),
+                short_summary if short_summary is not None else original_text[:250],
                 tags_json,
                 timestamp,
                 timestamp,
