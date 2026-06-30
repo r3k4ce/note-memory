@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     sqlite_path: Path = Path("../data/mapping_memory.sqlite")
     openai_api_key: SecretStr | None = None
     openai_organizer_model: str = "gpt-5.4-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
 
     @field_validator("sqlite_path", mode="after")
     @classmethod

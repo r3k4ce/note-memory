@@ -108,3 +108,12 @@ entries:
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
       - "Ran .\\scripts\\check.ps1 from the repository root."
 
+  - time_utc: "2026-07-01T02:40:00Z"
+    time_local: "2026-06-30T23:40:00-03:00"
+    summary: "Added isolated OpenAI embeddings module for Slice 11."
+    changed:
+      - "Added embedding model settings, a backend-only OpenAI embeddings helper with typed errors and input validation, mocked embeddings tests, and a minimal backend config note."
+      - "Kept embeddings isolated from Chroma, note creation, search, ask mode, and frontend behavior."
+    verification:
+      - "Ran uv run pytest from backend/: 40 passed, coverage 85.45%."
+      - "Ran .\\scripts\\check.ps1 from the repository root."

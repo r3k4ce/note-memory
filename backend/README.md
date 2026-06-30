@@ -6,7 +6,7 @@
 uv sync --dev
 ```
 
-The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable.
+The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`.
 
 ## Run
 
