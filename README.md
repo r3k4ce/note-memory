@@ -126,9 +126,13 @@ Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "applica
     -Body '{"original_text":"My first note"}'
 
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=note"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=note&uncategorized=true"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=note&category_id=1"
 
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" `
     -Body '{"question":"What notes have I saved?"}'
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" `
+    -Body '{"question":"What notes have I saved?","category_id":1}'
 ```
 
 Expected health response: `{ "status": "ok" }`. See `backend/README.md` for the
@@ -143,8 +147,8 @@ Walk through these once after a clean install:
 - [ ] `POST /notes` with sample text returns 201 and a note with `ai_title`, `short_summary`, `tags`, and `category`
 - [ ] `GET /notes` lists the saved note
 - [ ] `GET /notes/{id}` returns the same note
-- [ ] `GET /search?q=<term>` returns the note as a search hit
-- [ ] `POST /ask` with a question returns an answer with at least one `sources` entry
+- [ ] `GET /search?q=<term>` returns the note as a search hit and category scope params restrict results
+- [ ] `POST /ask` with a question returns an answer with at least one `sources` entry and category scope fields restrict sources
 - [ ] `GET /notes?category_id=<id>` filters notes by category
 - [ ] `PATCH /notes/{id}` updates title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`

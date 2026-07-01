@@ -3,8 +3,10 @@ from collections.abc import Iterable
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
+from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.notes import get_note, search_notes_exact
+from mapping_memory.notes import get_category, get_note, list_notes, search_notes_exact
 from mapping_memory.schemas import NoteRead, SearchResult
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, VectorSearchResult
@@ -19,7 +21,11 @@ def create_search_router(settings: Settings) -> APIRouter:
     router = APIRouter()
 
     @router.get("/search", response_model=list[SearchResult])
-    def search(q: str | None = Query(default=None)) -> list[SearchResult]:
+    def search(
+        q: str | None = Query(default=None),
+        category_id: int | None = Query(default=None),
+        uncategorized: bool = Query(default=False),
+    ) -> list[SearchResult]:
         query = (q or "").strip()
         if not query:
             raise HTTPException(
@@ -27,9 +33,16 @@ def create_search_router(settings: Settings) -> APIRouter:
                 detail="q must not be empty",
             )
 
-        exact_notes = search_notes_exact(settings.sqlite_path, query, limit=SEARCH_LIMIT)
+        category_scope = _validated_category_scope(
+            category_id=category_id, uncategorized=uncategorized, settings=settings
+        )
+        exact_notes = search_notes_exact(
+            settings.sqlite_path, query, limit=SEARCH_LIMIT, category_scope=category_scope
+        )
         try:
-            semantic_hits = _search_semantic_notes(query, settings=settings)
+            semantic_hits = _search_semantic_notes(
+                query, settings=settings, category_scope=category_scope
+            )
         except Exception:
             logger.warning("Semantic search unavailable; returning exact search results")
             semantic_hits = []
@@ -39,15 +52,24 @@ def create_search_router(settings: Settings) -> APIRouter:
     return router
 
 
-def _search_semantic_notes(query: str, *, settings: Settings) -> list[NoteRead]:
+def _search_semantic_notes(
+    query: str,
+    *,
+    settings: Settings,
+    category_scope: CategoryScope,
+) -> list[NoteRead]:
     embedding = embed_texts([query], settings=settings)[0]
-    hits = ChromaVectorStore(settings=settings).query_by_embedding(embedding, limit=SEARCH_LIMIT)
+    vector_store = ChromaVectorStore(settings=settings)
+    _sync_scope_category_metadata(vector_store, settings=settings, category_scope=category_scope)
+    hits = vector_store.query_by_embedding(
+        embedding, limit=SEARCH_LIMIT, where=category_scope.chroma_where
+    )
     note_ids = _ranked_note_ids(hits)
 
     notes: list[NoteRead] = []
     for note_id in note_ids:
         note = get_note(settings.sqlite_path, note_id)
-        if note is not None:
+        if note is not None and _note_matches_scope(note, category_scope):
             notes.append(note)
 
     return notes
@@ -127,3 +149,65 @@ def _metadata_note_id(value: object) -> int | None:
         return int(value)
 
     return None
+
+
+def _validated_category_scope(
+    *,
+    category_id: int | None,
+    uncategorized: bool,
+    settings: Settings,
+) -> CategoryScope:
+    try:
+        category_scope = make_category_scope(category_id=category_id, uncategorized=uncategorized)
+    except CategoryScopeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+    if (
+        category_scope.category_id is not None
+        and get_category(settings.sqlite_path, category_scope.category_id) is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Category not found",
+        )
+
+    return category_scope
+
+
+def _note_matches_scope(note: NoteRead, category_scope: CategoryScope) -> bool:
+    note_category_id = note.category.id if note.category is not None else None
+    return category_scope.matches_category_id(note_category_id)
+
+
+def _sync_scope_category_metadata(
+    vector_store: ChromaVectorStore,
+    *,
+    settings: Settings,
+    category_scope: CategoryScope,
+) -> None:
+    if category_scope.is_all:
+        return
+
+    notes = list_notes(
+        settings.sqlite_path,
+        category_id=category_scope.category_id,
+        uncategorized=category_scope.uncategorized,
+    )
+    chunks = [chunk for note in notes for chunk in _chunks_for_note(note)]
+    vector_store.update_chunk_metadata(chunks)
+
+
+def _chunks_for_note(note: NoteRead):
+    return create_retrieval_chunks(
+        note_id=note.id,
+        original_text=note.original_text,
+        ai_title=note.ai_title,
+        short_summary=note.short_summary,
+        tags=note.tags,
+        date_added=note.date_added,
+        category_id=note.category.id if note.category is not None else None,
+        category_name=note.category.name if note.category is not None else None,
+    )

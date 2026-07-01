@@ -212,6 +212,8 @@ def _reindex_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:
         short_summary=note.short_summary,
         tags=note.tags,
         date_added=note.date_added,
+        category_id=note.category.id if note.category is not None else None,
+        category_name=note.category.name if note.category is not None else None,
     )
     embeddings = embed_texts([chunk.text for chunk in chunks], settings=settings)
     vector_store.add_chunks(chunks, embeddings=embeddings)
@@ -225,6 +227,8 @@ def _index_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:
         short_summary=note.short_summary,
         tags=note.tags,
         date_added=note.date_added,
+        category_id=note.category.id if note.category is not None else None,
+        category_name=note.category.name if note.category is not None else None,
     )
     embeddings = embed_texts([chunk.text for chunk in chunks], settings=settings)
     ChromaVectorStore(settings=settings).add_chunks(chunks, embeddings=embeddings)

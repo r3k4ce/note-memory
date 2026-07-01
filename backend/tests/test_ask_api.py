@@ -59,6 +59,62 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
     }
 
 
+def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    source = _source(note_id=7, title="Scoped source", date_added="2026-07-01T01:00:00Z")
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
+        answer=lambda **_: "Scoped answer.",
+        capture=captured,
+    )
+
+    with TestClient(app) as client:
+        category = client.post("/categories", json={"name": "Projects"}).json()
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "category_id": category["id"]},
+        )
+
+    assert response.status_code == 200
+    assert captured["category_scope"].category_id == category["id"]
+    assert captured["category_scope"].uncategorized is False
+
+
+def test_ask_rejects_missing_category_scope(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/ask", json={"question": "What?", "category_id": 999999})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Category not found"}
+
+
+def test_ask_rejects_conflicting_category_scopes(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What?", "category_id": 1, "uncategorized": True},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "category_id and uncategorized cannot both be set"}
+
+
 def test_ask_rejects_empty_question(tmp_path, monkeypatch) -> None:
     app = _ask_app(
         tmp_path,
@@ -173,12 +229,26 @@ class FakeCompletions:
         return SimpleNamespace(choices=[choice])
 
 
-def _ask_app(tmp_path, monkeypatch, *, retrieval_context: RagRetrievalContext, answer):
+def _ask_app(
+    tmp_path,
+    monkeypatch,
+    *,
+    retrieval_context: RagRetrievalContext,
+    answer,
+    capture: dict[str, Any] | None = None,
+):
     from mapping_memory.main import create_app
 
-    def prepare_retrieval_context(question: str, *, settings: Settings) -> RagRetrievalContext:
+    def prepare_retrieval_context(
+        question: str,
+        *,
+        settings: Settings,
+        category_scope=None,
+    ) -> RagRetrievalContext:
         assert question.strip()
         assert settings.sqlite_path
+        if capture is not None:
+            capture["category_scope"] = category_scope
         return retrieval_context
 
     monkeypatch.setattr(

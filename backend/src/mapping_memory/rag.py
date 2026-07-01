@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
+from mapping_memory.category_scope import CategoryScope
+from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.notes import get_note
+from mapping_memory.notes import get_note, list_notes
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
 
@@ -33,15 +35,24 @@ class RagRetrievalContext:
     formatted_context: str
 
 
-def prepare_retrieval_context(question: str, *, settings: Settings) -> RagRetrievalContext:
+def prepare_retrieval_context(
+    question: str,
+    *,
+    settings: Settings,
+    category_scope: CategoryScope | None = None,
+) -> RagRetrievalContext:
     query = question.strip()
     if not query:
         raise ValueError("question must not be empty")
 
+    scope = category_scope or CategoryScope()
     embedding = embed_texts([query], settings=settings)[0]
-    hits = ChromaVectorStore(settings=settings).query_by_embedding(
+    vector_store = ChromaVectorStore(settings=settings)
+    _sync_scope_category_metadata(vector_store, settings=settings, category_scope=scope)
+    hits = vector_store.query_by_embedding(
         embedding,
         limit=RAG_RETRIEVAL_LIMIT,
+        where=scope.chroma_where,
     )
 
     source_chunks: dict[int, list[RagContextChunk]] = {}
@@ -61,7 +72,7 @@ def prepare_retrieval_context(question: str, *, settings: Settings) -> RagRetrie
             continue
 
         note = get_note(settings.sqlite_path, note_id)
-        if note is None:
+        if note is None or not _note_matches_scope(note, scope):
             continue
 
         if chunks is None:
@@ -122,3 +133,39 @@ def _format_source(source: RagSource) -> str:
     for chunk in source.chunks:
         lines.extend(["Relevant text:", chunk.text])
     return "\n".join(lines)
+
+
+def _note_matches_scope(note, category_scope: CategoryScope) -> bool:
+    note_category_id = note.category.id if note.category is not None else None
+    return category_scope.matches_category_id(note_category_id)
+
+
+def _sync_scope_category_metadata(
+    vector_store: ChromaVectorStore,
+    *,
+    settings: Settings,
+    category_scope: CategoryScope,
+) -> None:
+    if category_scope.is_all:
+        return
+
+    notes = list_notes(
+        settings.sqlite_path,
+        category_id=category_scope.category_id,
+        uncategorized=category_scope.uncategorized,
+    )
+    chunks = [chunk for note in notes for chunk in _chunks_for_note(note)]
+    vector_store.update_chunk_metadata(chunks)
+
+
+def _chunks_for_note(note):
+    return create_retrieval_chunks(
+        note_id=note.id,
+        original_text=note.original_text,
+        ai_title=note.ai_title,
+        short_summary=note.short_summary,
+        tags=note.tags,
+        date_added=note.date_added,
+        category_id=note.category.id if note.category is not None else None,
+        category_name=note.category.name if note.category is not None else None,
+    )

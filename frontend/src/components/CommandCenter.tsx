@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 
 import type { AppMode } from "../hooks/useKeyboardShortcuts";
-import type { AskResponse, Category } from "../types";
+import type { AskResponse, Category, CategoryScopeRequest } from "../types";
 import { AddNote } from "./AddNote";
 import { AskPanel } from "./AskPanel";
 
@@ -19,6 +19,9 @@ type CommandCenterProps = {
   onSave: () => void;
 
   askRef: RefObject<HTMLTextAreaElement | null>;
+  askCategoryScope: CategoryScopeRequest;
+  askScopeKey: string;
+  askScopeLabel: string;
   onAskResult: (result: AskResponse | null) => void;
 };
 
@@ -34,6 +37,9 @@ export function CommandCenter({
   onDraftTextChange,
   onSave,
   askRef,
+  askCategoryScope,
+  askScopeKey,
+  askScopeLabel,
   onAskResult,
 }: CommandCenterProps) {
   return (
@@ -52,7 +58,15 @@ export function CommandCenter({
         />
       )}
 
-      {mode === "ask" && <AskPanel askRef={askRef} onResult={onAskResult} />}
+      {mode === "ask" && (
+        <AskPanel
+          askRef={askRef}
+          categoryScope={askCategoryScope}
+          onResult={onAskResult}
+          scopeKey={askScopeKey}
+          scopeLabel={askScopeLabel}
+        />
+      )}
     </section>
   );
 }

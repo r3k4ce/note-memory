@@ -18,6 +18,7 @@ class FakeCollection:
         self.add_calls: list[dict[str, Any]] = []
         self.delete_calls: list[dict[str, Any]] = []
         self.query_calls: list[dict[str, Any]] = []
+        self.update_calls: list[dict[str, Any]] = []
         self.query_response: dict[str, Any] = {
             "ids": [["note:7:chunk:0"]],
             "documents": [["chunk text"]],
@@ -34,6 +35,9 @@ class FakeCollection:
     def query(self, **kwargs: Any) -> dict[str, Any]:
         self.query_calls.append(kwargs)
         return self.query_response
+
+    def update(self, **kwargs: Any) -> None:
+        self.update_calls.append(kwargs)
 
 
 class FakeClient:
@@ -68,6 +72,8 @@ def test_build_chunk_metadata_uses_required_chroma_metadata_shape() -> None:
         date_added="2026-06-30T23:30:00+00:00",
         source_start=0,
         source_end=12,
+        category_id=3,
+        category_name="Projects",
     )
 
     assert build_chunk_metadata(chunk) == {
@@ -77,7 +83,30 @@ def test_build_chunk_metadata_uses_required_chroma_metadata_shape() -> None:
         "ai_title": "Map title",
         "tags": '["routing","labels"]',
         "date_added": "2026-06-30T23:30:00+00:00",
+        "category_id": 3,
+        "category_name": "Projects",
+        "category_scope": "category:3",
     }
+
+
+def test_build_chunk_metadata_uses_uncategorized_sentinel() -> None:
+    chunk = RetrievalChunk(
+        note_id=7,
+        chunk_index=2,
+        chunk_type="content",
+        text="Title: Map\nChunk: Body",
+        title="Map title",
+        tags=("routing", "labels"),
+        date_added="2026-06-30T23:30:00+00:00",
+        source_start=0,
+        source_end=12,
+    )
+
+    metadata = build_chunk_metadata(chunk)
+
+    assert metadata["category_id"] == 0
+    assert metadata["category_name"] == "Uncategorized"
+    assert metadata["category_scope"] == "uncategorized"
 
 
 def test_store_gets_or_creates_configured_collection() -> None:
@@ -133,6 +162,9 @@ def test_add_chunks_sends_ids_documents_embeddings_and_metadata_to_chroma() -> N
                     "ai_title": "Trip plan",
                     "tags": '["travel"]',
                     "date_added": "2026-06-30T23:30:00+00:00",
+                    "category_id": 0,
+                    "category_name": "Uncategorized",
+                    "category_scope": "uncategorized",
                 },
                 {
                     "note_id": 9,
@@ -141,6 +173,9 @@ def test_add_chunks_sends_ids_documents_embeddings_and_metadata_to_chroma() -> N
                     "ai_title": "Trip plan",
                     "tags": '["travel"]',
                     "date_added": "2026-06-30T23:30:00+00:00",
+                    "category_id": 0,
+                    "category_name": "Uncategorized",
+                    "category_scope": "uncategorized",
                 },
             ],
         }
@@ -186,6 +221,61 @@ def test_query_by_embedding_returns_normalized_results() -> None:
     assert results[0].text == "chunk text"
     assert results[0].metadata == {"note_id": 7, "chunk_index": 0}
     assert results[0].distance == 0.125
+
+
+def test_query_by_embedding_passes_metadata_filter_when_provided() -> None:
+    collection = FakeCollection()
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+
+    store.query_by_embedding([0.1, 0.2], limit=3, where={"category_scope": "category:7"})
+
+    assert collection.query_calls == [
+        {
+            "query_embeddings": [[0.1, 0.2]],
+            "n_results": 3,
+            "include": ["documents", "metadatas", "distances"],
+            "where": {"category_scope": "category:7"},
+        }
+    ]
+
+
+def test_update_chunk_metadata_updates_known_chunk_ids_only() -> None:
+    collection = FakeCollection()
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    chunk = RetrievalChunk(
+        note_id=9,
+        chunk_index=0,
+        chunk_type="full",
+        text="chunk text",
+        title="Title",
+        tags=(),
+        date_added="2026-06-30T23:30:00+00:00",
+        source_start=0,
+        source_end=10,
+        category_id=4,
+        category_name="Work",
+    )
+
+    store.update_chunk_metadata([chunk])
+
+    assert collection.update_calls == [
+        {
+            "ids": ["note:9:chunk:0"],
+            "metadatas": [
+                {
+                    "note_id": 9,
+                    "chunk_index": 0,
+                    "chunk_type": "full",
+                    "ai_title": "Title",
+                    "tags": "[]",
+                    "date_added": "2026-06-30T23:30:00+00:00",
+                    "category_id": 4,
+                    "category_name": "Work",
+                    "category_scope": "category:4",
+                }
+            ],
+        }
+    ]
 
 
 def test_delete_chunks_for_note_deletes_by_note_id_metadata() -> None:

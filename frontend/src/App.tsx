@@ -16,7 +16,15 @@ import { ResultPanel } from "./components/ResultPanel";
 import { SearchBar } from "./components/SearchBar";
 import { SegmentedControl } from "./components/SegmentedControl";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
-import type { AskResponse, Category, Note, NoteCardData, NoteMetadataUpdate, SearchResult } from "./types";
+import type {
+  AskResponse,
+  Category,
+  CategoryScopeRequest,
+  Note,
+  NoteCardData,
+  NoteMetadataUpdate,
+  SearchResult,
+} from "./types";
 
 type CategoryFilter = "all" | "uncategorized" | number;
 
@@ -40,6 +48,30 @@ function sortCategories(categories: Category[]): Category[] {
   return [...categories].sort((left, right) =>
     left.name.localeCompare(right.name, undefined, { sensitivity: "base" }) || left.id - right.id,
   );
+}
+
+function categoryFilterScope(filter: CategoryFilter): CategoryScopeRequest {
+  if (filter === "uncategorized") {
+    return { uncategorized: true };
+  }
+
+  if (typeof filter === "number") {
+    return { category_id: filter };
+  }
+
+  return {};
+}
+
+function categoryFilterScopeKey(filter: CategoryFilter): string {
+  if (filter === "uncategorized") {
+    return "uncategorized";
+  }
+
+  if (typeof filter === "number") {
+    return `category:${filter}`;
+  }
+
+  return "all";
 }
 
 function categoryFilterLabel(filter: CategoryFilter, categories: Category[]): string {
@@ -91,6 +123,9 @@ export default function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
 
+  const categoryScope = categoryFilterScope(selectedCategoryFilter);
+  const categoryScopeKey = categoryFilterScopeKey(selectedCategoryFilter);
+  const categoryScopeLabel = categoryFilterLabel(selectedCategoryFilter, categories);
   const isSearchActive = activeSearchQuery !== null;
   const categoryFilteredNotes = filterNotesByCategory(notes, selectedCategoryFilter);
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
@@ -122,6 +157,7 @@ export default function App() {
   const handleCategoryFilterChange = useCallback(
     (filter: CategoryFilter) => {
       clearSearch();
+      setAskResult(null);
       setSelectedCategoryFilter(filter);
       setCategoryError(null);
       if (typeof filter === "number") {
@@ -245,7 +281,7 @@ export default function App() {
     setIsSearching(true);
 
     try {
-      const results = await searchNotes(query);
+      const results = await searchNotes(query, categoryScope);
       if (searchRequestId.current === requestId) {
         setSearchResults(results);
       }
@@ -373,7 +409,7 @@ export default function App() {
 
   const listTitle = isSearchActive
     ? `Results · ${activeSearchQuery}`
-    : categoryFilterLabel(selectedCategoryFilter, categories);
+    : categoryScopeLabel;
 
   return (
     <div className="flex h-screen flex-col bg-bg text-text-primary">
@@ -394,6 +430,7 @@ export default function App() {
               onClear={clearSearch}
               onSubmit={handleSearchSubmit}
               query={searchText}
+              scopeLabel={categoryScopeLabel}
               searchRef={searchRef}
             />
           </div>
@@ -543,6 +580,9 @@ export default function App() {
             <div className="mx-auto max-w-3xl px-6 py-6">
               <CommandCenter
                 askRef={askRef}
+                askCategoryScope={categoryScope}
+                askScopeKey={categoryScopeKey}
+                askScopeLabel={categoryScopeLabel}
                 captureRef={captureRef}
                 categories={categories}
                 draftCategoryId={draftCategoryId}
@@ -565,6 +605,9 @@ export default function App() {
             <div className="mx-auto max-w-3xl px-6 py-6">
               <CommandCenter
                 askRef={askRef}
+                askCategoryScope={categoryScope}
+                askScopeKey={categoryScopeKey}
+                askScopeLabel={categoryScopeLabel}
                 captureRef={captureRef}
                 categories={categories}
                 draftCategoryId={draftCategoryId}

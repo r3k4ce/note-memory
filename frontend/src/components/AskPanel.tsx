@@ -1,9 +1,9 @@
 import type { FormEvent, RefObject } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { askQuestion } from "../api";
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
-import type { AskResponse } from "../types";
+import type { AskResponse, CategoryScopeRequest } from "../types";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -11,13 +11,21 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type AskPanelProps = {
   askRef: RefObject<HTMLTextAreaElement | null>;
+  categoryScope: CategoryScopeRequest;
   onResult: (result: AskResponse | null) => void;
+  scopeKey: string;
+  scopeLabel: string;
 };
 
-export function AskPanel({ askRef, onResult }: AskPanelProps) {
+export function AskPanel({ askRef, categoryScope, onResult, scopeKey, scopeLabel }: AskPanelProps) {
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
+  const scopeKeyRef = useRef(scopeKey);
+
+  useEffect(() => {
+    scopeKeyRef.current = scopeKey;
+  }, [scopeKey]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -33,10 +41,17 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
     setAskError(null);
     onResult(null);
 
+    const submittedScopeKey = scopeKey;
+
     try {
-      onResult(await askQuestion(trimmedQuestion));
+      const result = await askQuestion(trimmedQuestion, categoryScope);
+      if (scopeKeyRef.current === submittedScopeKey) {
+        onResult(result);
+      }
     } catch (error) {
-      setAskError(getErrorMessage(error, "Could not reach your notes."));
+      if (scopeKeyRef.current === submittedScopeKey) {
+        setAskError(getErrorMessage(error, "Could not reach your notes."));
+      }
     } finally {
       setIsAsking(false);
     }
@@ -63,6 +78,7 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
         rows={4}
         value={question}
       />
+      <p className="text-[11px] text-text-muted">Scope: {scopeLabel}</p>
       {askError ? <p className="text-xs text-error">{askError}</p> : null}
       <div className="flex items-center gap-2">
         <button

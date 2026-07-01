@@ -136,6 +136,8 @@ class SearchResult(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
+    category_id: int | None = None
+    uncategorized: bool = False
 
     @field_validator("question")
     @classmethod
@@ -145,6 +147,14 @@ class AskRequest(BaseModel):
             raise ValueError("question must not be empty")
 
         return stripped_value
+
+    @field_validator("category_id")
+    @classmethod
+    def ask_category_id_must_be_positive(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("category_id must be positive")
+
+        return value
 
 
 class AskSource(BaseModel):

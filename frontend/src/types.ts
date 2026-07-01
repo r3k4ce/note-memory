@@ -42,7 +42,12 @@ export type NoteMetadataUpdate = {
   category_id?: number | null;
 };
 
-export type AskRequest = {
+export type CategoryScopeRequest = {
+  category_id?: number;
+  uncategorized?: boolean;
+};
+
+export type AskRequest = CategoryScopeRequest & {
   question: string;
 };
 

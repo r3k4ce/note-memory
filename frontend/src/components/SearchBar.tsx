@@ -7,17 +7,27 @@ type SearchBarProps = {
   onClear: () => void;
   onSubmit: () => void;
   query: string;
+  scopeLabel: string;
   searchRef: RefObject<HTMLInputElement | null>;
 };
 
-export function SearchBar({ isSearching, onChange, onClear, onSubmit, query, searchRef }: SearchBarProps) {
+export function SearchBar({
+  isSearching,
+  onChange,
+  onClear,
+  onSubmit,
+  query,
+  scopeLabel,
+  searchRef,
+}: SearchBarProps) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     onSubmit();
   }
 
   return (
-    <form onSubmit={handleSubmit} role="search" className="relative">
+    <form onSubmit={handleSubmit} role="search" className="flex flex-col gap-1.5">
+      <div className="relative">
       <Search
         size={14}
         strokeWidth={2}
@@ -42,6 +52,8 @@ export function SearchBar({ isSearching, onChange, onClear, onSubmit, query, sea
           <X size={14} strokeWidth={2} />
         </button>
       ) : null}
+      </div>
+      <p className="px-0.5 text-[11px] text-text-muted">Scope: {scopeLabel}</p>
     </form>
   );
 }

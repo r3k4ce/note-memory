@@ -2,6 +2,7 @@ import type {
   AskRequest,
   AskResponse,
   Category,
+  CategoryScopeRequest,
   CategoryCreate,
   Note,
   NoteCreate,
@@ -91,8 +92,21 @@ export function listNotes(categoryId?: number): Promise<Note[]> {
   return requestJson<Note[]>(path);
 }
 
-export function searchNotes(query: string): Promise<SearchResult[]> {
-  return requestJson<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`);
+function appendCategoryScope(params: URLSearchParams, scope: CategoryScopeRequest): void {
+  if (scope.category_id !== undefined) {
+    params.set("category_id", String(scope.category_id));
+  }
+
+  if (scope.uncategorized === true) {
+    params.set("uncategorized", "true");
+  }
+}
+
+export function searchNotes(query: string, scope: CategoryScopeRequest = {}): Promise<SearchResult[]> {
+  const params = new URLSearchParams({ q: query });
+  appendCategoryScope(params, scope);
+
+  return requestJson<SearchResult[]>(`/search?${params.toString()}`);
 }
 
 export function getNote(noteId: number): Promise<Note> {
@@ -121,8 +135,11 @@ export async function deleteNote(noteId: number): Promise<void> {
   });
 }
 
-export function askQuestion(question: string): Promise<AskResponse> {
-  const body: AskRequest = { question };
+export function askQuestion(
+  question: string,
+  scope: CategoryScopeRequest = {},
+): Promise<AskResponse> {
+  const body: AskRequest = { question, ...scope };
 
   return requestJson<AskResponse>("/ask", {
     method: "POST",

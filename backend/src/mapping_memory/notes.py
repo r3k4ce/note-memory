@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from sqlite3 import Row
 
+from mapping_memory.category_scope import CategoryScope, make_category_scope
 from mapping_memory.db import connect_db
 from mapping_memory.fts import (
     build_exact_match_query,
@@ -230,10 +231,16 @@ def get_note(sqlite_path: Path, note_id: int) -> NoteRead | None:
     return _note_from_row(row)
 
 
-def list_notes(sqlite_path: Path, *, category_id: int | None = None) -> list[NoteRead]:
+def list_notes(
+    sqlite_path: Path,
+    *,
+    category_id: int | None = None,
+    uncategorized: bool = False,
+) -> list[NoteRead]:
+    scope = make_category_scope(category_id=category_id, uncategorized=uncategorized)
     with closing(connect_db(sqlite_path)) as connection:
-        if category_id is not None:
-            _ensure_category_exists(connection, category_id)
+        if scope.category_id is not None:
+            _ensure_category_exists(connection, scope.category_id)
             rows = connection.execute(
                 f"""
                 SELECT {_note_select_columns()}
@@ -242,7 +249,17 @@ def list_notes(sqlite_path: Path, *, category_id: int | None = None) -> list[Not
                 WHERE notes.category_id = ?
                 ORDER BY notes.date_added DESC, notes.id DESC
                 """,
-                (category_id,),
+                (scope.category_id,),
+            ).fetchall()
+        elif scope.uncategorized:
+            rows = connection.execute(
+                f"""
+                SELECT {_note_select_columns()}
+                FROM notes
+                LEFT JOIN categories ON categories.id = notes.category_id
+                WHERE notes.category_id IS NULL
+                ORDER BY notes.date_added DESC, notes.id DESC
+                """
             ).fetchall()
         else:
             rows = connection.execute(
@@ -269,10 +286,26 @@ def delete_note(sqlite_path: Path, note_id: int) -> bool:
     return True
 
 
-def search_notes_exact(sqlite_path: Path, query: str, *, limit: int = 20) -> list[NoteRead]:
+def search_notes_exact(
+    sqlite_path: Path,
+    query: str,
+    *,
+    limit: int = 20,
+    category_scope: CategoryScope | None = None,
+) -> list[NoteRead]:
     stripped_query = query.strip()
     if not stripped_query or limit <= 0:
         return []
+
+    scope = category_scope or CategoryScope()
+    filters = ["notes_fts MATCH ?"]
+    params: list[object] = [build_exact_match_query(stripped_query)]
+    if scope.uncategorized:
+        filters.append("notes.category_id IS NULL")
+    elif scope.category_id is not None:
+        filters.append("notes.category_id = ?")
+        params.append(scope.category_id)
+    params.append(limit * 5)
 
     with closing(connect_db(sqlite_path)) as connection:
         rows = connection.execute(
@@ -281,11 +314,11 @@ def search_notes_exact(sqlite_path: Path, query: str, *, limit: int = 20) -> lis
             FROM notes_fts
             JOIN notes ON notes.id = notes_fts.rowid
             LEFT JOIN categories ON categories.id = notes.category_id
-            WHERE notes_fts MATCH ?
+            WHERE {" AND ".join(filters)}
             ORDER BY bm25(notes_fts), notes.date_added DESC, notes.id DESC
             LIMIT ?
             """,
-            (build_exact_match_query(stripped_query), limit * 5),
+            tuple(params),
         ).fetchall()
 
     matching_rows = [row for row in rows if row_matches_literal(row, stripped_query)]

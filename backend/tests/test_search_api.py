@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from mapping_memory.db import init_db
-from mapping_memory.notes import create_note
+from mapping_memory.notes import create_category, create_note
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import VectorSearchResult
 
@@ -18,13 +18,19 @@ class FakeVectorStore:
     def __init__(self, *, settings: Settings) -> None:
         self.settings = settings
 
+    def update_chunk_metadata(self, chunks: list[Any]) -> None:
+        self.calls.append(
+            {"updated_chunks": [(chunk.note_id, chunk.chunk_index) for chunk in chunks]}
+        )
+
     def query_by_embedding(
         self,
         embedding: list[float],
         *,
         limit: int = 5,
+        where: dict[str, Any] | None = None,
     ) -> list[VectorSearchResult]:
-        self.calls.append({"embedding": embedding, "limit": limit})
+        self.calls.append({"embedding": embedding, "limit": limit, "where": where})
         if self.error is not None:
             raise self.error
         return self.results
@@ -120,6 +126,136 @@ def test_search_ranks_merged_result_above_single_source_results(
     result_ids = [item["id"] for item in response.json()]
     assert result_ids[0] == merged.id
     assert set(result_ids[1:]) == {exact_only.id, semantic_only.id}
+
+
+def test_search_filters_exact_results_to_uncategorized_scope(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = _init_path(tmp_path)
+    category = create_category(sqlite_path, "Projects")
+    uncategorized = create_note(sqlite_path, "Shared keyword CD-30954 uncategorized")
+    create_note(sqlite_path, "Shared keyword CD-30954 categorized", category_id=category.id)
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[], init_db_first=False)
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "CD-30954", "uncategorized": "true"})
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [uncategorized.id]
+
+
+def test_search_filters_exact_results_to_specific_category(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = _init_path(tmp_path)
+    category = create_category(sqlite_path, "Projects")
+    included = create_note(
+        sqlite_path, "Shared keyword CD-30954 categorized", category_id=category.id
+    )
+    create_note(sqlite_path, "Shared keyword CD-30954 uncategorized")
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[], init_db_first=False)
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "CD-30954", "category_id": category.id})
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [included.id]
+
+
+def test_search_passes_category_scope_to_semantic_search(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = _init_path(tmp_path)
+    category = create_category(sqlite_path, "Projects")
+    note = create_note(sqlite_path, "Semantic project source", category_id=category.id)
+    app = _search_app(
+        tmp_path,
+        monkeypatch,
+        semantic_results=[
+            VectorSearchResult(
+                id="note:1:chunk:0",
+                text="semantic chunk",
+                metadata={"note_id": note.id},
+                distance=0.12,
+            )
+        ],
+        init_db_first=False,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "source", "category_id": category.id})
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [note.id]
+    assert FakeVectorStore.calls == [
+        {"updated_chunks": [(note.id, 0)]},
+        {
+            "embedding": [0.1, 0.2, 0.3],
+            "limit": 20,
+            "where": {"category_scope": f"category:{category.id}"},
+        },
+    ]
+
+
+def test_search_discards_semantic_hits_outside_selected_category(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = _init_path(tmp_path)
+    category = create_category(sqlite_path, "Projects")
+    included = create_note(sqlite_path, "Included source note", category_id=category.id)
+    excluded = create_note(sqlite_path, "Excluded source note")
+    app = _search_app(
+        tmp_path,
+        monkeypatch,
+        semantic_results=[
+            VectorSearchResult(
+                id="note:2:chunk:0",
+                text="stale wrong category chunk",
+                metadata={"note_id": excluded.id},
+                distance=0.01,
+            ),
+            VectorSearchResult(
+                id="note:1:chunk:0",
+                text="correct category chunk",
+                metadata={"note_id": included.id},
+                distance=0.12,
+            ),
+        ],
+        init_db_first=False,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "source", "category_id": category.id})
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [included.id]
+
+
+def test_search_rejects_missing_category_scope(tmp_path: Path, monkeypatch) -> None:
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[])
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "source", "category_id": 999999})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Category not found"}
+
+
+def test_search_rejects_conflicting_category_scopes(tmp_path: Path, monkeypatch) -> None:
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[])
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/search",
+            params={"q": "source", "category_id": 1, "uncategorized": "true"},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "category_id and uncategorized cannot both be set"}
 
 
 def test_search_rejects_empty_query(tmp_path: Path, monkeypatch) -> None:

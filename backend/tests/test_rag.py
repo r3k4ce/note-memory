@@ -3,8 +3,9 @@ from typing import Any, ClassVar
 
 import pytest
 
+from mapping_memory.category_scope import make_category_scope
 from mapping_memory.db import init_db
-from mapping_memory.notes import create_note
+from mapping_memory.notes import create_category, create_note
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import VectorSearchResult
 
@@ -16,13 +17,19 @@ class FakeVectorStore:
     def __init__(self, *, settings: Settings) -> None:
         self.settings = settings
 
+    def update_chunk_metadata(self, chunks: list[Any]) -> None:
+        self.calls.append(
+            {"updated_chunks": [(chunk.note_id, chunk.chunk_index) for chunk in chunks]}
+        )
+
     def query_by_embedding(
         self,
         embedding: list[float],
         *,
         limit: int = 5,
+        where: dict[str, Any] | None = None,
     ) -> list[VectorSearchResult]:
-        self.calls.append({"embedding": embedding, "limit": limit})
+        self.calls.append({"embedding": embedding, "limit": limit, "where": where})
         return self.results
 
 
@@ -58,7 +65,7 @@ def test_prepare_retrieval_context_groups_chunks_by_note(
 
     context = prepare_retrieval_context("source question", settings=settings)
 
-    assert FakeVectorStore.calls == [{"embedding": [0.1, 0.2, 0.3], "limit": 20}]
+    assert FakeVectorStore.calls == [{"embedding": [0.1, 0.2, 0.3], "limit": 20, "where": None}]
     assert [source.note_id for source in context.sources] == [first_note.id, second_note.id]
     assert [chunk.text for chunk in context.sources[0].chunks] == ["first chunk", "second chunk"]
     assert context.sources[0].title == "First card"
@@ -115,6 +122,76 @@ def test_prepare_retrieval_context_skips_invalid_or_missing_notes(
 
     assert [source.note_id for source in context.sources] == [note.id]
     assert context.sources[0].chunks[0].chunk_index == 2
+
+
+def test_prepare_retrieval_context_filters_specific_category(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    category = create_category(sqlite_path, "Projects")
+    included = create_note(
+        sqlite_path, "Included note body", ai_title="Included", category_id=category.id
+    )
+    excluded = create_note(sqlite_path, "Excluded note body", ai_title="Excluded")
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(
+        monkeypatch,
+        [
+            _hit(excluded.id, 0, "excluded chunk"),
+            _hit(included.id, 0, "included chunk"),
+        ],
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context(
+        "source question",
+        settings=settings,
+        category_scope=make_category_scope(category_id=category.id),
+    )
+
+    assert [source.note_id for source in context.sources] == [included.id]
+    assert FakeVectorStore.calls == [
+        {"updated_chunks": [(included.id, 0)]},
+        {
+            "embedding": [0.1, 0.2, 0.3],
+            "limit": 20,
+            "where": {"category_scope": f"category:{category.id}"},
+        },
+    ]
+
+
+def test_prepare_retrieval_context_filters_uncategorized_scope(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    category = create_category(sqlite_path, "Projects")
+    included = create_note(sqlite_path, "Included loose note", ai_title="Included")
+    excluded = create_note(
+        sqlite_path, "Excluded project note", ai_title="Excluded", category_id=category.id
+    )
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(
+        monkeypatch,
+        [
+            _hit(excluded.id, 0, "excluded chunk"),
+            _hit(included.id, 0, "included chunk"),
+        ],
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context(
+        "source question",
+        settings=settings,
+        category_scope=make_category_scope(uncategorized=True),
+    )
+
+    assert [source.note_id for source in context.sources] == [included.id]
+    assert FakeVectorStore.calls == [
+        {"updated_chunks": [(included.id, 0)]},
+        {"embedding": [0.1, 0.2, 0.3], "limit": 20, "where": {"category_scope": "uncategorized"}},
+    ]
 
 
 def test_prepare_retrieval_context_returns_empty_context_cleanly(

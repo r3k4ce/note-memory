@@ -73,16 +73,20 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Delete
 
 Delete removes the SQLite note, refreshes SQLite FTS, and attempts Chroma chunk cleanup. Chroma cleanup failures are logged and returned in `vector_cleanup` without restoring the deleted note.
 
-Search notes:
+Search notes across all notes, only Uncategorized, or one category:
 
 ```powershell
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&uncategorized=true"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&category_id=1"
 ```
 
-Ask a grounded question:
+Ask a grounded question across all notes, only Uncategorized, or one category:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?"}'
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","uncategorized":true}'
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","category_id":1}'
 ```
 
 ## Test

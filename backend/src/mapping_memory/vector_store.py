@@ -14,6 +14,18 @@ COLLECTION_NAME = "note_data_chunks"
 
 MetadataValue = str | int | float | bool
 ChunkMetadata = dict[str, MetadataValue]
+MetadataWhere = dict[str, Any]
+
+UNCATEGORIZED_CATEGORY_ID = 0
+UNCATEGORIZED_CATEGORY_NAME = "Uncategorized"
+UNCATEGORIZED_CATEGORY_SCOPE = "uncategorized"
+
+
+def category_scope_value(category_id: int | None) -> str:
+    if category_id is None:
+        return UNCATEGORIZED_CATEGORY_SCOPE
+
+    return f"category:{category_id}"
 
 
 @dataclass(frozen=True)
@@ -29,6 +41,8 @@ def build_chunk_id(*, note_id: int, chunk_index: int) -> str:
 
 
 def build_chunk_metadata(chunk: RetrievalChunk) -> ChunkMetadata:
+    category_id = chunk.category_id or UNCATEGORIZED_CATEGORY_ID
+    category_name = chunk.category_name or UNCATEGORIZED_CATEGORY_NAME
     return {
         "note_id": chunk.note_id,
         "chunk_index": chunk.chunk_index,
@@ -36,6 +50,9 @@ def build_chunk_metadata(chunk: RetrievalChunk) -> ChunkMetadata:
         "ai_title": chunk.title,
         "tags": json.dumps(list(chunk.tags), separators=(",", ":")),
         "date_added": chunk.date_added,
+        "category_id": category_id,
+        "category_name": category_name,
+        "category_scope": category_scope_value(chunk.category_id),
     }
 
 
@@ -77,16 +94,30 @@ class ChromaVectorStore:
         embedding: Sequence[float],
         *,
         limit: int = 5,
+        where: MetadataWhere | None = None,
     ) -> list[VectorSearchResult]:
-        response = cast(
-            dict[str, Any],
-            self.collection.query(
-                query_embeddings=[list(embedding)],
-                n_results=limit,
-                include=["documents", "metadatas", "distances"],
-            ),
-        )
+        query_kwargs: dict[str, Any] = {
+            "query_embeddings": [list(embedding)],
+            "n_results": limit,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if where is not None:
+            query_kwargs["where"] = where
+
+        response = cast(dict[str, Any], self.collection.query(**query_kwargs))
         return _normalize_query_response(response)
+
+    def update_chunk_metadata(self, chunks: Sequence[RetrievalChunk]) -> None:
+        if not chunks:
+            return
+
+        self.collection.update(
+            ids=[
+                build_chunk_id(note_id=chunk.note_id, chunk_index=chunk.chunk_index)
+                for chunk in chunks
+            ],
+            metadatas=[build_chunk_metadata(chunk) for chunk in chunks],
+        )
 
     def delete_chunks_for_note(self, note_id: int) -> None:
         self.collection.delete(where={"note_id": note_id})

@@ -332,3 +332,15 @@ entries:
       - "Ran npm run lint and npm run build from frontend/: passed."
 
 
+  - time_utc: "2026-07-01T18:33:39Z"
+    time_local: "2026-07-01T15:33:39-03:00"
+    summary: "Scoped Search and Ask retrieval by selected category."
+    changed:
+      - "Added optional category_id and uncategorized scope handling to backend Search and Ask, including exact search filters, Chroma metadata filters, and SQLite post-filtering to prevent stale vector metadata leaks."
+      - "Added category metadata and an uncategorized sentinel to Chroma chunk metadata, plus lazy in-place metadata sync for scoped retrieval without resetting the collection."
+      - "Updated the frontend so sidebar category selection controls Search and Ask request scope, displays the current scope, and clears stale scoped outputs on category changes."
+      - "Documented scoped Search and Ask examples in README.md and backend/README.md."
+    verification:
+      - "Ran uv run python -m pytest from backend/: 112 passed, coverage 89.52%, with Starlette 422 deprecation warnings."
+      - "Ran npm.cmd run lint and npm.cmd run build from frontend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
