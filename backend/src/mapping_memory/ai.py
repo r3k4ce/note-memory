@@ -1,9 +1,17 @@
 from typing import Any
 
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from mapping_memory.settings import Settings
+
+ANSWER_FALLBACK = "I do not have this in the saved knowledge base."
+ANSWER_SYSTEM_PROMPT = f"""Answer questions using only the saved-note context provided.
+Do not use outside knowledge.
+If the answer is not present in the saved-note context, say exactly: {ANSWER_FALLBACK}
+Be concise and operational.
+Do not invent policies, rules, or decisions.
+When answering, include supporting card titles and dates from the context."""
 
 ORGANIZER_SYSTEM_PROMPT = """Organize messy mapping-work notes into clean reference cards.
 Return only valid JSON.
@@ -21,6 +29,14 @@ class OrganizerUnavailableError(RuntimeError):
 
 class OrganizerResponseError(RuntimeError):
     """Raised when the model does not return usable organizer metadata."""
+
+
+class AnswerUnavailableError(RuntimeError):
+    """Raised when grounded answer generation cannot be called."""
+
+
+class AnswerResponseError(RuntimeError):
+    """Raised when the answer model does not return usable text."""
 
 
 class OrganizerMetadata(BaseModel):
@@ -93,8 +109,50 @@ def organize_mapping_text(
     return parsed
 
 
+def generate_grounded_answer(
+    question: str,
+    *,
+    context: str,
+    settings: Settings | None = None,
+    client: Any | None = None,
+) -> str:
+    if not question.strip():
+        raise ValueError("question must not be empty")
+    if not context.strip():
+        raise ValueError("context must not be empty")
+
+    app_settings = settings or Settings()
+    answer_client = client or _answer_openai_client(app_settings)
+    try:
+        completion = answer_client.chat.completions.create(
+            model=app_settings.openai_organizer_model,
+            messages=[
+                {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": f"Saved-note context:\n\n{context}\n\nQuestion:\n{question.strip()}",
+                },
+            ],
+        )
+    except OpenAIError as error:
+        raise AnswerUnavailableError("OpenAI answer request failed") from error
+
+    answer = completion.choices[0].message.content
+    if not isinstance(answer, str) or not answer.strip():
+        raise AnswerResponseError("OpenAI did not return a grounded answer")
+
+    return answer.strip()
+
+
 def _openai_client(settings: Settings) -> OpenAI:
     if settings.openai_api_key is None:
         raise OrganizerUnavailableError("OPENAI_API_KEY is required to organize mapping text")
+
+    return OpenAI(api_key=settings.openai_api_key.get_secret_value())
+
+
+def _answer_openai_client(settings: Settings) -> OpenAI:
+    if settings.openai_api_key is None:
+        raise AnswerUnavailableError("OPENAI_API_KEY is required to answer questions")
 
     return OpenAI(api_key=settings.openai_api_key.get_secret_value())

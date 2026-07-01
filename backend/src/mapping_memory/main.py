@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from mapping_memory.ai import organize_mapping_text
+from mapping_memory.ask import create_ask_router
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
@@ -36,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["content-type"],
     )
     app.include_router(create_search_router(app_settings))
+    app.include_router(create_ask_router(app_settings))
 
     @app.get("/health")
     def health() -> dict[str, str]:

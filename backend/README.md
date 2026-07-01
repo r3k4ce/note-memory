@@ -50,6 +50,12 @@ Search notes:
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954"
 ```
 
+Ask a grounded question:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?"}'
+```
+
 ## Test
 
 ```powershell

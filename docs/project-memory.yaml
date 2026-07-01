@@ -195,3 +195,13 @@ entries:
       - "Ran uv run pytest tests/test_rag.py -q --no-cov from backend/: 5 passed."
       - "Ran uv run pytest tests/test_search_api.py tests/test_exact_search.py tests/test_vector_store.py tests/test_rag.py -q --no-cov from backend/: 25 passed."
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 67 passed and 89.29% coverage."
+  - time_utc: "2026-07-01T04:30:00Z"
+    time_local: "2026-07-01T01:30:00-03:00"
+    summary: "Added grounded backend ask endpoint for Slice 18."
+    changed:
+      - "Added POST /ask with non-empty question validation, RAG context retrieval, grounded OpenAI answer generation, exact fallback behavior, sanitized 503 failures, and source metadata responses."
+      - "Reused OPENAI_ORGANIZER_MODEL for ask answer generation and kept frontend/search behavior unchanged."
+    verification:
+      - "Ran uv run pytest tests/test_ask_api.py -q --no-cov from backend/: 7 passed."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 74 passed and 88.39% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
