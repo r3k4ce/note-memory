@@ -199,10 +199,30 @@ def test_update_note_can_update_only_original_text(sqlite_path: Path) -> None:
     assert fetched_note == updated_note
 
 
+def test_update_note_refreshes_exact_search_for_updated_body(sqlite_path: Path) -> None:
+    note = create_note(
+        sqlite_path,
+        "Original body contains oldbodyonly.",
+        ai_title="Stable title",
+        short_summary="Stable summary.",
+        tags=["stable"],
+    )
+
+    updated_note = update_note(
+        sqlite_path,
+        note.id,
+        original_text="Updated body contains newbodyonly.",
+    )
+
+    assert updated_note is not None
+    assert [result.id for result in search_notes_exact(sqlite_path, "newbodyonly")] == [note.id]
+    assert search_notes_exact(sqlite_path, "oldbodyonly") == []
+
+
 def test_update_note_metadata_refreshes_exact_search(sqlite_path: Path) -> None:
     note = create_note(
         sqlite_path,
-        "Stable original body.",
+        "Stable original body stablebodyonly.",
         ai_title="Old metadata oldonly",
         short_summary="Old summary.",
         tags=["oldtag"],
@@ -217,6 +237,7 @@ def test_update_note_metadata_refreshes_exact_search(sqlite_path: Path) -> None:
     )
 
     assert updated_note is not None
+    assert [result.id for result in search_notes_exact(sqlite_path, "stablebodyonly")] == [note.id]
     assert [result.id for result in search_notes_exact(sqlite_path, "newonly")] == [note.id]
     assert [result.id for result in search_notes_exact(sqlite_path, "newtag")] == [note.id]
     assert search_notes_exact(sqlite_path, "oldonly") == []

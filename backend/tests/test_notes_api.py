@@ -314,6 +314,65 @@ def test_patch_note_updates_original_text_and_get_returns_updated_body(
     assert fetched_response.json() == response.json()
 
 
+def test_patch_note_refreshes_exact_search_for_updated_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def update_chunk_metadata(self, chunks: list[Any]) -> None:
+            pass
+
+        def query_by_embedding(
+            self,
+            embedding: list[float],
+            *,
+            limit: int = 5,
+            where: dict[str, Any] | None = None,
+        ) -> list[Any]:
+            return []
+
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        return [[0.1, 0.2, 0.3] for _ in texts]
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.search.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.search.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    original_text = f"Stable title\n{'padding ' * 40}oldbodyonly."
+
+    with TestClient(app) as client:
+        created_response = client.post(
+            "/notes",
+            json={"original_text": original_text},
+        )
+        note_id = created_response.json()["id"]
+        response = client.patch(
+            f"/notes/{note_id}",
+            json={"original_text": "Updated body with newbodyonly."},
+        )
+        new_search_response = client.get("/search", params={"q": "newbodyonly"})
+        old_search_response = client.get("/search", params={"q": "oldbodyonly"})
+
+    assert response.status_code == 200
+    assert new_search_response.status_code == 200
+    assert [result["id"] for result in new_search_response.json()] == [note_id]
+    assert old_search_response.status_code == 200
+    assert old_search_response.json() == []
+
+
 def test_patch_note_rejects_empty_or_invalid_metadata(
     tmp_path: Path,
     monkeypatch,
