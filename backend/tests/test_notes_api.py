@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -14,6 +15,17 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
     monkeypatch,
 ) -> None:
     calls: list[str] = []
+    embedding_calls: list[dict[str, Any]] = []
+    store_instances: list[Any] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+            self.add_calls: list[dict[str, Any]] = []
+            store_instances.append(self)
+
+        def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
+            self.add_calls.append({"chunks": list(chunks), "embeddings": embeddings})
 
     def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
         calls.append(original_text)
@@ -24,11 +36,17 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
             tags=["routing", "labels", "retrieval"],
         )
 
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        embedding_calls.append({"texts": texts, "settings": settings})
+        return [[0.1, 0.2, 0.3] for _ in texts]
+
     monkeypatch.setattr(
         "mapping_memory.main.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
+    monkeypatch.setattr("mapping_memory.main.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
     app = create_app(
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
@@ -51,6 +69,64 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
     }
+    assert len(store_instances) == 1
+    assert store_instances[0].settings.openai_embedding_model == "text-embedding-3-small"
+    assert len(store_instances[0].add_calls) == 1
+    add_call = store_instances[0].add_calls[0]
+    chunks = add_call["chunks"]
+    assert len(chunks) == 1
+    assert chunks[0].note_id == response.json()["id"]
+    assert chunks[0].chunk_index == 0
+    assert chunks[0].chunk_type == "full"
+    assert chunks[0].title == "AI route labels"
+    assert chunks[0].tags == ("routing", "labels", "retrieval")
+    assert chunks[0].date_added == response.json()["date_added"]
+    assert "Chunk: Route label notes" in chunks[0].text
+    assert embedding_calls == [{"texts": [chunks[0].text], "settings": store_instances[0].settings}]
+    assert add_call["embeddings"] == [[0.1, 0.2, 0.3]]
+
+
+def test_post_notes_keeps_saved_note_when_indexing_fails(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    original_text = "Indexed failure title\nBody text that must not be logged"
+
+    def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
+        return OrganizerMetadata(
+            title="Indexing failure title",
+            summary="Indexing failure summary.",
+            tags=["indexing"],
+        )
+
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        raise RuntimeError("embedding provider failure with sensitive details")
+
+    monkeypatch.setattr(
+        "mapping_memory.main.organize_mapping_text",
+        organize_mapping_text,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.main.embed_texts", embed_texts, raising=False)
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+    )
+
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        response = client.post("/notes", json={"original_text": original_text})
+        fetched_response = client.get(f"/notes/{response.json()['id']}")
+
+    assert response.status_code == 201
+    assert response.json()["original_text"] == original_text
+    assert response.json()["ai_title"] == "Indexing failure title"
+    assert response.json()["short_summary"] == "Indexing failure summary."
+    assert response.json()["tags"] == ["indexing"]
+    assert fetched_response.status_code == 200
+    assert fetched_response.json() == response.json()
+    assert "Retrieval indexing unavailable; saved note without vector index" in caplog.text
+    assert original_text not in caplog.text
+    assert "provider failure" not in caplog.text
 
 
 def test_post_notes_uses_fallback_metadata_when_organizer_fails(
@@ -66,6 +142,11 @@ def test_post_notes_uses_fallback_metadata_when_organizer_fails(
     monkeypatch.setattr(
         "mapping_memory.main.organize_mapping_text",
         organize_mapping_text,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
         raising=False,
     )
     app = create_app(
@@ -118,6 +199,11 @@ def test_post_notes_preserves_original_text_exactly_with_ai_metadata(
     monkeypatch.setattr(
         "mapping_memory.main.organize_mapping_text",
         organize_mapping_text,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
         raising=False,
     )
     app = create_app(

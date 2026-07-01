@@ -109,17 +109,3 @@ def test_openai_error_is_wrapped_with_generic_message() -> None:
     assert isinstance(exc_info.value.__cause__, OpenAIError)
     assert "text that must not appear in errors" not in str(exc_info.value)
     assert "provider failure" not in str(exc_info.value)
-
-
-def test_note_creation_does_not_call_embeddings(tmp_path: Path, monkeypatch) -> None:
-    def fail_if_called(*args: Any, **kwargs: Any) -> list[list[float]]:
-        raise AssertionError("embeddings should not be wired into note creation")
-
-    monkeypatch.setattr("mapping_memory.embeddings.embed_texts", fail_if_called, raising=False)
-    app = create_app(Settings(sqlite_path=tmp_path / "notes.sqlite", openai_api_key=None))
-
-    with TestClient(app) as client:
-        response = client.post("/notes", json={"original_text": "Note title\nBody"})
-
-    assert response.status_code == 201
-    assert response.json()["ai_title"] == "Note title"

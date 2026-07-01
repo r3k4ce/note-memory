@@ -129,3 +129,25 @@ entries:
       - "Ran uv run pytest tests/test_vector_store.py from backend/: vector store tests passed, command failed only because single-file coverage was below global threshold."
       - "Ran uv run pytest from backend/: 48 passed, coverage 86.77%."
       - "Ran uv run ruff format ., uv run ruff check ., and uv run pyright from backend/."
+  - time_utc: "2026-07-01T00:29:56Z"
+    time_local: "2026-06-30T21:29:56-03:00"
+    summary: "Indexed newly created notes into Chroma for Slice 13."
+    changed:
+      - "POST /notes now saves to SQLite first, builds retrieval chunks from the saved note, embeds only those chunk texts, and stores them through the Chroma vector store."
+      - "Indexing failures log a safe warning and do not roll back or block note creation; the API response shape remains unchanged."
+      - "Updated API tests with mocked embeddings/vector store coverage and removed the obsolete embeddings isolation test."
+    verification:
+      - "Ran uv run pytest tests/test_notes_api.py tests/test_embeddings.py from backend/: 16 assertions passed, command failed only because partial-suite coverage was below the global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 48 passed and 87.13% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
+  - time_utc: "2026-07-01T00:53:01Z"
+    time_local: "2026-06-30T21:53:01-03:00"
+    summary: "Added SQLite FTS5 exact search foundation for Slice 14."
+    changed:
+      - "Added an external-content notes_fts table, transactional note FTS indexing, manual rebuild/backfill helpers, and exact-search repository results returning NoteRead objects."
+      - "Exact search covers ai_title, short_summary, tags text, and original_text with FTS phrase candidates plus case-insensitive literal filtering for punctuation-sensitive IDs."
+      - "Kept Chroma indexing, public API routes, frontend behavior, and canonical note storage unchanged."
+    verification:
+      - "Ran uv run pytest tests/test_db.py tests/test_notes.py tests/test_exact_search.py from backend/: 20 passed; command failed only because partial-suite coverage was below the global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 57 passed and 87.43% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
