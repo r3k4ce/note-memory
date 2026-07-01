@@ -1,9 +1,9 @@
 import type { RefObject } from "react";
 
 import type { AppMode } from "../hooks/useKeyboardShortcuts";
-import type { AskResponse, Category, CategoryScopeRequest } from "../types";
+import type { Category, ChatMessage } from "../types";
 import { AddNote } from "./AddNote";
-import { AskPanel } from "./AskPanel";
+import { AskChat } from "./AskChat";
 
 type CommandCenterProps = {
   mode: AppMode;
@@ -19,10 +19,10 @@ type CommandCenterProps = {
   onSave: () => void;
 
   askRef: RefObject<HTMLTextAreaElement | null>;
-  askCategoryScope: CategoryScopeRequest;
-  askScopeKey: string;
+  askMessages: ChatMessage[];
+  askPendingMessageId: string | null;
   askScopeLabel: string;
-  onAskResult: (result: AskResponse | null) => void;
+  onAskSubmit: (question: string) => void;
 };
 
 export function CommandCenter({
@@ -37,10 +37,10 @@ export function CommandCenter({
   onDraftTextChange,
   onSave,
   askRef,
-  askCategoryScope,
-  askScopeKey,
+  askMessages,
+  askPendingMessageId,
   askScopeLabel,
-  onAskResult,
+  onAskSubmit,
 }: CommandCenterProps) {
   return (
     <section aria-label="Command center">
@@ -59,11 +59,11 @@ export function CommandCenter({
       )}
 
       {mode === "ask" && (
-        <AskPanel
+        <AskChat
           askRef={askRef}
-          categoryScope={askCategoryScope}
-          onResult={onAskResult}
-          scopeKey={askScopeKey}
+          messages={askMessages}
+          onSubmit={onAskSubmit}
+          pendingMessageId={askPendingMessageId}
           scopeLabel={askScopeLabel}
         />
       )}

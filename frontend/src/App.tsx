@@ -8,6 +8,7 @@ import {
   listCategories,
   listNotes,
   searchNotes,
+  askQuestion,
   updateNoteMetadata,
 } from "./api";
 import { CommandCenter } from "./components/CommandCenter";
@@ -17,9 +18,9 @@ import { SearchBar } from "./components/SearchBar";
 import { SegmentedControl } from "./components/SegmentedControl";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type {
-  AskResponse,
   Category,
   CategoryScopeRequest,
+  ChatMessage,
   Note,
   NoteCardData,
   NoteMetadataUpdate,
@@ -62,18 +63,6 @@ function categoryFilterScope(filter: CategoryFilter): CategoryScopeRequest {
   return {};
 }
 
-function categoryFilterScopeKey(filter: CategoryFilter): string {
-  if (filter === "uncategorized") {
-    return "uncategorized";
-  }
-
-  if (typeof filter === "number") {
-    return `category:${filter}`;
-  }
-
-  return "all";
-}
-
 function categoryFilterLabel(filter: CategoryFilter, categories: Category[]): string {
   if (filter === "all") {
     return "All notes";
@@ -113,18 +102,20 @@ export default function App() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [lastDeletedNoteId, setLastDeletedNoteId] = useState<number | null>(null);
 
   const [mode, setMode] = useState<AppMode>("capture");
-  const [askResult, setAskResult] = useState<AskResponse | null>(null);
+  const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
+  const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
 
   const searchRequestId = useRef(0);
+  const askRequestId = useRef(0);
+  const askMessageId = useRef(0);
+  const askPendingMessageIdRef = useRef<string | null>(null);
   const captureRef = useRef<HTMLTextAreaElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
 
   const categoryScope = categoryFilterScope(selectedCategoryFilter);
-  const categoryScopeKey = categoryFilterScopeKey(selectedCategoryFilter);
   const categoryScopeLabel = categoryFilterLabel(selectedCategoryFilter, categories);
   const isSearchActive = activeSearchQuery !== null;
   const categoryFilteredNotes = filterNotesByCategory(notes, selectedCategoryFilter);
@@ -157,7 +148,6 @@ export default function App() {
   const handleCategoryFilterChange = useCallback(
     (filter: CategoryFilter) => {
       clearSearch();
-      setAskResult(null);
       setSelectedCategoryFilter(filter);
       setCategoryError(null);
       if (typeof filter === "number") {
@@ -297,6 +287,75 @@ export default function App() {
     }
   }
 
+  function createAskMessageId() {
+    askMessageId.current += 1;
+    return `ask:${askMessageId.current}`;
+  }
+
+  async function handleAskSubmit(question: string) {
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion || askPendingMessageIdRef.current !== null) {
+      return;
+    }
+
+    const requestId = askRequestId.current + 1;
+    askRequestId.current = requestId;
+
+    const userMessage: ChatMessage = {
+      id: createAskMessageId(),
+      role: "user",
+      content: trimmedQuestion,
+    };
+    const pendingMessageId = createAskMessageId();
+    const pendingMessage: ChatMessage = {
+      id: pendingMessageId,
+      role: "assistant",
+      content: "Reading notes...",
+      sources: [],
+    };
+
+    askPendingMessageIdRef.current = pendingMessageId;
+    setAskPendingMessageId(pendingMessageId);
+    setAskMessages((currentMessages) => [...currentMessages, userMessage, pendingMessage]);
+
+    try {
+      const result = await askQuestion(trimmedQuestion, categoryScope);
+      if (askRequestId.current === requestId && askPendingMessageIdRef.current === pendingMessageId) {
+        setAskMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === pendingMessageId
+              ? {
+                  id: pendingMessageId,
+                  role: "assistant",
+                  content: result.answer,
+                  sources: result.sources,
+                }
+              : message,
+          ),
+        );
+      }
+    } catch (error) {
+      if (askRequestId.current === requestId && askPendingMessageIdRef.current === pendingMessageId) {
+        setAskMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === pendingMessageId
+              ? {
+                  id: pendingMessageId,
+                  role: "error",
+                  content: getErrorMessage(error, "Could not reach your notes."),
+                }
+              : message,
+          ),
+        );
+      }
+    } finally {
+      if (askRequestId.current === requestId && askPendingMessageIdRef.current === pendingMessageId) {
+        askPendingMessageIdRef.current = null;
+        setAskPendingMessageId(null);
+      }
+    }
+  }
+
   async function handleCreateCategory(event: FormEvent) {
     event.preventDefault();
 
@@ -399,7 +458,6 @@ export default function App() {
       setSelectedNote(null);
       setDetailError(null);
       setMetadataSaveError(null);
-      setLastDeletedNoteId(noteId);
     } catch (error) {
       setDeleteError(getErrorMessage(error, "Could not delete note."));
     } finally {
@@ -580,16 +638,16 @@ export default function App() {
             <div className="mx-auto max-w-3xl px-6 py-6">
               <CommandCenter
                 askRef={askRef}
-                askCategoryScope={categoryScope}
-                askScopeKey={categoryScopeKey}
+                askMessages={askMessages}
+                askPendingMessageId={askPendingMessageId}
                 askScopeLabel={categoryScopeLabel}
+                onAskSubmit={handleAskSubmit}
                 captureRef={captureRef}
                 categories={categories}
                 draftCategoryId={draftCategoryId}
                 draftText={draftText}
                 isSaving={isSaving}
                 mode={mode}
-                onAskResult={setAskResult}
                 onDraftCategoryChange={setDraftCategoryId}
                 onDraftTextChange={(value) => {
                   setDraftText(value);
@@ -605,16 +663,16 @@ export default function App() {
             <div className="mx-auto max-w-3xl px-6 py-6">
               <CommandCenter
                 askRef={askRef}
-                askCategoryScope={categoryScope}
-                askScopeKey={categoryScopeKey}
+                askMessages={askMessages}
+                askPendingMessageId={askPendingMessageId}
                 askScopeLabel={categoryScopeLabel}
+                onAskSubmit={handleAskSubmit}
                 captureRef={captureRef}
                 categories={categories}
                 draftCategoryId={draftCategoryId}
                 draftText={draftText}
                 isSaving={isSaving}
                 mode={mode}
-                onAskResult={setAskResult}
                 saveError={saveError}
                 onDraftCategoryChange={setDraftCategoryId}
                 onDraftTextChange={(value) => {
@@ -625,32 +683,12 @@ export default function App() {
                 }}
                 onSave={handleSaveNote}
               />
-              {askResult ? (
-                <div className="mt-6 border-t border-border pt-6">
-                  <ResultPanel
-                    askResult={askResult}
-                    categories={categories}
-                    deleteError={deleteError}
-                    deletedNoteId={lastDeletedNoteId}
-                    error={detailError}
-                    isDeleting={isDeleting}
-                    isLoading={isLoadingDetail}
-                    isSavingMetadata={isSavingMetadata}
-                    note={selectedNote}
-                    onDelete={handleDeleteNote}
-                    onSaveMetadata={handleUpdateNoteMetadata}
-                    saveError={metadataSaveError}
-                  />
-                </div>
-              ) : null}
             </div>
           ) : (
             <div className="px-6 py-6">
               <ResultPanel
-                askResult={askResult}
                 categories={categories}
                 deleteError={deleteError}
-                deletedNoteId={lastDeletedNoteId}
                 error={detailError}
                 isDeleting={isDeleting}
                 isLoading={isLoadingDetail}

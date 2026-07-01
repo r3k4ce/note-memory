@@ -1,0 +1,176 @@
+import type { FormEvent, KeyboardEvent, RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Send, Sparkles } from "lucide-react";
+
+import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
+import type { AskSource, ChatMessage } from "../types";
+
+type AskChatProps = {
+  askRef: RefObject<HTMLTextAreaElement | null>;
+  messages: ChatMessage[];
+  onSubmit: (question: string) => void;
+  pendingMessageId: string | null;
+  scopeLabel: string;
+};
+
+type AssistantBubbleProps = {
+  content: string;
+  sources: AskSource[];
+};
+
+function SourceList({ sources }: { sources: AskSource[] }) {
+  if (sources.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 border-t border-border pt-3" aria-label="Supporting sources">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+        Sources · {sources.length}
+      </p>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {sources.map((source) => (
+          <article
+            className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+            key={source.note_id}
+          >
+            <h3 className="min-w-0 truncate text-[13px] font-medium text-text-secondary">{source.title}</h3>
+            <time className="shrink-0 text-[10px] tabular-nums text-text-muted" dateTime={source.date_added}>
+              {source.date_added.slice(0, 10)}
+            </time>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AssistantBubble({ content, sources }: AssistantBubbleProps) {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[82%] rounded-lg border border-border bg-surface px-3.5 py-3 text-sm leading-relaxed text-text-secondary">
+        <p className="whitespace-pre-wrap">{content}</p>
+        <SourceList sources={sources} />
+      </div>
+    </div>
+  );
+}
+
+function UserBubble({ content }: { content: string }) {
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[78%] rounded-lg bg-accent px-3.5 py-3 text-sm leading-relaxed text-black">
+        <p className="whitespace-pre-wrap">{content}</p>
+      </div>
+    </div>
+  );
+}
+
+function ErrorBubble({ content }: { content: string }) {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[82%] rounded-lg border border-error/40 bg-error-muted px-3.5 py-3 text-sm leading-relaxed text-text-primary">
+        <p className="whitespace-pre-wrap">{content}</p>
+      </div>
+    </div>
+  );
+}
+
+export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLabel }: AskChatProps) {
+  const [question, setQuestion] = useState("");
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const isPending = pendingMessageId !== null;
+  const trimmedQuestion = question.trim();
+
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages, pendingMessageId]);
+
+  function submitQuestion() {
+    if (!trimmedQuestion || isPending) {
+      return;
+    }
+
+    onSubmit(trimmedQuestion);
+    setQuestion("");
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    submitQuestion();
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    submitQuestion();
+  }
+
+  return (
+    <section className="mx-auto flex min-h-[calc(100vh-5.75rem)] max-w-3xl flex-col gap-4" aria-labelledby="ask-title">
+      <header className="flex shrink-0 flex-col gap-1.5 border-b border-border pb-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
+            <Sparkles size={13} strokeWidth={2} className="text-accent" />
+          </div>
+          <h2 className="text-sm font-semibold text-text-primary" id="ask-title">
+            Ask saved notes
+          </h2>
+        </div>
+        <p className="text-[12px] leading-relaxed text-text-muted">
+          Each question is answered from saved notes in the selected scope, not from previous chat turns.
+        </p>
+        <p className="text-[11px] text-text-muted">Scope: {scopeLabel}</p>
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1" aria-live="polite">
+        <AssistantBubble
+          content="Ask a question about your saved notes. I will read the selected scope and cite the notes that support the answer."
+          sources={[]}
+        />
+        {messages.map((message) => {
+          if (message.role === "user") {
+            return <UserBubble content={message.content} key={message.id} />;
+          }
+
+          if (message.role === "assistant") {
+            return <AssistantBubble content={message.content} key={message.id} sources={message.sources} />;
+          }
+
+          return <ErrorBubble content={message.content} key={message.id} />;
+        })}
+        <div ref={transcriptEndRef} />
+      </div>
+
+      <form className="flex shrink-0 flex-col gap-2 border-t border-border pt-4" onSubmit={handleSubmit}>
+        <textarea
+          aria-label="Ask a question about saved notes"
+          className="min-h-24 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          disabled={isPending}
+          onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything about your saved notes..."
+          ref={askRef}
+          rows={3}
+          value={question}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] text-text-muted">
+            Enter to send · Shift+Enter for newline · {APP_SHORTCUTS.ask.label} to focus
+          </span>
+          <button
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!trimmedQuestion || isPending}
+            type="submit"
+          >
+            <Send size={13} strokeWidth={2} />
+            {isPending ? "Reading..." : "Send"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}

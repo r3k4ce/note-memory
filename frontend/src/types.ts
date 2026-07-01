@@ -61,3 +61,21 @@ export type AskResponse = {
   answer: string;
   sources: AskSource[];
 };
+
+export type ChatMessage =
+  | {
+      id: string;
+      role: "user";
+      content: string;
+    }
+  | {
+      id: string;
+      role: "assistant";
+      content: string;
+      sources: AskSource[];
+    }
+  | {
+      id: string;
+      role: "error";
+      content: string;
+    };

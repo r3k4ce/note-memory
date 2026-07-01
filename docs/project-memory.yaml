@@ -356,4 +356,13 @@ entries:
       - "Ran npm run lint from frontend/: passed."
       - "Ran npm run build from frontend/: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-
+  - time_utc: "2026-07-01T19:32:52Z"
+    time_local: "2026-07-01T16:32:50-03:00"
+    summary: "Added frontend-only Ask chat transcript."
+    changed:
+      - "Replaced the one-shot Ask panel with an AskChat transcript, App-owned in-memory message state, pending assistant bubbles, inline error bubbles, Enter-to-send behavior, and source cards inside assistant answers."
+      - "Kept POST /ask stateless and category-scoped per submitted question; Ask history persists only during the current frontend session and is not stored."
+    verification:
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
