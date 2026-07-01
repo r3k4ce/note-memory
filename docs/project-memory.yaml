@@ -274,3 +274,19 @@ entries:
       - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 89 tests; frontend lint/build passed."
       - "Smoke-tested .\\scripts\\run.ps1 startup: backend /health and frontend / responded, then process-tree cleanup left ports 8000 and 5173 clean."
+
+  - time_utc: "2026-07-01T15:25:00Z"
+    time_local: "2026-07-01T12:25:00-03:00"
+    summary: "Promoted Capture and Ask to top command center with segmented mode switcher, keyboard shortcuts, design tokens, and lucide-react icons."
+    changed:
+      - "Added CommandCenter card at the top of the page with a SegmentedControl switching between Capture, Search, and Ask modes."
+      - "Added ResultPanel in the right column showing NoteDetail or Ask answer with sources based on active mode."
+      - "Stripped outer cards from AddNote, SearchBar, and AskPanel — they now render inside the CommandCenter."
+      - "Added design tokens (tokens.css) and Tailwind v4 @theme block with brand (teal) and accent (indigo for Ask) colors, card radius, shadows, and motion tokens."
+      - "Added keyboard shortcuts: Cmd/Ctrl+K (search), Cmd/Ctrl+N (capture), Cmd/Ctrl+I (ask), Escape to blur."
+      - "Added lucide-react dependency for icons (PenLine, Search, Sparkles)."
+      - "Auto-focuses capture mode on empty library, search mode when notes exist; auto-selects first note on load."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed clean."
+      - "Ran npm.cmd run lint from frontend/: passed clean."
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."

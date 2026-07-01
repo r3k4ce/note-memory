@@ -11,19 +11,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "@eslint/js": "latest",
+    "@tailwindcss/vite": "^4.3.2",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
     "eslint": "latest",
-    "@eslint/js": "latest",
-    "typescript-eslint": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
-    "globals": "latest"
-  },
-  "devDependencies": {}
+    "globals": "latest",
+    "lucide-react": "^1.23.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwindcss": "^4.3.2",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest"
+  }
 }

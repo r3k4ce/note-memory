@@ -1,4 +1,7 @@
+import type { RefObject } from "react";
+
 type AddNoteProps = {
+  captureRef: RefObject<HTMLTextAreaElement | null>;
   draftText: string;
   error: string | null;
   isSaving: boolean;
@@ -6,25 +9,33 @@ type AddNoteProps = {
   onSave: () => void;
 };
 
-export function AddNote({ draftText, error, isSaving, onDraftTextChange, onSave }: AddNoteProps) {
+export function AddNote({ captureRef, draftText, error, isSaving, onDraftTextChange, onSave }: AddNoteProps) {
   return (
-    <section className="tool-panel" aria-labelledby="add-note-title">
-      <div className="panel-heading">
-        <p className="eyebrow">Capture</p>
-        <h2 id="add-note-title">Add Note</h2>
+    <div className="flex flex-col gap-3" aria-labelledby="add-note-title">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-brand">Capture</p>
+        <h2 className="text-base font-semibold text-text-primary" id="add-note-title">
+          Capture mapping note
+        </h2>
       </div>
       <textarea
-        className="field field-textarea"
+        className="min-h-28 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
         disabled={isSaving}
         onChange={(event) => onDraftTextChange(event.target.value)}
-        placeholder="Paste a memory, idea, or observation..."
-        rows={5}
+        placeholder="Paste an email, source instruction, ticket note, mapping rule, or messy work note..."
+        ref={captureRef}
+        rows={4}
         value={draftText}
       />
-      {error ? <p className="error-message">{error}</p> : null}
-      <button className="button" disabled={isSaving} onClick={onSave} type="button">
-        {isSaving ? "Saving..." : "Save"}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      <button
+        className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+        disabled={isSaving}
+        onClick={onSave}
+        type="button"
+      >
+        {isSaving ? "Organizing..." : "Organize and save"}
       </button>
-    </section>
+    </div>
   );
 }

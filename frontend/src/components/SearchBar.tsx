@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import type { FormEvent, RefObject } from "react";
 
 type SearchBarProps = {
   isSearching: boolean;
@@ -6,39 +6,57 @@ type SearchBarProps = {
   onClear: () => void;
   onSubmit: () => void;
   query: string;
+  searchRef: RefObject<HTMLInputElement | null>;
 };
 
-export function SearchBar({ isSearching, onChange, onClear, onSubmit, query }: SearchBarProps) {
+export function SearchBar({ isSearching, onChange, onClear, onSubmit, query, searchRef }: SearchBarProps) {
   const trimmedQuery = query.trim();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent) {
     event.preventDefault();
     onSubmit();
   }
 
   return (
-    <form className="tool-panel" aria-labelledby="search-title" onSubmit={handleSubmit}>
-      <div className="panel-heading">
-        <p className="eyebrow">Find</p>
-        <h2 id="search-title">Search</h2>
+    <form
+      className="flex flex-col gap-3 sm:flex-row sm:items-center"
+      aria-labelledby="search-title"
+      onSubmit={handleSubmit}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold uppercase tracking-wide text-brand">Find</p>
+        <h2 className="text-base font-semibold text-text-primary" id="search-title">
+          Search mapping memory
+        </h2>
       </div>
-      <input
-        aria-label="Search notes"
-        className="field"
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="Search notes..."
-        type="search"
-        value={query}
-      />
-      <div className="button-row">
-        <button className="button" disabled={isSearching || !trimmedQuery} type="submit">
-          {isSearching ? "Searching..." : "Search"}
-        </button>
-        {query || isSearching ? (
-          <button className="button button-secondary" onClick={onClear} type="button">
-            Clear
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          aria-label="Search notes"
+          className="w-full flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Search mapping memory..."
+          ref={searchRef}
+          type="search"
+          value={query}
+        />
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            disabled={isSearching || !trimmedQuery}
+            type="submit"
+          >
+            {isSearching ? "Searching memory..." : "Search"}
           </button>
-        ) : null}
+          {query || isSearching ? (
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-slate-50 transition-colors"
+              onClick={onClear}
+              type="button"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
       </div>
     </form>
   );

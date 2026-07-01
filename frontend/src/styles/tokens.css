@@ -1,12 +1,14 @@
-@import "tailwindcss";
-@import "./styles/tokens.css";
+/*
+ * Design tokens — Mapping Memory
+ * Imported into style.css alongside the Tailwind v4 @theme block.
+ */
 
-@theme {
-  /* Brand */
+:root {
+  /* Brand — Capture / Search */
   --color-brand: #0f766e;
   --color-brand-hover: #115e59;
 
-  /* Accent (Ask) */
+  /* Accent — Ask */
   --color-accent: #4f46e5;
   --color-accent-hover: #4338ca;
 
@@ -21,8 +23,13 @@
   --color-text-muted: #64748b;
   --color-text-caption: #94a3b8;
 
+  /* Borders */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
   /* Status */
   --color-error: #b91c1c;
+  --color-error-bg: #fef2f2;
 
   /* Shape */
   --radius-card: 0.875rem;
@@ -38,7 +45,4 @@
   /* Motion */
   --duration-150: 150ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* Typography */
-  --font-weight-display: 700;
 }
