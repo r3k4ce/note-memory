@@ -149,12 +149,20 @@ dd {
   color: #334155;
 }
 
+.button-danger {
+  background: #b42318;
+}
+
 .button:not(:disabled):hover {
   background: #245858;
 }
 
 .button-secondary:not(:disabled):hover {
   background: #f4f6f8;
+}
+
+.button-danger:not(:disabled):hover {
+  background: #912018;
 }
 
 .workspace-grid {

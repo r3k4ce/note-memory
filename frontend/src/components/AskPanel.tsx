@@ -8,7 +8,11 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function AskPanel() {
+type AskPanelProps = {
+  deletedNoteId: number | null;
+};
+
+export function AskPanel({ deletedNoteId }: AskPanelProps) {
   const [question, setQuestion] = useState("");
   const [askResult, setAskResult] = useState<AskResponse | null>(null);
   const [isAsking, setIsAsking] = useState(false);
@@ -37,6 +41,11 @@ export function AskPanel() {
     }
   }
 
+  const visibleAskResult =
+    deletedNoteId !== null && askResult?.sources.some((source) => source.note_id === deletedNoteId)
+      ? null
+      : askResult;
+
   function handleQuestionChange(value: string) {
     setQuestion(value);
     setAskError(null);
@@ -63,12 +72,12 @@ export function AskPanel() {
         {isAsking ? "Asking..." : "Ask"}
       </button>
 
-      {askResult ? (
+      {visibleAskResult ? (
         <div className="ask-result" aria-live="polite">
-          <p className="ask-answer">{askResult.answer}</p>
-          {askResult.sources.length > 0 ? (
+          <p className="ask-answer">{visibleAskResult.answer}</p>
+          {visibleAskResult.sources.length > 0 ? (
             <div className="ask-source-list" aria-label="Supporting sources">
-              {askResult.sources.map((source) => (
+              {visibleAskResult.sources.map((source) => (
                 <article className="ask-source-card" key={source.note_id}>
                   <h3 className="ask-source-title">{source.title}</h3>
                   <time dateTime={source.date_added}>{source.date_added}</time>

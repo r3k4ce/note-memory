@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { createNote, getNote, listNotes, searchNotes, updateNoteMetadata } from "./api";
+import { createNote, deleteNote, getNote, listNotes, searchNotes, updateNoteMetadata } from "./api";
 import { AddNote } from "./components/AddNote";
 import { AskPanel } from "./components/AskPanel";
 import { NoteCard } from "./components/NoteCard";
@@ -24,12 +24,15 @@ export default function App() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingMetadata, setIsSavingMetadata] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [lastDeletedNoteId, setLastDeletedNoteId] = useState<number | null>(null);
   const searchRequestId = useRef(0);
 
   const selectNote = useCallback((noteId: number) => {
@@ -107,6 +110,7 @@ export default function App() {
       setIsLoadingDetail(true);
       setDetailError(null);
       setMetadataSaveError(null);
+      setDeleteError(null);
 
       try {
         const loadedNote = await getNote(noteId);
@@ -217,6 +221,32 @@ export default function App() {
     }
   }
 
+  async function handleDeleteNote(noteId: number) {
+    const title = selectedNote?.id === noteId ? selectedNote.ai_title : "this note";
+
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await deleteNote(noteId);
+      setNotes((currentNotes) => currentNotes.filter((note) => note.id !== noteId));
+      setSearchResults((currentResults) => currentResults.filter((result) => result.id !== noteId));
+      setSelectedNoteId(null);
+      setSelectedNote(null);
+      setDetailError(null);
+      setMetadataSaveError(null);
+      setLastDeletedNoteId(noteId);
+    } catch (error) {
+      setDeleteError(getErrorMessage(error, "Could not delete note."));
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   const isSearchActive = activeSearchQuery !== null;
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : notes;
 
@@ -250,7 +280,7 @@ export default function App() {
           onSubmit={handleSearchSubmit}
           query={searchText}
         />
-        <AskPanel />
+        <AskPanel deletedNoteId={lastDeletedNoteId} />
       </section>
 
       <section className="workspace-grid" aria-label="Notes workspace">
@@ -294,9 +324,12 @@ export default function App() {
         <NoteDetail
           key={selectedNoteId ?? "none"}
           error={detailError}
+          deleteError={deleteError}
+          isDeleting={isDeleting}
           isLoading={isLoadingDetail}
           isSavingMetadata={isSavingMetadata}
           note={selectedNote}
+          onDelete={handleDeleteNote}
           onSaveMetadata={handleUpdateNoteMetadata}
           saveError={metadataSaveError}
         />

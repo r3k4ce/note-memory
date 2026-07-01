@@ -92,6 +92,12 @@ export function updateNoteMetadata(noteId: number, body: NoteMetadataUpdate): Pr
   });
 }
 
+export async function deleteNote(noteId: number): Promise<void> {
+  await requestJson<unknown>(`/notes/${noteId}`, {
+    method: "DELETE",
+  });
+}
+
 export function askQuestion(question: string): Promise<AskResponse> {
   const body: AskRequest = { question };
 

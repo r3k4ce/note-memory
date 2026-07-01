@@ -243,3 +243,11 @@ entries:
     verification:
       - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 35 passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T05:31:50Z"
+    time_local: "2026-07-01T02:31:50-03:00"
+    summary: "Added frontend selected-note deletion for Slice 23."
+    changed:
+      - "Added a DELETE /notes/{id} frontend helper, selected-note Delete button with browser confirmation, list/search state removal, cleared selection after delete, and cited Ask-result cleanup."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."

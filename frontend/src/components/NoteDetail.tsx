@@ -3,10 +3,13 @@ import { useState } from "react";
 import type { Note, NoteMetadataUpdate } from "../types";
 
 type NoteDetailProps = {
+  deleteError: string | null;
   error: string | null;
+  isDeleting: boolean;
   isLoading: boolean;
   isSavingMetadata: boolean;
   note: Note | null;
+  onDelete: (noteId: number) => Promise<void>;
   onSaveMetadata: (noteId: number, metadata: NoteMetadataUpdate) => Promise<void>;
   saveError: string | null;
 };
@@ -23,10 +26,13 @@ function tagsMatch(left: string[], right: string[]): boolean {
 }
 
 export function NoteDetail({
+  deleteError,
   error,
+  isDeleting,
   isLoading,
   isSavingMetadata,
   note,
+  onDelete,
   onSaveMetadata,
   saveError,
 }: NoteDetailProps) {
@@ -80,6 +86,7 @@ export function NoteDetail({
     activeNote.short_summary !== summary ||
     !tagsMatch(activeNote.tags, tags);
   const canSave = Boolean(title && summary && hasChanges && !isSavingMetadata);
+  const actionsDisabled = isSavingMetadata || isDeleting;
 
   async function handleSave() {
     if (!title || !summary) {
@@ -180,7 +187,7 @@ export function NoteDetail({
           </button>
           <button
             className="button button-secondary"
-            disabled={isSavingMetadata}
+            disabled={actionsDisabled}
             onClick={handleCancel}
             type="button"
           >
@@ -188,23 +195,35 @@ export function NoteDetail({
           </button>
         </div>
       ) : (
-        <button
-          className="button button-secondary"
-          onClick={() => {
-            setTitleDraft(activeNote.ai_title);
-            setSummaryDraft(activeNote.short_summary);
-            setTagsDraft(activeNote.tags.join(", "));
-            setValidationError(null);
-            setIsEditing(true);
-          }}
-          type="button"
-        >
-          Edit metadata
-        </button>
+        <div className="button-row">
+          <button
+            className="button button-secondary"
+            disabled={actionsDisabled}
+            onClick={() => {
+              setTitleDraft(activeNote.ai_title);
+              setSummaryDraft(activeNote.short_summary);
+              setTagsDraft(activeNote.tags.join(", "));
+              setValidationError(null);
+              setIsEditing(true);
+            }}
+            type="button"
+          >
+            Edit metadata
+          </button>
+          <button
+            className="button button-danger"
+            disabled={actionsDisabled}
+            onClick={() => void onDelete(activeNote.id)}
+            type="button"
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
       )}
 
       {validationError ? <p className="error-message">{validationError}</p> : null}
       {saveError ? <p className="error-message">{saveError}</p> : null}
+      {deleteError ? <p className="error-message">{deleteError}</p> : null}
 
       <dl className="metadata-list">
         <div>
