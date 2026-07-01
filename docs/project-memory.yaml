@@ -185,3 +185,13 @@ entries:
       - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
       - "Smoke-tested .\\scripts\\run.ps1 startup: backend and frontend ports listened, then process-tree cleanup left ports 8000 and 5173 clean."
+  - time_utc: "2026-07-01T04:02:23Z"
+    time_local: "2026-07-01T01:02:23-03:00"
+    summary: "Prepared internal RAG retrieval context for Slice 17."
+    changed:
+      - "Added a backend-only rag module that embeds a question, queries Chroma for top chunks, groups by note, caps per-note chunks, and formats prompt context with source metadata."
+      - "Added mocked RAG retrieval tests for grouping, per-note limits, final cap, invalid hits, empty results, and blank questions."
+    verification:
+      - "Ran uv run pytest tests/test_rag.py -q --no-cov from backend/: 5 passed."
+      - "Ran uv run pytest tests/test_search_api.py tests/test_exact_search.py tests/test_vector_store.py tests/test_rag.py -q --no-cov from backend/: 25 passed."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 67 passed and 89.29% coverage."
