@@ -137,8 +137,24 @@ dd {
   padding: 0.65rem 0.9rem;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.button-secondary {
+  border: 1px solid #cfd8e3;
+  background: #ffffff;
+  color: #334155;
+}
+
 .button:not(:disabled):hover {
   background: #245858;
+}
+
+.button-secondary:not(:disabled):hover {
+  background: #f4f6f8;
 }
 
 .workspace-grid {

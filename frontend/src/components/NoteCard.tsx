@@ -1,7 +1,7 @@
-import type { Note } from "../types";
+import type { NoteCardData } from "../types";
 
 type NoteCardProps = {
-  note: Note;
+  note: NoteCardData;
   selected?: boolean;
   onSelect: (noteId: number) => void;
 };

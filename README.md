@@ -13,6 +13,7 @@ Backend source lives in backend/src/mapping_memory/. Frontend source lives in fr
 
     .\scripts\check.ps1
     .\scripts\fix.ps1
+    .\scripts\run.ps1
     Push-Location backend; uv run uvicorn mapping_memory.main:app --reload; Pop-Location
     Push-Location frontend; npm run dev; Pop-Location
 

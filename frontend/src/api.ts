@@ -1,4 +1,4 @@
-import type { Note, NoteCreate } from "./types";
+import type { Note, NoteCreate, SearchResult } from "./types";
 
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -66,6 +66,10 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listNotes(): Promise<Note[]> {
   return requestJson<Note[]>("/notes");
+}
+
+export function searchNotes(query: string): Promise<SearchResult[]> {
+  return requestJson<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`);
 }
 
 export function getNote(noteId: number): Promise<Note> {

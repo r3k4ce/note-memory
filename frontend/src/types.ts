@@ -8,6 +8,12 @@ export type Note = {
   updated_at: string;
 };
 
+export type NoteCardData = Pick<Note, "id" | "ai_title" | "short_summary" | "tags" | "date_added">;
+
+export type SearchResult = NoteCardData & {
+  score: number;
+};
+
 export type NoteCreate = {
   original_text: string;
 };

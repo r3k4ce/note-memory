@@ -164,3 +164,24 @@ entries:
       - "Ran uv run pytest tests/test_search_api.py -q --no-cov: 5 passed."
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 62 passed and 87.66% coverage."
       - "Ran .\\scripts\\check.ps1 from the repository root after npm.cmd install restored frontend dependencies: backend checks/tests passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T03:36:28Z"
+    time_local: "2026-07-01T00:36:28-03:00"
+    summary: "Wired frontend search UI to the backend for Slice 16."
+    changed:
+      - "Added a typed frontend search API helper, enabled the Search panel with explicit submit and Clear behavior, and rendered backend search results through the existing note card/detail flow."
+      - "Kept recent notes and search results as separate frontend state; clearing search or saving a new note restores the recent-note list."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T03:55:00Z"
+    time_local: "2026-07-01T00:55:00-03:00"
+    summary: "Added combined backend/frontend dev runner."
+    changed:
+      - "Added scripts/run.ps1 to start Uvicorn and Vite together and clean up both process trees on cancellation."
+      - "Documented the combined runner in the root README command list."
+    verification:
+      - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+      - "Smoke-tested .\\scripts\\run.ps1 startup: backend and frontend ports listened, then process-tree cleanup left ports 8000 and 5173 clean."
