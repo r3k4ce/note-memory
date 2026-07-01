@@ -9,30 +9,49 @@ type NoteCardProps = {
 export function NoteCard({ note, selected = false, onSelect }: NoteCardProps) {
   return (
     <button
-      className={`w-full rounded-xl border bg-white p-3 text-left transition-colors cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-700/10 sm:p-4 flex flex-col gap-2 ${
+      className={`group w-full rounded-md border p-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
         selected
-          ? "border-teal-700 ring-2 ring-teal-700/30 bg-teal-50/40"
-          : "border-slate-200 hover:border-teal-700/40 hover:bg-slate-50"
+          ? "border-border-strong bg-surface-hover"
+          : "border-transparent hover:bg-surface-hover"
       }`}
       onClick={() => onSelect(note.id)}
       type="button"
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-sm font-semibold text-slate-900">{note.ai_title}</span>
-        <time className="shrink-0 text-xs text-slate-500" dateTime={note.date_added}>{note.date_added}</time>
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span
+          className={`truncate text-[13px] font-medium ${
+            selected ? "text-accent" : "text-text-primary"
+          }`}
+        >
+          {note.ai_title}
+        </span>
+        <time
+          className="shrink-0 text-[10px] tabular-nums text-text-muted"
+          dateTime={note.date_added}
+        >
+          {note.date_added.slice(5, 10)}
+        </time>
       </div>
-      <span className="line-clamp-2 text-sm leading-snug text-slate-600">{note.short_summary}</span>
-      <span className="flex flex-wrap gap-1.5" aria-label="Tags">
-        {note.tags.length > 0 ? (
-          note.tags.map((tag) => (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700" key={tag}>
+      <p className="mb-1.5 line-clamp-2 text-xs leading-relaxed text-text-secondary">
+        {note.short_summary}
+      </p>
+      {note.tags.length > 0 ? (
+        <span className="flex flex-wrap gap-1" aria-label="Tags">
+          {note.tags.slice(0, 3).map((tag) => (
+            <span
+              className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
+              key={tag}
+            >
               {tag}
             </span>
-          ))
-        ) : (
-          <span className="rounded-full bg-transparent px-2.5 py-1 text-xs font-semibold text-slate-400">No tags</span>
-        )}
-      </span>
+          ))}
+          {note.tags.length > 3 ? (
+            <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+              +{note.tags.length - 3}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </button>
   );
 }

@@ -35,7 +35,7 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
     try {
       onResult(await askQuestion(trimmedQuestion));
     } catch (error) {
-      setAskError(getErrorMessage(error, "Could not ask notes."));
+      setAskError(getErrorMessage(error, "Could not reach the knowledge base."));
     } finally {
       setIsAsking(false);
     }
@@ -48,35 +48,31 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
   }
 
   return (
-    <form
-      className="flex flex-col gap-3"
-      aria-labelledby="ask-title"
-      onSubmit={handleSubmit}
-    >
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-accent">Explore</p>
-        <h2 className="text-base font-semibold text-text-primary" id="ask-title">
-          Ask saved notes
-        </h2>
-      </div>
+    <form className="flex flex-col gap-3" aria-labelledby="ask-title" onSubmit={handleSubmit}>
+      <h2 className="sr-only" id="ask-title">
+        Ask your notes
+      </h2>
       <textarea
         aria-label="Ask a question about saved notes"
-        className="min-h-28 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-4 focus:ring-accent/10 disabled:opacity-60"
+        className="min-h-32 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
         disabled={isAsking}
         onChange={(event) => handleQuestionChange(event.target.value)}
-        placeholder="Ask a question about your saved mapping notes..."
+        placeholder="Ask anything about your saved mapping notes — answers are grounded in what you've captured."
         ref={askRef}
         rows={4}
         value={question}
       />
-      {askError ? <p className="text-sm text-red-700">{askError}</p> : null}
-      <button
-        className="w-fit rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-        disabled={isAsking}
-        type="submit"
-      >
-        {isAsking ? "Reading saved notes..." : "Ask"}
-      </button>
+      {askError ? <p className="text-xs text-error">{askError}</p> : null}
+      <div className="flex items-center gap-2">
+        <button
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={isAsking}
+          type="submit"
+        >
+          {isAsking ? "Reading notes..." : "Ask"}
+        </button>
+        <span className="text-[11px] text-text-muted">⌘I to focus</span>
+      </div>
     </form>
   );
 }

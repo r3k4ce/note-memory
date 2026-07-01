@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import type { Note, NoteMetadataUpdate } from "../types";
 import { NoteDetail } from "./NoteDetail";
 import type { AskResponse } from "../types";
@@ -36,28 +37,34 @@ export function ResultPanel({
 
   if (visibleAskResult) {
     return (
-      <div className="flex flex-col gap-4" aria-live="polite">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-accent">Ask</p>
-          <h2 className="text-xl font-semibold leading-tight text-text-primary">Answer</h2>
-        </div>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+      <div className="mx-auto flex h-full max-w-3xl flex-col gap-5 py-2" aria-live="polite">
+        <header className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
+            <Sparkles size={13} strokeWidth={2} className="text-accent" />
+          </div>
+          <h2 className="text-sm font-semibold text-text-primary">Answer</h2>
+        </header>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
           {visibleAskResult.answer}
         </p>
         {visibleAskResult.sources.length > 0 ? (
-          <div className="flex flex-col gap-2 border-t border-slate-200 pt-3" aria-label="Supporting sources">
-            <p className="text-xs font-bold uppercase tracking-wide text-text-muted">Sources</p>
-            {visibleAskResult.sources.map((source) => (
-              <article
-                className="rounded-lg border border-slate-200 bg-white p-3 flex flex-col gap-1"
-                key={source.note_id}
-              >
-                <h3 className="text-sm font-semibold text-text-primary">{source.title}</h3>
-                <time className="text-xs text-text-caption" dateTime={source.date_added}>
-                  {source.date_added}
-                </time>
-              </article>
-            ))}
+          <div className="flex flex-col gap-2 border-t border-border pt-4" aria-label="Supporting sources">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+              Sources · {visibleAskResult.sources.length}
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {visibleAskResult.sources.map((source) => (
+                <article
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+                  key={source.note_id}
+                >
+                  <h3 className="text-[13px] font-medium text-text-secondary">{source.title}</h3>
+                  <time className="shrink-0 text-[10px] tabular-nums text-text-muted" dateTime={source.date_added}>
+                    {source.date_added.slice(0, 10)}
+                  </time>
+                </article>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

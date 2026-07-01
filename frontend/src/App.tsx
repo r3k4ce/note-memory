@@ -4,6 +4,8 @@ import { createNote, deleteNote, getNote, listNotes, searchNotes, updateNoteMeta
 import { CommandCenter } from "./components/CommandCenter";
 import { NoteCard } from "./components/NoteCard";
 import { ResultPanel } from "./components/ResultPanel";
+import { SearchBar } from "./components/SearchBar";
+import { SegmentedControl } from "./components/SegmentedControl";
 import { useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type { AskResponse, Note, NoteCardData, NoteMetadataUpdate, SearchResult } from "./types";
 
@@ -203,6 +205,7 @@ export default function App() {
       setDraftText("");
       setSelectedNote(savedNote);
       setSelectedNoteId(savedNote.id);
+      setMode("search");
     } catch (error) {
       setSaveError(getErrorMessage(error, "Could not save note."));
     } finally {
@@ -267,101 +270,164 @@ export default function App() {
     }
   }
 
+  const listTitle = isSearchActive ? `Results · ${activeSearchQuery}` : "All notes";
+
   return (
-    <main className="min-h-screen bg-surface px-4 py-6 text-text-primary sm:px-8 sm:py-10">
-      <header className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-brand">Mapping Memory</p>
-          <h1 className="text-3xl font-bold leading-tight text-text-primary sm:text-4xl">
-            Notes workspace
-          </h1>
+    <div className="flex h-screen flex-col bg-bg text-text-primary">
+      <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-accent" />
+          <span className="text-[13px] font-semibold tracking-tight text-text-primary">Mapping Memory</span>
         </div>
-        <p className="max-w-md text-sm text-text-secondary">
-          Capture, search, and explore your mapping notes with AI-powered organization.
-        </p>
+        <SegmentedControl mode={mode} onModeChange={setMode} />
       </header>
 
-      <CommandCenter
-        askRef={askRef}
-        captureRef={captureRef}
-        draftText={draftText}
-        isSaving={isSaving}
-        isSearching={isSearching}
-        mode={mode}
-        onAskResult={setAskResult}
-        onDraftTextChange={(value) => {
-          setDraftText(value);
-          if (saveError) {
-            setSaveError(null);
-          }
-        }}
-        onModeChange={setMode}
-        onSave={handleSaveNote}
-        onSearchChange={handleSearchTextChange}
-        onSearchClear={clearSearch}
-        onSearchSubmit={handleSearchSubmit}
-        query={searchText}
-        saveError={saveError}
-        searchRef={searchRef}
-      />
-
-      <section
-        className="mb-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]"
-        aria-label="Notes workspace"
-      >
-        <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5" aria-labelledby="note-list-title">
-          <div className="mb-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-brand">
-              {isSearchActive ? `Search results · ${activeSearchQuery}` : "Saved notes"}
-            </p>
-            <h2 className="text-lg font-semibold text-text-primary" id="note-list-title">
-              {mode === "ask" && askResult ? "Referenced notes" : isSearchActive ? "Search results" : "Reference cards"}
-            </h2>
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-surface sm:w-72">
+          <div className="shrink-0 p-2.5">
+            <SearchBar
+              isSearching={isSearching}
+              onChange={handleSearchTextChange}
+              onClear={clearSearch}
+              onSubmit={handleSearchSubmit}
+              query={searchText}
+              searchRef={searchRef}
+            />
           </div>
 
-          {!isSearchActive && isLoadingNotes ? (
-            <p className="mt-1 text-sm text-text-muted">Loading notes...</p>
-          ) : null}
-          {isSearchActive && isSearching ? (
-            <p className="mt-1 text-sm text-text-muted">Searching...</p>
-          ) : null}
-          {!isSearchActive && listError ? <p className="mt-1 text-sm text-red-700">{listError}</p> : null}
-          {isSearchActive && searchError ? (
-            <p className="mt-1 text-sm text-red-700">{searchError}</p>
-          ) : null}
-          {!isSearchActive && !isLoadingNotes && !listError && notes.length === 0 ? (
-            <p className="mt-1 text-sm text-text-muted">No notes saved yet. Use <kbd className="rounded bg-slate-100 px-1 py-0.5 text-xs font-medium text-text-caption">⌘N</kbd> to capture your first note.</p>
-          ) : null}
-          {isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
-            <p className="mt-1 text-sm text-text-muted">No notes found.</p>
-          ) : null}
+          <div className="shrink-0 px-3 py-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                {listTitle}
+              </span>
+              {!isSearchActive && !isLoadingNotes ? (
+                <span className="text-[11px] tabular-nums text-text-muted">{notes.length}</span>
+              ) : null}
+            </div>
+          </div>
 
-          <div className="flex flex-col gap-3">
-            {visibleNotes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onSelect={selectNote}
-                selected={note.id === selectedNoteId}
-              />
-            ))}
+          <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+            {!isSearchActive && isLoadingNotes ? (
+              <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+                Loading...
+              </div>
+            ) : null}
+
+            {isSearchActive && isSearching ? (
+              <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+                Searching...
+              </div>
+            ) : null}
+
+            {!isSearchActive && listError ? (
+              <p className="px-2 py-3 text-xs text-error">{listError}</p>
+            ) : null}
+            {isSearchActive && searchError ? (
+              <p className="px-2 py-3 text-xs text-error">{searchError}</p>
+            ) : null}
+
+            {!isSearchActive && !isLoadingNotes && !listError && notes.length === 0 ? (
+              <div className="px-2 py-6 text-center">
+                <p className="text-xs text-text-muted">No notes yet</p>
+                <p className="mt-1 text-[11px] text-text-muted">
+                  Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">⌘N</kbd> to capture
+                </p>
+              </div>
+            ) : null}
+            {isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
+              <p className="px-2 py-6 text-center text-xs text-text-muted">No results found</p>
+            ) : null}
+
+            <div className="flex flex-col gap-0.5">
+              {visibleNotes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  onSelect={selectNote}
+                  selected={note.id === selectedNoteId}
+                />
+              ))}
+            </div>
           </div>
         </aside>
 
-        <ResultPanel
-          askResult={askResult}
-          deleteError={deleteError}
-          deletedNoteId={lastDeletedNoteId}
-          error={detailError}
-          isDeleting={isDeleting}
-          isLoading={isLoadingDetail}
-          isSavingMetadata={isSavingMetadata}
-          note={selectedNote}
-          onDelete={handleDeleteNote}
-          onSaveMetadata={handleUpdateNoteMetadata}
-          saveError={metadataSaveError}
-        />
-      </section>
-    </main>
+        <main className="min-h-0 flex-1 overflow-y-auto bg-bg">
+          {mode === "capture" ? (
+            <div className="mx-auto max-w-3xl px-6 py-6">
+              <CommandCenter
+                askRef={askRef}
+                captureRef={captureRef}
+                draftText={draftText}
+                isSaving={isSaving}
+                mode={mode}
+                onAskResult={setAskResult}
+                onDraftTextChange={(value) => {
+                  setDraftText(value);
+                  if (saveError) {
+                    setSaveError(null);
+                  }
+                }}
+                onSave={handleSaveNote}
+                saveError={saveError}
+              />
+            </div>
+          ) : mode === "ask" ? (
+            <div className="mx-auto max-w-3xl px-6 py-6">
+              <CommandCenter
+                askRef={askRef}
+                captureRef={captureRef}
+                draftText={draftText}
+                isSaving={isSaving}
+                mode={mode}
+                onAskResult={setAskResult}
+                saveError={saveError}
+                onDraftTextChange={(value) => {
+                  setDraftText(value);
+                  if (saveError) {
+                    setSaveError(null);
+                  }
+                }}
+                onSave={handleSaveNote}
+              />
+              {askResult ? (
+                <div className="mt-6 border-t border-border pt-6">
+                  <ResultPanel
+                    askResult={askResult}
+                    deleteError={deleteError}
+                    deletedNoteId={lastDeletedNoteId}
+                    error={detailError}
+                    isDeleting={isDeleting}
+                    isLoading={isLoadingDetail}
+                    isSavingMetadata={isSavingMetadata}
+                    note={selectedNote}
+                    onDelete={handleDeleteNote}
+                    onSaveMetadata={handleUpdateNoteMetadata}
+                    saveError={metadataSaveError}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="px-6 py-6">
+              <ResultPanel
+                askResult={askResult}
+                deleteError={deleteError}
+                deletedNoteId={lastDeletedNoteId}
+                error={detailError}
+                isDeleting={isDeleting}
+                isLoading={isLoadingDetail}
+                isSavingMetadata={isSavingMetadata}
+                note={selectedNote}
+                onDelete={handleDeleteNote}
+                onSaveMetadata={handleUpdateNoteMetadata}
+                saveError={metadataSaveError}
+              />
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
   );
 }

@@ -12,30 +12,32 @@ type AddNoteProps = {
 export function AddNote({ captureRef, draftText, error, isSaving, onDraftTextChange, onSave }: AddNoteProps) {
   return (
     <div className="flex flex-col gap-3" aria-labelledby="add-note-title">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-brand">Capture</p>
-        <h2 className="text-base font-semibold text-text-primary" id="add-note-title">
-          Capture mapping note
-        </h2>
-      </div>
+      <h2 className="sr-only" id="add-note-title">
+        Capture a note
+      </h2>
       <textarea
-        className="min-h-28 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+        className="min-h-48 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
         disabled={isSaving}
         onChange={(event) => onDraftTextChange(event.target.value)}
-        placeholder="Paste an email, source instruction, ticket note, mapping rule, or messy work note..."
+        placeholder="Paste an email, instruction, ticket note, mapping rule, or any messy work text — the AI will organize it."
         ref={captureRef}
-        rows={4}
+        rows={6}
         value={draftText}
       />
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <button
-        className="w-fit rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-        disabled={isSaving}
-        onClick={onSave}
-        type="button"
-      >
-        {isSaving ? "Organizing..." : "Organize and save"}
-      </button>
+      {error ? <p className="text-xs text-error">{error}</p> : null}
+      <div className="flex items-center gap-2">
+        <button
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={isSaving}
+          onClick={onSave}
+          type="button"
+        >
+          {isSaving ? "Organizing..." : "Organize & save"}
+        </button>
+        <span className="text-[11px] text-text-muted">
+          {draftText.trim() ? `${draftText.trim().length} chars` : "⌘N to focus"}
+        </span>
+      </div>
     </div>
   );
 }
