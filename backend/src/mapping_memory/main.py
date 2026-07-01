@@ -2,7 +2,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from mapping_memory.ai import organize_mapping_text
@@ -11,13 +11,25 @@ from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
 from mapping_memory.notes import (
+    CategoryAlreadyExistsError,
+    CategoryNotFoundError,
+    create_category,
     create_note,
     delete_note,
+    get_category,
     get_note,
+    list_categories,
     list_notes,
     update_note_metadata,
 )
-from mapping_memory.schemas import NoteCreate, NoteDeleteResponse, NoteRead, NoteUpdate
+from mapping_memory.schemas import (
+    CategoryCreate,
+    CategoryRead,
+    NoteCreate,
+    NoteDeleteResponse,
+    NoteRead,
+    NoteUpdate,
+)
 from mapping_memory.search import create_search_router
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
@@ -49,21 +61,58 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/categories", response_model=list[CategoryRead])
+    def list_categories_endpoint() -> list[CategoryRead]:
+        return list_categories(app_settings.sqlite_path)
+
+    @app.post("/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+    def create_category_endpoint(category: CategoryCreate) -> CategoryRead:
+        try:
+            return create_category(app_settings.sqlite_path, category.name)
+        except CategoryAlreadyExistsError as error:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(error),
+            ) from error
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
+
     @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
     def create_note_endpoint(note: NoteCreate) -> NoteRead:
+        _validate_category_id(note.category_id, settings=app_settings)
         try:
             metadata = organize_mapping_text(note.original_text, settings=app_settings)
         except Exception:
             logger.warning("AI organizer unavailable; saved note with fallback metadata")
-            created_note = create_note(app_settings.sqlite_path, note.original_text)
+            try:
+                created_note = create_note(
+                    app_settings.sqlite_path,
+                    note.original_text,
+                    category_id=note.category_id,
+                )
+            except CategoryNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(error),
+                ) from error
         else:
-            created_note = create_note(
-                app_settings.sqlite_path,
-                note.original_text,
-                ai_title=metadata.title,
-                short_summary=metadata.summary,
-                tags=metadata.tags,
-            )
+            try:
+                created_note = create_note(
+                    app_settings.sqlite_path,
+                    note.original_text,
+                    ai_title=metadata.title,
+                    short_summary=metadata.summary,
+                    tags=metadata.tags,
+                    category_id=note.category_id,
+                )
+            except CategoryNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(error),
+                ) from error
 
         try:
             _index_note_for_retrieval(created_note, settings=app_settings)
@@ -73,19 +122,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return created_note
 
     @app.get("/notes", response_model=list[NoteRead])
-    def list_notes_endpoint() -> list[NoteRead]:
-        return list_notes(app_settings.sqlite_path)
+    def list_notes_endpoint(category_id: int | None = Query(default=None)) -> list[NoteRead]:
+        try:
+            return list_notes(app_settings.sqlite_path, category_id=category_id)
+        except CategoryNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
 
     @app.patch("/notes/{note_id}", response_model=NoteRead)
     def update_note_endpoint(note_id: int, note_update: NoteUpdate) -> NoteRead:
         updates = note_update.model_dump(exclude_unset=True)
-        updated_note = update_note_metadata(
-            app_settings.sqlite_path,
-            note_id,
-            ai_title=updates.get("ai_title"),
-            short_summary=updates.get("short_summary"),
-            tags=updates.get("tags"),
-        )
+        update_kwargs = {
+            "ai_title": updates.get("ai_title"),
+            "short_summary": updates.get("short_summary"),
+            "tags": updates.get("tags"),
+        }
+        if "category_id" in updates:
+            update_kwargs["category_id"] = updates["category_id"]
+
+        try:
+            updated_note = update_note_metadata(
+                app_settings.sqlite_path,
+                note_id,
+                **update_kwargs,
+            )
+        except CategoryNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
         if updated_note is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
 
@@ -121,6 +188,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return note
 
     return app
+
+
+def _validate_category_id(category_id: int | None, *, settings: Settings) -> None:
+    if category_id is not None and get_category(settings.sqlite_path, category_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Category not found",
+        )
 
 
 def _delete_note_from_retrieval(note_id: int, *, settings: Settings) -> None:

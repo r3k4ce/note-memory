@@ -53,7 +53,10 @@ def test_organize_mapping_text_returns_validated_metadata() -> None:
     assert client.completions.calls[0]["model"] == "test-model"
     assert client.completions.calls[0]["response_format"] is OrganizerMetadata
     assert client.completions.calls[0]["messages"][0]["role"] == "system"
-    assert "do not invent facts" in client.completions.calls[0]["messages"][0]["content"].lower()
+    system_prompt = client.completions.calls[0]["messages"][0]["content"].lower()
+    assert "organize messy notes into clean reference cards" in system_prompt
+    assert "do not invent facts" in system_prompt
+    assert "do not assign a category" in system_prompt
     assert (
         "messy notes about route planning labels"
         in client.completions.calls[0]["messages"][1]["content"]
@@ -86,7 +89,7 @@ def test_organize_mapping_text_rejects_missing_parsed_response() -> None:
 
     with pytest.raises(OrganizerResponseError, match="valid organizer metadata"):
         organize_mapping_text(
-            "mapping text",
+            "note text",
             settings=Settings(openai_api_key=None),
             client=client,
         )
@@ -158,4 +161,4 @@ def test_missing_api_key_raises_without_crashing_app_layer(tmp_path: Path) -> No
 
     assert response.status_code == 200
     with pytest.raises(OrganizerUnavailableError, match="OPENAI_API_KEY"):
-        organize_mapping_text("mapping text", settings=settings)
+        organize_mapping_text("note text", settings=settings)

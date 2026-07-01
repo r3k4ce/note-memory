@@ -7,7 +7,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    app_name: str = "Mapping Memory"
+    app_name: str = "Note Memory"
     environment: str = "local"
     sqlite_path: Path = Path("../data/mapping_memory.sqlite")
     chroma_path: Path = Path("../data/chroma")

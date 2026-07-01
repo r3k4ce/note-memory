@@ -213,3 +213,54 @@ def test_create_note_uses_first_nonblank_line_for_title(sqlite_path: Path) -> No
 def test_create_note_rejects_whitespace_only_text(sqlite_path: Path) -> None:
     with pytest.raises(ValueError, match="original_text must not be empty"):
         create_note(sqlite_path, " \n\t ")
+
+
+def test_create_category_persists_trimmed_name_and_slug(sqlite_path: Path) -> None:
+    from mapping_memory.notes import create_category, list_categories
+
+    category = create_category(sqlite_path, "  Work Notes  ")
+
+    assert category.id > 0
+    assert category.name == "Work Notes"
+    assert category.slug == "work-notes"
+    assert category.created_at
+    assert category.updated_at == category.created_at
+    assert list_categories(sqlite_path) == [category]
+
+
+def test_create_note_can_attach_category(sqlite_path: Path) -> None:
+    from mapping_memory.notes import create_category
+
+    category = create_category(sqlite_path, "Projects")
+
+    note = create_note(sqlite_path, "Project note", category_id=category.id)
+
+    assert note.category == category
+    assert get_note(sqlite_path, note.id) == note
+
+
+def test_list_notes_can_filter_by_category(sqlite_path: Path) -> None:
+    from mapping_memory.notes import create_category
+
+    category = create_category(sqlite_path, "Projects")
+    included = create_note(sqlite_path, "Project note", category_id=category.id)
+    create_note(sqlite_path, "Uncategorized note")
+
+    notes = list_notes(sqlite_path, category_id=category.id)
+
+    assert [note.id for note in notes] == [included.id]
+
+
+def test_update_note_metadata_can_change_and_clear_category(sqlite_path: Path) -> None:
+    from mapping_memory.notes import create_category
+
+    category = create_category(sqlite_path, "Projects")
+    note = create_note(sqlite_path, "Project note")
+
+    categorized = update_note_metadata(sqlite_path, note.id, category_id=category.id)
+    cleared = update_note_metadata(sqlite_path, note.id, category_id=None)
+
+    assert categorized is not None
+    assert categorized.category == category
+    assert cleared is not None
+    assert cleared.category is None

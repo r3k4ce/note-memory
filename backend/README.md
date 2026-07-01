@@ -1,4 +1,4 @@
-# Mapping Memory Backend
+# Note Memory Backend
 
 ## Setup
 
@@ -26,16 +26,29 @@ Expected response:
 { "status": "ok" }
 ```
 
+Create a category:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/categories -Method Post -ContentType "application/json" -Body '{"name":"Work"}'
+```
+
+List categories:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/categories
+```
+
 Create a note:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "application/json" -Body '{"original_text":"My mapping note"}'
+Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "application/json" -Body '{"original_text":"My note","category_id":1}'
 ```
 
 List notes:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/notes
+Invoke-RestMethod "http://127.0.0.1:8000/notes?category_id=1"
 ```
 
 Get one note:
@@ -47,7 +60,7 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1
 Update note metadata:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Patch -ContentType "application/json" -Body '{"ai_title":"Corrected title","short_summary":"Corrected summary.","tags":["routing","labels"]}'
+Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Patch -ContentType "application/json" -Body '{"ai_title":"Corrected title","short_summary":"Corrected summary.","tags":["routing","labels"],"category_id":null}'
 ```
 
 Metadata updates refresh SQLite FTS and attempt Chroma reindexing. Chroma reindex failures are logged and do not roll back the saved metadata.
@@ -77,3 +90,4 @@ Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "applicati
 ```powershell
 uv run python -m pytest
 ```
+

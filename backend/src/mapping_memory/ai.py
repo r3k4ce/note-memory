@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from mapping_memory.settings import Settings
 
-ANSWER_FALLBACK = "I do not have this in the saved knowledge base."
+ANSWER_FALLBACK = "I do not have this in the saved notes."
 ANSWER_SYSTEM_PROMPT = f"""Answer questions using only the saved-note context provided.
 Do not use outside knowledge.
 If the answer is not present in the saved-note context, say exactly: {ANSWER_FALLBACK}
@@ -13,14 +13,15 @@ Be concise and operational.
 Do not invent policies, rules, or decisions.
 When answering, include supporting card titles and dates from the context."""
 
-ORGANIZER_SYSTEM_PROMPT = """Organize messy mapping-work notes into clean reference cards.
+ORGANIZER_SYSTEM_PROMPT = """Organize messy notes into clean reference cards.
 Return only valid JSON.
 Do not invent facts.
 Title should be specific and practical.
 Summary should be 1-3 sentences.
 Tags should be lowercase.
 Use 3-10 tags when possible.
-Prefer concrete retrieval tags."""
+Prefer concrete retrieval tags.
+Do not assign a category. Categories are chosen manually by the user."""
 
 
 class OrganizerUnavailableError(RuntimeError):
@@ -97,7 +98,7 @@ def organize_mapping_text(
         model=app_settings.openai_organizer_model,
         messages=[
             {"role": "system", "content": ORGANIZER_SYSTEM_PROMPT},
-            {"role": "user", "content": f"Original mapping text:\n\n{original_text}"},
+            {"role": "user", "content": f"Original note text:\n\n{original_text}"},
         ],
         response_format=OrganizerMetadata,
     )
@@ -146,7 +147,7 @@ def generate_grounded_answer(
 
 def _openai_client(settings: Settings) -> OpenAI:
     if settings.openai_api_key is None:
-        raise OrganizerUnavailableError("OPENAI_API_KEY is required to organize mapping text")
+        raise OrganizerUnavailableError("OPENAI_API_KEY is required to organize note text")
 
     return OpenAI(api_key=settings.openai_api_key.get_secret_value())
 

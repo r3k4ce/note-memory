@@ -7,7 +7,7 @@ from pydantic import SecretStr
 from mapping_memory.rag import RagContextChunk, RagRetrievalContext, RagSource
 from mapping_memory.settings import Settings
 
-FALLBACK = "I do not have this in the saved knowledge base."
+FALLBACK = "I do not have this in the saved notes."
 
 
 def test_ask_returns_fallback_when_retrieval_has_no_context(tmp_path, monkeypatch) -> None:

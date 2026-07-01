@@ -68,6 +68,7 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         "tags": ["routing", "labels", "retrieval"],
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
+        "category": None,
     }
     assert len(store_instances) == 1
     assert store_instances[0].settings.openai_embedding_model == "text-embedding-3-small"
@@ -165,6 +166,7 @@ def test_post_notes_uses_fallback_metadata_when_organizer_fails(
         "tags": [],
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
+        "category": None,
     }
     assert "AI organizer unavailable; saved note with fallback metadata" in caplog.text
     assert original_text not in caplog.text
@@ -234,6 +236,7 @@ def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
         "tags": [],
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
+        "category": None,
     }
 
 
@@ -611,3 +614,105 @@ def test_local_vite_origin_receives_cors_headers(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_categories_api_creates_lists_and_rejects_duplicates(tmp_path: Path) -> None:
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        empty_response = client.get("/categories")
+        created_response = client.post("/categories", json={"name": " Work "})
+        list_response = client.get("/categories")
+        duplicate_response = client.post("/categories", json={"name": "work"})
+
+    assert empty_response.status_code == 200
+    assert empty_response.json() == []
+    assert created_response.status_code == 201
+    assert created_response.json() == {
+        "id": 1,
+        "name": "Work",
+        "slug": "work",
+        "created_at": created_response.json()["created_at"],
+        "updated_at": created_response.json()["created_at"],
+    }
+    assert list_response.status_code == 200
+    assert list_response.json() == [created_response.json()]
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json() == {"detail": "Category already exists"}
+
+
+def test_notes_api_creates_updates_and_filters_by_category(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        category_response = client.post("/categories", json={"name": "Projects"})
+        category = category_response.json()
+        uncategorized_response = client.post("/notes", json={"original_text": "Loose note"})
+        categorized_response = client.post(
+            "/notes",
+            json={"original_text": "Project note", "category_id": category["id"]},
+        )
+        filtered_response = client.get(f"/notes?category_id={category['id']}")
+        cleared_response = client.patch(
+            f"/notes/{categorized_response.json()['id']}",
+            json={"category_id": None},
+        )
+        invalid_response = client.post(
+            "/notes",
+            json={"original_text": "Invalid note", "category_id": 999999},
+        )
+
+    assert category_response.status_code == 201
+    assert uncategorized_response.status_code == 201
+    assert uncategorized_response.json()["category"] is None
+    assert categorized_response.status_code == 201
+    assert categorized_response.json()["category"] == category
+    assert filtered_response.status_code == 200
+    assert [note["id"] for note in filtered_response.json()] == [categorized_response.json()["id"]]
+    assert cleared_response.status_code == 200
+    assert cleared_response.json()["category"] is None
+    assert invalid_response.status_code == 422
+    assert invalid_response.json() == {"detail": "Category not found"}
+
+
+def test_post_notes_rejects_invalid_category_before_organizer(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+
+    def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
+        calls.append(original_text)
+        return OrganizerMetadata(title="Title", summary="Summary.", tags=[])
+
+    monkeypatch.setattr(
+        "mapping_memory.main.organize_mapping_text",
+        organize_mapping_text,
+        raising=False,
+    )
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/notes",
+            json={"original_text": "Invalid category", "category_id": 999999},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Category not found"}
+    assert calls == []

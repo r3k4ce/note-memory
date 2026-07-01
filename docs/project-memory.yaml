@@ -318,3 +318,17 @@ entries:
     verification:
       - "Ran npm run build from frontend/: TypeScript and Vite build passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
+  - time_utc: "2026-07-01T17:38:28Z"
+    time_local: "2026-07-01T14:38:28-03:00"
+    summary: "Renamed visible product copy to Note Memory and added manual categories."
+    changed:
+      - "Added SQLite categories table, nullable notes.category_id migration, category schemas, GET/POST /categories, category-aware note create/update/read/list responses, and category_id filtering for GET /notes."
+      - "Updated organizer prompt and visible app copy to general note language while keeping internal mapping_memory names."
+      - "Added frontend category loading, sidebar filters, inline category creation, capture category selection, and category labels/editing in note cards and detail."
+      - "Updated README and backend API docs for Note Memory categories."
+    verification:
+      - "Ran uv run python -m pytest from backend/: 98 passed, 2 warnings, coverage 88.48%."
+      - "Ran backend ruff format --check, ruff check, and pyright: passed."
+      - "Ran npm run lint and npm run build from frontend/: passed."
+
+

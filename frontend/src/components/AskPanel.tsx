@@ -36,7 +36,7 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
     try {
       onResult(await askQuestion(trimmedQuestion));
     } catch (error) {
-      setAskError(getErrorMessage(error, "Could not reach the knowledge base."));
+      setAskError(getErrorMessage(error, "Could not reach your notes."));
     } finally {
       setIsAsking(false);
     }
@@ -58,7 +58,7 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
         className="min-h-32 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
         disabled={isAsking}
         onChange={(event) => handleQuestionChange(event.target.value)}
-        placeholder="Ask anything about your saved mapping notes — answers are grounded in what you've captured."
+        placeholder="Ask anything about your saved notes - answers are grounded in what you've captured."
         ref={askRef}
         rows={4}
         value={question}
@@ -79,3 +79,4 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
     </form>
   );
 }
+

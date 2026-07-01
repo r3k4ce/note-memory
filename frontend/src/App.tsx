@@ -1,23 +1,68 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
-import { createNote, deleteNote, getNote, listNotes, searchNotes, updateNoteMetadata } from "./api";
+import {
+  createCategory,
+  createNote,
+  deleteNote,
+  getNote,
+  listCategories,
+  listNotes,
+  searchNotes,
+  updateNoteMetadata,
+} from "./api";
 import { CommandCenter } from "./components/CommandCenter";
 import { NoteCard } from "./components/NoteCard";
 import { ResultPanel } from "./components/ResultPanel";
 import { SearchBar } from "./components/SearchBar";
 import { SegmentedControl } from "./components/SegmentedControl";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
-import type { AskResponse, Note, NoteCardData, NoteMetadataUpdate, SearchResult } from "./types";
+import type { AskResponse, Category, Note, NoteCardData, NoteMetadataUpdate, SearchResult } from "./types";
+
+type CategoryFilter = "all" | "uncategorized" | number;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function filterNotesByCategory(notes: Note[], filter: CategoryFilter): Note[] {
+  if (filter === "all") {
+    return notes;
+  }
+
+  if (filter === "uncategorized") {
+    return notes.filter((note) => note.category === null);
+  }
+
+  return notes.filter((note) => note.category?.id === filter);
+}
+
+function sortCategories(categories: Category[]): Category[] {
+  return [...categories].sort((left, right) =>
+    left.name.localeCompare(right.name, undefined, { sensitivity: "base" }) || left.id - right.id,
+  );
+}
+
+function categoryFilterLabel(filter: CategoryFilter, categories: Category[]): string {
+  if (filter === "all") {
+    return "All notes";
+  }
+
+  if (filter === "uncategorized") {
+    return "Uncategorized";
+  }
+
+  return categories.find((category) => category.id === filter)?.name ?? "Category";
+}
+
 export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<CategoryFilter>("all");
   const [draftText, setDraftText] = useState("");
+  const [draftCategoryId, setDraftCategoryId] = useState<number | null>(null);
+  const [categoryDraft, setCategoryDraft] = useState("");
   const [searchText, setSearchText] = useState("");
   const [activeSearchQuery, setActiveSearchQuery] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -27,12 +72,15 @@ export default function App() {
   const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [lastDeletedNoteId, setLastDeletedNoteId] = useState<number | null>(null);
 
   const [mode, setMode] = useState<AppMode>("capture");
@@ -44,7 +92,8 @@ export default function App() {
   const askRef = useRef<HTMLTextAreaElement>(null);
 
   const isSearchActive = activeSearchQuery !== null;
-  const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : notes;
+  const categoryFilteredNotes = filterNotesByCategory(notes, selectedCategoryFilter);
+  const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
 
   const hasSetInitialMode = useRef(false);
 
@@ -70,6 +119,26 @@ export default function App() {
     setIsSearching(false);
   }, []);
 
+  const handleCategoryFilterChange = useCallback(
+    (filter: CategoryFilter) => {
+      clearSearch();
+      setSelectedCategoryFilter(filter);
+      setCategoryError(null);
+      if (typeof filter === "number") {
+        setDraftCategoryId(filter);
+      } else if (filter === "uncategorized") {
+        setDraftCategoryId(null);
+      }
+
+      const filteredNotes = filterNotesByCategory(notes, filter);
+      setSelectedNoteId(filteredNotes[0]?.id ?? null);
+      if (filteredNotes.length === 0) {
+        setSelectedNote(null);
+      }
+    },
+    [clearSearch, notes],
+  );
+
   const handleSearchTextChange = useCallback((value: string) => {
     setSearchText(value);
 
@@ -85,17 +154,19 @@ export default function App() {
   useEffect(() => {
     let ignore = false;
 
-    async function loadNotes() {
+    async function loadInitialData() {
       setIsLoadingNotes(true);
       setListError(null);
+      setCategoryError(null);
 
       try {
-        const loadedNotes = await listNotes();
+        const [loadedNotes, loadedCategories] = await Promise.all([listNotes(), listCategories()]);
         if (ignore) {
           return;
         }
 
         setNotes(loadedNotes);
+        setCategories(loadedCategories);
         setSelectedNoteId(loadedNotes[0]?.id ?? null);
       } catch (error) {
         if (ignore) {
@@ -104,6 +175,7 @@ export default function App() {
 
         setListError(getErrorMessage(error, "Could not load notes."));
         setNotes([]);
+        setCategories([]);
         setSelectedNoteId(null);
         setSelectedNote(null);
       } finally {
@@ -113,7 +185,7 @@ export default function App() {
       }
     }
 
-    void loadNotes();
+    void loadInitialData();
 
     return () => {
       ignore = true;
@@ -189,6 +261,34 @@ export default function App() {
     }
   }
 
+  async function handleCreateCategory(event: FormEvent) {
+    event.preventDefault();
+
+    const name = categoryDraft.trim();
+    if (!name) {
+      setCategoryError("Enter a category name.");
+      return;
+    }
+
+    setIsSavingCategory(true);
+    setCategoryError(null);
+
+    try {
+      const category = await createCategory(name);
+      setCategories((currentCategories) => sortCategories([...currentCategories, category]));
+      setCategoryDraft("");
+      setIsCreatingCategory(false);
+      setSelectedCategoryFilter(category.id);
+      setDraftCategoryId(category.id);
+      setSelectedNote(null);
+      setSelectedNoteId(null);
+    } catch (error) {
+      setCategoryError(getErrorMessage(error, "Could not create category."));
+    } finally {
+      setIsSavingCategory(false);
+    }
+  }
+
   async function handleSaveNote() {
     if (!draftText.trim()) {
       setSaveError("Enter note text before saving.");
@@ -199,7 +299,7 @@ export default function App() {
     setSaveError(null);
 
     try {
-      const savedNote = await createNote(draftText);
+      const savedNote = await createNote(draftText, draftCategoryId);
       clearSearch();
       setNotes((currentNotes) => [savedNote, ...currentNotes.filter((note) => note.id !== savedNote.id)]);
       setDraftText("");
@@ -232,6 +332,7 @@ export default function App() {
                 short_summary: updatedNote.short_summary,
                 tags: updatedNote.tags,
                 date_added: updatedNote.date_added,
+                category: updatedNote.category,
               }
             : result,
         ),
@@ -270,14 +371,16 @@ export default function App() {
     }
   }
 
-  const listTitle = isSearchActive ? `Results · ${activeSearchQuery}` : "All notes";
+  const listTitle = isSearchActive
+    ? `Results · ${activeSearchQuery}`
+    : categoryFilterLabel(selectedCategoryFilter, categories);
 
   return (
     <div className="flex h-screen flex-col bg-bg text-text-primary">
       <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent" />
-          <span className="text-[13px] font-semibold tracking-tight text-text-primary">Mapping Memory</span>
+          <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
         </div>
         <SegmentedControl mode={mode} onModeChange={setMode} />
       </header>
@@ -295,13 +398,92 @@ export default function App() {
             />
           </div>
 
+          <div className="shrink-0 border-b border-border px-2.5 pb-2">
+            <div className="mb-1.5 flex items-center justify-between px-0.5">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Categories</span>
+              <button
+                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+                disabled={isSavingCategory}
+                onClick={() => {
+                  setIsCreatingCategory((current) => !current);
+                  setCategoryError(null);
+                }}
+                type="button"
+              >
+                {isCreatingCategory ? "Cancel" : "New"}
+              </button>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <button
+                className={`rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
+                  selectedCategoryFilter === "all"
+                    ? "bg-surface-raised text-text-primary"
+                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                }`}
+                onClick={() => handleCategoryFilterChange("all")}
+                type="button"
+              >
+                All notes
+              </button>
+              <button
+                className={`rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
+                  selectedCategoryFilter === "uncategorized"
+                    ? "bg-surface-raised text-text-primary"
+                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                }`}
+                onClick={() => handleCategoryFilterChange("uncategorized")}
+                type="button"
+              >
+                Uncategorized
+              </button>
+              {categories.map((category) => (
+                <button
+                  className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
+                    selectedCategoryFilter === category.id
+                      ? "bg-surface-raised text-text-primary"
+                      : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                  }`}
+                  key={category.id}
+                  onClick={() => handleCategoryFilterChange(category.id)}
+                  title={category.name}
+                  type="button"
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+            {isCreatingCategory ? (
+              <form className="mt-2 flex gap-1.5" onSubmit={handleCreateCategory}>
+                <input
+                  aria-label="New category name"
+                  className="min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                  disabled={isSavingCategory}
+                  onChange={(event) => {
+                    setCategoryDraft(event.target.value);
+                    setCategoryError(null);
+                  }}
+                  placeholder="Category name"
+                  value={categoryDraft}
+                />
+                <button
+                  className="rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
+                  disabled={isSavingCategory}
+                  type="submit"
+                >
+                  Add
+                </button>
+              </form>
+            ) : null}
+            {categoryError ? <p className="mt-1.5 px-0.5 text-xs text-error">{categoryError}</p> : null}
+          </div>
+
           <div className="shrink-0 px-3 py-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
                 {listTitle}
               </span>
               {!isSearchActive && !isLoadingNotes ? (
-                <span className="text-[11px] tabular-nums text-text-muted">{notes.length}</span>
+                <span className="text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
               ) : null}
             </div>
           </div>
@@ -336,6 +518,9 @@ export default function App() {
                 </p>
               </div>
             ) : null}
+            {!isSearchActive && !isLoadingNotes && !listError && notes.length > 0 && visibleNotes.length === 0 ? (
+              <p className="px-2 py-6 text-center text-xs text-text-muted">No notes in this category</p>
+            ) : null}
             {isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-text-muted">No results found</p>
             ) : null}
@@ -359,10 +544,13 @@ export default function App() {
               <CommandCenter
                 askRef={askRef}
                 captureRef={captureRef}
+                categories={categories}
+                draftCategoryId={draftCategoryId}
                 draftText={draftText}
                 isSaving={isSaving}
                 mode={mode}
                 onAskResult={setAskResult}
+                onDraftCategoryChange={setDraftCategoryId}
                 onDraftTextChange={(value) => {
                   setDraftText(value);
                   if (saveError) {
@@ -378,11 +566,14 @@ export default function App() {
               <CommandCenter
                 askRef={askRef}
                 captureRef={captureRef}
+                categories={categories}
+                draftCategoryId={draftCategoryId}
                 draftText={draftText}
                 isSaving={isSaving}
                 mode={mode}
                 onAskResult={setAskResult}
                 saveError={saveError}
+                onDraftCategoryChange={setDraftCategoryId}
                 onDraftTextChange={(value) => {
                   setDraftText(value);
                   if (saveError) {
@@ -395,6 +586,7 @@ export default function App() {
                 <div className="mt-6 border-t border-border pt-6">
                   <ResultPanel
                     askResult={askResult}
+                    categories={categories}
                     deleteError={deleteError}
                     deletedNoteId={lastDeletedNoteId}
                     error={detailError}
@@ -413,6 +605,7 @@ export default function App() {
             <div className="px-6 py-6">
               <ResultPanel
                 askResult={askResult}
+                categories={categories}
                 deleteError={deleteError}
                 deletedNoteId={lastDeletedNoteId}
                 error={detailError}
@@ -431,3 +624,4 @@ export default function App() {
     </div>
   );
 }
+

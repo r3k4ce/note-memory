@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 
-import type { Note, NoteMetadataUpdate } from "../types";
+import type { Category, Note, NoteMetadataUpdate } from "../types";
 
 type NoteDetailProps = {
+  categories: Category[];
   deleteError: string | null;
   error: string | null;
   isDeleting: boolean;
@@ -26,7 +27,12 @@ function tagsMatch(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((tag, index) => tag === right[index]);
 }
 
+function categoryValue(categoryId: number | null): string {
+  return categoryId === null ? "" : String(categoryId);
+}
+
 export function NoteDetail({
+  categories,
   deleteError,
   error,
   isDeleting,
@@ -41,6 +47,7 @@ export function NoteDetail({
   const [titleDraft, setTitleDraft] = useState("");
   const [summaryDraft, setSummaryDraft] = useState("");
   const [tagsDraft, setTagsDraft] = useState("");
+  const [categoryDraftId, setCategoryDraftId] = useState<number | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   if (isLoading) {
@@ -79,10 +86,12 @@ export function NoteDetail({
   const title = titleDraft.trim();
   const summary = summaryDraft.trim();
   const tags = parseTags(tagsDraft);
+  const activeCategoryId = activeNote.category?.id ?? null;
   const hasChanges =
     activeNote.ai_title !== title ||
     activeNote.short_summary !== summary ||
-    !tagsMatch(activeNote.tags, tags);
+    !tagsMatch(activeNote.tags, tags) ||
+    activeCategoryId !== categoryDraftId;
   const canSave = Boolean(title && summary && hasChanges && !isSavingMetadata);
   const actionsDisabled = isSavingMetadata || isDeleting;
 
@@ -99,6 +108,7 @@ export function NoteDetail({
         ai_title: title,
         short_summary: summary,
         tags,
+        category_id: categoryDraftId,
       });
       setIsEditing(false);
     } catch {
@@ -106,12 +116,17 @@ export function NoteDetail({
     }
   }
 
-  function handleCancel() {
-    setIsEditing(false);
-    setValidationError(null);
+  function resetDrafts() {
     setTitleDraft(activeNote.ai_title);
     setSummaryDraft(activeNote.short_summary);
     setTagsDraft(activeNote.tags.join(", "));
+    setCategoryDraftId(activeCategoryId);
+  }
+
+  function handleCancel() {
+    setIsEditing(false);
+    setValidationError(null);
+    resetDrafts();
   }
 
   return (
@@ -131,25 +146,54 @@ export function NoteDetail({
         ) : (
           <h2 className="text-xl font-semibold leading-tight text-text-primary">{activeNote.ai_title}</h2>
         )}
-        <div className="flex items-center gap-3 text-[11px] text-text-muted">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
           <time dateTime={activeNote.date_added}>{activeNote.date_added}</time>
           <span className="text-border-strong">·</span>
           <time dateTime={activeNote.updated_at}>updated {activeNote.updated_at}</time>
+          {activeNote.category ? (
+            <>
+              <span className="text-border-strong">·</span>
+              <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
+                {activeNote.category.name}
+              </span>
+            </>
+          ) : null}
         </div>
       </header>
 
       {isEditing ? (
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="tags-input">
-            Tags
-          </label>
-          <input
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-            disabled={isSavingMetadata}
-            id="tags-input"
-            onChange={(event) => setTagsDraft(event.target.value)}
-            value={tagsDraft}
-          />
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="tags-input">
+              Tags
+            </label>
+            <input
+              className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+              disabled={isSavingMetadata}
+              id="tags-input"
+              onChange={(event) => setTagsDraft(event.target.value)}
+              value={tagsDraft}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="detail-category">
+              Category
+            </label>
+            <select
+              className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+              disabled={isSavingMetadata}
+              id="detail-category"
+              onChange={(event) => setCategoryDraftId(event.target.value ? Number(event.target.value) : null)}
+              value={categoryValue(categoryDraftId)}
+            >
+              <option value="">Uncategorized</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       ) : (
         activeNote.tags.length > 0 ? (
@@ -220,9 +264,7 @@ export function NoteDetail({
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
               disabled={actionsDisabled}
               onClick={() => {
-                setTitleDraft(activeNote.ai_title);
-                setSummaryDraft(activeNote.short_summary);
-                setTagsDraft(activeNote.tags.join(", "));
+                resetDrafts();
                 setValidationError(null);
                 setIsEditing(true);
               }}

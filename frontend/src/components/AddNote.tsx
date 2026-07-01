@@ -1,17 +1,31 @@
 import type { RefObject } from "react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
+import type { Category } from "../types";
 
 type AddNoteProps = {
   captureRef: RefObject<HTMLTextAreaElement | null>;
+  categories: Category[];
   draftText: string;
   error: string | null;
   isSaving: boolean;
+  onCategoryChange: (categoryId: number | null) => void;
   onDraftTextChange: (value: string) => void;
   onSave: () => void;
+  selectedCategoryId: number | null;
 };
 
-export function AddNote({ captureRef, draftText, error, isSaving, onDraftTextChange, onSave }: AddNoteProps) {
+export function AddNote({
+  captureRef,
+  categories,
+  draftText,
+  error,
+  isSaving,
+  onCategoryChange,
+  onDraftTextChange,
+  onSave,
+  selectedCategoryId,
+}: AddNoteProps) {
   return (
     <div className="flex flex-col gap-3" aria-labelledby="add-note-title">
       <h2 className="sr-only" id="add-note-title">
@@ -21,11 +35,30 @@ export function AddNote({ captureRef, draftText, error, isSaving, onDraftTextCha
         className="min-h-48 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
         disabled={isSaving}
         onChange={(event) => onDraftTextChange(event.target.value)}
-        placeholder="Paste an email, instruction, ticket note, mapping rule, or any messy work text — the AI will organize it."
+        placeholder="Paste an email, instruction, ticket note, or any messy work text - the AI will organize it."
         ref={captureRef}
         rows={6}
         value={draftText}
       />
+      <div className="flex flex-col gap-1.5 sm:max-w-xs">
+        <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="capture-category">
+          Category
+        </label>
+        <select
+          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          disabled={isSaving}
+          id="capture-category"
+          onChange={(event) => onCategoryChange(event.target.value ? Number(event.target.value) : null)}
+          value={selectedCategoryId ?? ""}
+        >
+          <option value="">Uncategorized</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </div>
       {error ? <p className="text-xs text-error">{error}</p> : null}
       <div className="flex items-center gap-2">
         <button

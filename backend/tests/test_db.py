@@ -23,6 +23,29 @@ def test_init_db_creates_sqlite_file_and_notes_table(tmp_path) -> None:
     assert table_name == ("notes",)
 
 
+def test_init_db_creates_categories_table(tmp_path) -> None:
+    sqlite_path = tmp_path / "mapping_memory.sqlite"
+
+    init_db(sqlite_path)
+
+    with sqlite3.connect(sqlite_path) as connection:
+        columns = connection.execute("PRAGMA table_info(categories)").fetchall()
+        create_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'categories'"
+        ).fetchone()
+
+    assert [(column[1], column[2], column[3], column[5]) for column in columns] == [
+        ("id", "INTEGER", 0, 1),
+        ("name", "TEXT", 1, 0),
+        ("slug", "TEXT", 1, 0),
+        ("created_at", "TEXT", 1, 0),
+        ("updated_at", "TEXT", 1, 0),
+    ]
+    assert create_sql is not None
+    assert "AUTOINCREMENT" in create_sql[0].upper()
+    assert "UNIQUE" in create_sql[0].upper()
+
+
 def test_init_db_creates_notes_fts_table(tmp_path) -> None:
     sqlite_path = tmp_path / "mapping_memory.sqlite"
 
@@ -65,9 +88,64 @@ def test_notes_table_has_required_schema(tmp_path) -> None:
         ("tags_json", "TEXT", 1, 0),
         ("date_added", "TEXT", 1, 0),
         ("updated_at", "TEXT", 1, 0),
+        ("category_id", "INTEGER", 0, 0),
     ]
     assert create_sql is not None
     assert "AUTOINCREMENT" in create_sql[0].upper()
+
+
+def test_init_db_migrates_existing_notes_table_without_losing_notes(tmp_path) -> None:
+    sqlite_path = tmp_path / "legacy.sqlite"
+
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(sqlite_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                original_text TEXT NOT NULL,
+                ai_title TEXT NOT NULL,
+                short_summary TEXT NOT NULL,
+                tags_json TEXT NOT NULL,
+                date_added TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO notes (
+                original_text,
+                ai_title,
+                short_summary,
+                tags_json,
+                date_added,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Legacy note",
+                "Legacy title",
+                "Legacy summary.",
+                "[]",
+                "2026-01-01T00:00:00+00:00",
+                "2026-01-01T00:00:00+00:00",
+            ),
+        )
+
+    init_db(sqlite_path)
+
+    with sqlite3.connect(sqlite_path) as connection:
+        category_column = connection.execute(
+            "SELECT name FROM pragma_table_info('notes') WHERE name = 'category_id'"
+        ).fetchone()
+        legacy_note = connection.execute(
+            "SELECT original_text, category_id FROM notes WHERE id = 1"
+        ).fetchone()
+
+    assert category_column == ("category_id",)
+    assert legacy_note == ("Legacy note", None)
 
 
 def test_create_app_initializes_database_on_startup(tmp_path) -> None:

@@ -35,23 +35,26 @@ export function NoteCard({ note, selected = false, onSelect }: NoteCardProps) {
       <p className="mb-1.5 line-clamp-2 text-xs leading-relaxed text-text-secondary">
         {note.short_summary}
       </p>
-      {note.tags.length > 0 ? (
-        <span className="flex flex-wrap gap-1" aria-label="Tags">
-          {note.tags.slice(0, 3).map((tag) => (
-            <span
-              className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
-              key={tag}
-            >
-              {tag}
-            </span>
-          ))}
-          {note.tags.length > 3 ? (
-            <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
-              +{note.tags.length - 3}
-            </span>
-          ) : null}
-        </span>
-      ) : null}
+      <div className="flex flex-wrap gap-1" aria-label="Metadata">
+        {note.category ? (
+          <span className="rounded border border-border bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+            {note.category.name}
+          </span>
+        ) : null}
+        {note.tags.slice(0, 3).map((tag) => (
+          <span
+            className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
+            key={tag}
+          >
+            {tag}
+          </span>
+        ))}
+        {note.tags.length > 3 ? (
+          <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+            +{note.tags.length - 3}
+          </span>
+        ) : null}
+      </div>
     </button>
   );
 }

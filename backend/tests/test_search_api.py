@@ -45,6 +45,7 @@ def test_search_returns_exact_only_card_result(tmp_path: Path, monkeypatch) -> N
             "tags": ["tickets"],
             "date_added": body[0]["date_added"],
             "score": 1.0,
+            "category": None,
         }
     ]
     assert "original_text" not in body[0]

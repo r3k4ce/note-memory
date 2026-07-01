@@ -1,10 +1,10 @@
 import { Sparkles } from "lucide-react";
-import type { Note, NoteMetadataUpdate } from "../types";
+import type { AskResponse, Category, Note, NoteMetadataUpdate } from "../types";
 import { NoteDetail } from "./NoteDetail";
-import type { AskResponse } from "../types";
 
 type ResultPanelProps = {
   note: Note | null;
+  categories: Category[];
   isLoading: boolean;
   error: string | null;
   onDelete: (noteId: number) => Promise<void>;
@@ -19,6 +19,7 @@ type ResultPanelProps = {
 
 export function ResultPanel({
   note,
+  categories,
   isLoading,
   error,
   onDelete,
@@ -73,6 +74,7 @@ export function ResultPanel({
 
   return (
     <NoteDetail
+      categories={categories}
       deleteError={deleteError}
       error={error}
       isDeleting={isDeleting}

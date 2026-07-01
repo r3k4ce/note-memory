@@ -94,6 +94,7 @@ def _to_search_result(
         tags=note.tags,
         date_added=note.date_added,
         score=score,
+        category=note.category,
     )
 
 

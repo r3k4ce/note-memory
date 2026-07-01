@@ -17,6 +17,17 @@ def init_db(sqlite_path: Path) -> None:
     with closing(connect_db(sqlite_path)) as connection:
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                slug TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS notes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 original_text TEXT NOT NULL,
@@ -24,10 +35,20 @@ def init_db(sqlite_path: Path) -> None:
                 short_summary TEXT NOT NULL,
                 tags_json TEXT NOT NULL,
                 date_added TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                category_id INTEGER REFERENCES categories(id)
             )
             """
         )
+        _migrate_notes_category_id(connection)
         init_notes_fts(connection)
         backfill_notes_fts_if_empty(connection)
         connection.commit()
+
+
+def _migrate_notes_category_id(connection: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(notes)").fetchall()}
+    if "category_id" not in columns:
+        connection.execute(
+            "ALTER TABLE notes ADD COLUMN category_id INTEGER REFERENCES categories(id)"
+        )

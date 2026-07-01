@@ -1,4 +1,4 @@
-# mapping-memory
+# Note Memory
 
 ![CI](https://img.shields.io/github/actions/workflow/status/r3k4ce/note-memory/ci.yml?branch=main&style=flat-square&label=ci)
 ![Python](https://img.shields.io/badge/python-3.12%2B-blue?style=flat-square)
@@ -22,13 +22,11 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 ## What it is
 
 A local-first notes workspace with AI-assisted metadata, hybrid search, and grounded
-ask-mode. Add free-form notes; the backend asks an LLM to produce a title, summary,
-and tags, indexes the note for retrieval, and exposes search and ask endpoints that
-return sourced answers from your own note collection.
+ask-mode. Add free-form notes, optionally assign a manual category, and let the backend ask an LLM for title, summary, and tags. The app indexes notes for retrieval and exposes search and ask endpoints that return sourced answers from your own note collection.
 
 ## Local-first storage
 
-- **SQLite is the source of truth.** Every note is written to
+- **SQLite is the source of truth.** Every note and manual category is written to
   `data/mapping_memory.sqlite` first; if anything else (AI metadata, embeddings,
   Chroma indexing) fails, the saved note is still there.
 - **Chroma is rebuildable.** The vector index in `data/chroma/` is a derived cache.
@@ -125,28 +123,30 @@ With the backend running on `http://127.0.0.1:8000`:
 Invoke-RestMethod http://127.0.0.1:8000/health
 
 Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "application/json" `
-    -Body '{"original_text":"My first mapping note"}'
+    -Body '{"original_text":"My first note"}'
 
-Invoke-RestMethod "http://127.0.0.1:8000/search?q=mapping"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=note"
 
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" `
-    -Body '{"question":"What mapping notes have I saved?"}'
+    -Body '{"question":"What notes have I saved?"}'
 ```
 
 Expected health response: `{ "status": "ok" }`. See `backend/README.md` for the
-full list of curl examples covering PATCH and DELETE.
+full list of PowerShell examples covering categories, PATCH, and DELETE.
 
 ## MVP verification checklist
 
 Walk through these once after a clean install:
 
 - [ ] `Invoke-RestMethod http://127.0.0.1:8000/health` returns `{ "status": "ok" }`
-- [ ] `POST /notes` with sample text returns 201 and a note with `ai_title`, `short_summary`, `tags`
+- [ ] `POST /categories` creates a manual category and `GET /categories` lists it
+- [ ] `POST /notes` with sample text returns 201 and a note with `ai_title`, `short_summary`, `tags`, and `category`
 - [ ] `GET /notes` lists the saved note
 - [ ] `GET /notes/{id}` returns the same note
 - [ ] `GET /search?q=<term>` returns the note as a search hit
 - [ ] `POST /ask` with a question returns an answer with at least one `sources` entry
-- [ ] `PATCH /notes/{id}` updates title/summary/tags and round-trips on the next `GET`
+- [ ] `GET /notes?category_id=<id>` filters notes by category
+- [ ] `PATCH /notes/{id}` updates title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`
 - [ ] Frontend at `http://localhost:5173` loads and Add, Search, and Ask panels work end-to-end
 
@@ -213,3 +213,5 @@ docs/            Project memory and slice history
 
 - `backend/README.md` &mdash; full API curl reference, env var defaults, and test instructions.
 - `docs/project-memory.yaml` &mdash; chronological slice history and verification notes.
+
+

@@ -1,4 +1,13 @@
-import type { AskRequest, AskResponse, Note, NoteCreate, NoteMetadataUpdate, SearchResult } from "./types";
+import type {
+  AskRequest,
+  AskResponse,
+  Category,
+  CategoryCreate,
+  Note,
+  NoteCreate,
+  NoteMetadataUpdate,
+  SearchResult,
+} from "./types";
 
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -64,8 +73,22 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function listNotes(): Promise<Note[]> {
-  return requestJson<Note[]>("/notes");
+export function listCategories(): Promise<Category[]> {
+  return requestJson<Category[]>("/categories");
+}
+
+export function createCategory(name: string): Promise<Category> {
+  const body: CategoryCreate = { name };
+
+  return requestJson<Category>("/categories", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listNotes(categoryId?: number): Promise<Note[]> {
+  const path = categoryId === undefined ? "/notes" : `/notes?category_id=${categoryId}`;
+  return requestJson<Note[]>(path);
 }
 
 export function searchNotes(query: string): Promise<SearchResult[]> {
@@ -76,8 +99,8 @@ export function getNote(noteId: number): Promise<Note> {
   return requestJson<Note>(`/notes/${noteId}`);
 }
 
-export function createNote(originalText: string): Promise<Note> {
-  const body: NoteCreate = { original_text: originalText };
+export function createNote(originalText: string, categoryId: number | null): Promise<Note> {
+  const body: NoteCreate = { original_text: originalText, category_id: categoryId };
 
   return requestJson<Note>("/notes", {
     method: "POST",
