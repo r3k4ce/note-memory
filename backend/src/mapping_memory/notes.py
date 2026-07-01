@@ -160,15 +160,19 @@ def create_note(
     return note
 
 
-def update_note_metadata(
+def update_note(
     sqlite_path: Path,
     note_id: int,
     *,
+    original_text: str | None = None,
     ai_title: str | None = None,
     short_summary: str | None = None,
     tags: list[str] | None = None,
     category_id: int | None | _Unset = _UNSET,
 ) -> NoteRead | None:
+    if original_text is not None and not original_text.strip():
+        raise ValueError("original_text must not be empty")
+
     timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
 
     with closing(connect_db(sqlite_path)) as connection:
@@ -185,6 +189,9 @@ def update_note_metadata(
             return None
 
         current_note = _note_from_row(row)
+        note_original_text = (
+            original_text if original_text is not None else current_note.original_text
+        )
         note_title = ai_title if ai_title is not None else current_note.ai_title
         note_summary = short_summary if short_summary is not None else current_note.short_summary
         note_tags = tags if tags is not None else current_note.tags
@@ -195,10 +202,23 @@ def update_note_metadata(
         connection.execute(
             """
             UPDATE notes
-            SET ai_title = ?, short_summary = ?, tags_json = ?, updated_at = ?, category_id = ?
+            SET original_text = ?,
+                ai_title = ?,
+                short_summary = ?,
+                tags_json = ?,
+                updated_at = ?,
+                category_id = ?
             WHERE id = ?
             """,
-            (note_title, note_summary, json.dumps(note_tags), timestamp, note_category_id, note_id),
+            (
+                note_original_text,
+                note_title,
+                note_summary,
+                json.dumps(note_tags),
+                timestamp,
+                note_category_id,
+                note_id,
+            ),
         )
         index_note_fts(
             connection,
@@ -206,11 +226,30 @@ def update_note_metadata(
             ai_title=note_title,
             short_summary=note_summary,
             tags=note_tags,
-            original_text=current_note.original_text,
+            original_text=note_original_text,
         )
         connection.commit()
 
     return get_note(sqlite_path, note_id)
+
+
+def update_note_metadata(
+    sqlite_path: Path,
+    note_id: int,
+    *,
+    ai_title: str | None = None,
+    short_summary: str | None = None,
+    tags: list[str] | None = None,
+    category_id: int | None | _Unset = _UNSET,
+) -> NoteRead | None:
+    return update_note(
+        sqlite_path,
+        note_id,
+        ai_title=ai_title,
+        short_summary=short_summary,
+        tags=tags,
+        category_id=category_id,
+    )
 
 
 def get_note(sqlite_path: Path, note_id: int) -> NoteRead | None:

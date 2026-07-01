@@ -11,6 +11,7 @@ from mapping_memory.notes import (
     get_note,
     list_notes,
     search_notes_exact,
+    update_note,
     update_note_metadata,
 )
 
@@ -168,6 +169,34 @@ def test_update_note_metadata_preserves_original_text_and_updates_fields(
     assert updated_note.tags == ["new", "tags"]
     assert updated_note.date_added == created_note.date_added
     assert updated_note.updated_at == "2099-01-02T03:04:05+00:00"
+
+
+def test_update_note_can_update_only_original_text(sqlite_path: Path) -> None:
+    created_note = create_note(
+        sqlite_path,
+        "Original note text",
+        ai_title="Stable title",
+        short_summary="Stable summary.",
+        tags=["stable"],
+    )
+
+    updated_note = update_note(
+        sqlite_path,
+        created_note.id,
+        original_text="Updated note body\nwith preserved metadata",
+    )
+    fetched_note = get_note(sqlite_path, created_note.id)
+
+    assert updated_note is not None
+    assert updated_note.id == created_note.id
+    assert updated_note.original_text == "Updated note body\nwith preserved metadata"
+    assert updated_note.ai_title == "Stable title"
+    assert updated_note.short_summary == "Stable summary."
+    assert updated_note.tags == ["stable"]
+    assert updated_note.category is None
+    assert updated_note.date_added == created_note.date_added
+    assert updated_note.updated_at >= created_note.updated_at
+    assert fetched_note == updated_note
 
 
 def test_update_note_metadata_refreshes_exact_search(sqlite_path: Path) -> None:

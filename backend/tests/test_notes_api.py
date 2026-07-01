@@ -279,6 +279,41 @@ def test_patch_note_updates_metadata_and_get_returns_updated_note(
     assert fetched_response.json() == response.json()
 
 
+def test_patch_note_updates_original_text_and_get_returns_updated_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        created_response = client.post("/notes", json={"original_text": "Original body"})
+        response = client.patch(
+            f"/notes/{created_response.json()['id']}",
+            json={"original_text": "Updated body\nwith exact text"},
+        )
+        fetched_response = client.get(f"/notes/{created_response.json()['id']}")
+
+    assert response.status_code == 200
+    assert response.json()["original_text"] == "Updated body\nwith exact text"
+    assert response.json()["ai_title"] == created_response.json()["ai_title"]
+    assert response.json()["short_summary"] == created_response.json()["short_summary"]
+    assert response.json()["tags"] == created_response.json()["tags"]
+    assert response.json()["date_added"] == created_response.json()["date_added"]
+    assert response.json()["updated_at"] >= created_response.json()["updated_at"]
+    assert fetched_response.status_code == 200
+    assert fetched_response.json() == response.json()
+
+
 def test_patch_note_rejects_empty_or_invalid_metadata(
     tmp_path: Path,
     monkeypatch,
@@ -296,6 +331,7 @@ def test_patch_note_rejects_empty_or_invalid_metadata(
 
         responses = [
             client.patch(note_url, json={}),
+            client.patch(note_url, json={"original_text": " \n\t "}),
             client.patch(note_url, json={"ai_title": "  "}),
             client.patch(note_url, json={"short_summary": "\t"}),
             client.patch(note_url, json={"tags": ["valid", 1]}),
@@ -303,7 +339,7 @@ def test_patch_note_rejects_empty_or_invalid_metadata(
             client.patch(note_url, json={"tags": [str(index) for index in range(11)]}),
         ]
 
-    assert [response.status_code for response in responses] == [422, 422, 422, 422, 422, 422]
+    assert [response.status_code for response in responses] == [422, 422, 422, 422, 422, 422, 422]
 
 
 def test_patch_note_reindexes_chroma_chunks(

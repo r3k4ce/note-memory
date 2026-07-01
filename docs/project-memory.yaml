@@ -377,3 +377,13 @@ entries:
       - "Ran uv run python -m pytest from backend/: 117 passed, 6 Starlette deprecation warnings, coverage 89.63%."
       - "Ran backend Ruff format check, Ruff lint, and Pyright: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T22:23:03Z"
+    time_local: "2026-07-01T19:23:05-03:00"
+    summary: "Enabled backend note body updates."
+    changed:
+      - "Renamed the primary SQLite update function to update_note with an update_note_metadata compatibility wrapper, persisted original_text in PATCH /notes/{id}, and documented body patching in the backend API notes."
+      - "Added repository and API coverage for body-only patching, GET consistency, metadata-only patch preservation, and blank body rejection."
+    verification:
+      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 49 passed, 2 Starlette 422 deprecation warnings."
+      - "Ran uv run python -m ruff format --check ., uv run python -m ruff check ., uv run python -m pyright, and uv run python -m pytest from backend/: all passed; pytest reported 119 passed, 6 Starlette 422 deprecation warnings, and 89.53% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
