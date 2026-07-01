@@ -397,3 +397,11 @@ entries:
       - "Ran uv run python -m pytest tests/test_notes.py::test_update_note_refreshes_exact_search_for_updated_body tests/test_notes.py::test_update_note_metadata_refreshes_exact_search tests/test_notes_api.py::test_patch_note_refreshes_exact_search_for_updated_body --no-cov -q from backend/: 3 passed."
       - "Ran uv run ruff format --check tests/test_notes.py tests/test_notes_api.py and uv run ruff check tests/test_notes.py tests/test_notes_api.py from backend/: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 121 tests; frontend lint/build passed."
+  - time_utc: "2026-07-01T22:55:38Z"
+    time_local: "2026-07-01T19:55:38-03:00"
+    summary: "Added Chroma reindex regression coverage for body edits."
+    changed:
+      - "Added backend API tests proving PATCH /notes/{id} passes the updated body to the reindex path and rebuilds Chroma chunks from the edited body instead of stale content."
+      - "Confirmed the existing PATCH reindex flow already deletes old chunks and adds newly embedded chunks from the updated NoteRead."
+    verification:
+      - "Ran uv run python -m pytest from backend/: 122 passed, 6 Starlette 422 deprecation warnings, coverage 89.53%."

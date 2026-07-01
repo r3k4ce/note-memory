@@ -314,6 +314,41 @@ def test_patch_note_updates_original_text_and_get_returns_updated_body(
     assert fetched_response.json() == response.json()
 
 
+def test_patch_note_calls_reindex_with_updated_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    reindexed_notes: list[Any] = []
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+
+    def reindex_note_for_retrieval(note: Any, *, settings: Settings) -> None:
+        reindexed_notes.append(note)
+
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        reindex_note_for_retrieval,
+        raising=False,
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        created_response = client.post("/notes", json={"original_text": "Original body"})
+        response = client.patch(
+            f"/notes/{created_response.json()['id']}",
+            json={"original_text": "Updated body for retrieval chunks"},
+        )
+
+    assert response.status_code == 200
+    assert len(reindexed_notes) == 1
+    assert reindexed_notes[0].id == created_response.json()["id"]
+    assert reindexed_notes[0].original_text == "Updated body for retrieval chunks"
+
+
 def test_patch_note_refreshes_exact_search_for_updated_body(
     tmp_path: Path,
     monkeypatch,
@@ -439,6 +474,7 @@ def test_patch_note_reindexes_chroma_chunks(
         response = client.patch(
             f"/notes/{created_response.json()['id']}",
             json={
+                "original_text": "Updated body for fresh Chroma chunks",
                 "ai_title": "Reindexed title",
                 "short_summary": "Reindexed summary.",
                 "tags": ["reindexed"],
@@ -456,6 +492,8 @@ def test_patch_note_reindexes_chroma_chunks(
     assert chunks[0].title == "Reindexed title"
     assert chunks[0].tags == ("reindexed",)
     assert "Summary: Reindexed summary." in chunks[0].text
+    assert "Chunk: Updated body for fresh Chroma chunks" in chunks[0].text
+    assert "Original body" not in chunks[0].text
     assert embedding_calls == [{"texts": [chunks[0].text], "settings": store_instances[0].settings}]
     assert add_call["embeddings"] == [[0.4, 0.5, 0.6]]
 
