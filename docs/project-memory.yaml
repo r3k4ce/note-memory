@@ -224,3 +224,13 @@ entries:
       - "Documented the PATCH example and added repository/API tests for validation, GET response consistency, FTS refresh, Chroma reindex, and reindex failure behavior."
     verification:
       - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 28 passed."`r`n      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T05:05:17Z"
+    time_local: "2026-07-01T02:05:17-03:00"
+    summary: "Added frontend manual metadata editing for Slice 21."
+    changed:
+      - "Added PATCH /notes/{id} frontend API support and inline detail-panel edit mode for title, summary, and comma-separated tags while keeping original text read-only."
+      - "Successful saves update selected note state plus saved-note and active search-result card state from the backend response."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."

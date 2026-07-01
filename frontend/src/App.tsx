@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { createNote, getNote, listNotes, searchNotes } from "./api";
+import { createNote, getNote, listNotes, searchNotes, updateNoteMetadata } from "./api";
 import { AddNote } from "./components/AddNote";
 import { AskPanel } from "./components/AskPanel";
 import { NoteCard } from "./components/NoteCard";
 import { NoteDetail } from "./components/NoteDetail";
 import { SearchBar } from "./components/SearchBar";
-import type { Note, NoteCardData, SearchResult } from "./types";
+import type { Note, NoteCardData, NoteMetadataUpdate, SearchResult } from "./types";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -23,10 +23,12 @@ export default function App() {
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchRequestId = useRef(0);
 
@@ -104,6 +106,7 @@ export default function App() {
     async function loadSelectedNote() {
       setIsLoadingDetail(true);
       setDetailError(null);
+      setMetadataSaveError(null);
 
       try {
         const loadedNote = await getNote(noteId);
@@ -183,6 +186,37 @@ export default function App() {
     }
   }
 
+  async function handleUpdateNoteMetadata(noteId: number, body: NoteMetadataUpdate) {
+    setIsSavingMetadata(true);
+    setMetadataSaveError(null);
+
+    try {
+      const updatedNote = await updateNoteMetadata(noteId, body);
+      setSelectedNote(updatedNote);
+      setNotes((currentNotes) =>
+        currentNotes.map((note) => (note.id === updatedNote.id ? updatedNote : note)),
+      );
+      setSearchResults((currentResults) =>
+        currentResults.map((result) =>
+          result.id === updatedNote.id
+            ? {
+                ...result,
+                ai_title: updatedNote.ai_title,
+                short_summary: updatedNote.short_summary,
+                tags: updatedNote.tags,
+                date_added: updatedNote.date_added,
+              }
+            : result,
+        ),
+      );
+    } catch (error) {
+      setMetadataSaveError(getErrorMessage(error, "Could not update note metadata."));
+      throw error;
+    } finally {
+      setIsSavingMetadata(false);
+    }
+  }
+
   const isSearchActive = activeSearchQuery !== null;
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : notes;
 
@@ -257,7 +291,15 @@ export default function App() {
           </div>
         </aside>
 
-        <NoteDetail error={detailError} isLoading={isLoadingDetail} note={selectedNote} />
+        <NoteDetail
+          key={selectedNoteId ?? "none"}
+          error={detailError}
+          isLoading={isLoadingDetail}
+          isSavingMetadata={isSavingMetadata}
+          note={selectedNote}
+          onSaveMetadata={handleUpdateNoteMetadata}
+          saveError={metadataSaveError}
+        />
       </section>
     </main>
   );

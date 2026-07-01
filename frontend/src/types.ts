@@ -18,6 +18,12 @@ export type NoteCreate = {
   original_text: string;
 };
 
+export type NoteMetadataUpdate = {
+  ai_title: string;
+  short_summary: string;
+  tags: string[];
+};
+
 export type AskRequest = {
   question: string;
 };
