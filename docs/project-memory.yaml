@@ -205,3 +205,12 @@ entries:
       - "Ran uv run pytest tests/test_ask_api.py -q --no-cov from backend/: 7 passed."
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 74 passed and 88.39% coverage."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T04:27:39Z"
+    time_local: "2026-07-01T01:27:39-03:00"
+    summary: "Wired frontend Ask panel to backend POST /ask for Slice 19."
+    changed:
+      - "Added typed frontend ask request/response shapes, an askQuestion API helper, and a controlled Ask panel with loading, empty-question validation, error display, answer display, and static supporting source cards."
+      - "Kept ask results visually separate from search/list note cards and did not change backend contracts, search behavior, note selection, chat history, streaming, or markdown rendering."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."

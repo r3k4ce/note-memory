@@ -17,3 +17,18 @@ export type SearchResult = NoteCardData & {
 export type NoteCreate = {
   original_text: string;
 };
+
+export type AskRequest = {
+  question: string;
+};
+
+export type AskSource = {
+  note_id: number;
+  title: string;
+  date_added: string;
+};
+
+export type AskResponse = {
+  answer: string;
+  sources: AskSource[];
+};

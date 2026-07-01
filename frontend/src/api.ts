@@ -1,4 +1,4 @@
-import type { Note, NoteCreate, SearchResult } from "./types";
+import type { AskRequest, AskResponse, Note, NoteCreate, SearchResult } from "./types";
 
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
@@ -80,6 +80,15 @@ export function createNote(originalText: string): Promise<Note> {
   const body: NoteCreate = { original_text: originalText };
 
   return requestJson<Note>("/notes", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function askQuestion(question: string): Promise<AskResponse> {
+  const body: AskRequest = { question };
+
+  return requestJson<AskResponse>("/ask", {
     method: "POST",
     body: JSON.stringify(body),
   });
