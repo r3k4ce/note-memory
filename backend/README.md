@@ -11,7 +11,7 @@ The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OP
 ## Run
 
 ```powershell
-uv run uvicorn mapping_memory.main:app --reload
+uv run python -m uvicorn mapping_memory.main:app --reload
 ```
 
 Health check:
@@ -75,5 +75,5 @@ Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "applicati
 ## Test
 
 ```powershell
-uv run pytest
+uv run python -m pytest
 ```

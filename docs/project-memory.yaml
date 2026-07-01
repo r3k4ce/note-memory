@@ -262,3 +262,15 @@ entries:
       - "Kept backend/README.md as the authoritative API curl reference."
     verification:
       - "Ran .\\scripts\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T14:11:05Z"
+    time_local: "2026-07-01T11:11:05-03:00"
+    summary: "Made Windows uv script launches use Python module execution."
+    changed:
+      - "Updated scripts/run.ps1 to validate uv/npm availability and launch Uvicorn via uv run python -m uvicorn."
+      - "Updated scripts/check.ps1 and scripts/fix.ps1 to run Ruff, Pyright, and Pytest through uv run python -m to avoid uv console-script trampoline failures on Windows."
+      - "Updated current README backend run/test commands to use Python module execution."
+    verification:
+      - "Ran uv run python -m uvicorn --version from backend/: Uvicorn 0.49.0 reported successfully."
+      - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 89 tests; frontend lint/build passed."
+      - "Smoke-tested .\\scripts\\run.ps1 startup: backend /health and frontend / responded, then process-tree cleanup left ports 8000 and 5173 clean."

@@ -93,7 +93,7 @@ process trees on exit.
 
 ```powershell
 Push-Location backend
-uv run uvicorn mapping_memory.main:app --reload
+uv run python -m uvicorn mapping_memory.main:app --reload
 Pop-Location
 ```
 
@@ -176,7 +176,7 @@ slices that delivered the current scope.
 
 ```powershell
 Push-Location backend
-uv run pytest
+uv run python -m pytest
 Pop-Location
 ```
 

@@ -17,10 +17,10 @@ $Npm = if (Get-Command npm.cmd -ErrorAction SilentlyContinue) { "npm.cmd" } else
 
 Push-Location backend
 try {
-    Invoke-Checked uv run ruff format --check .
-    Invoke-Checked uv run ruff check .
-    Invoke-Checked uv run pyright
-    Invoke-Checked uv run pytest
+    Invoke-Checked uv run python -m ruff format --check .
+    Invoke-Checked uv run python -m ruff check .
+    Invoke-Checked uv run python -m pyright
+    Invoke-Checked uv run python -m pytest
 }
 finally {
     Pop-Location
