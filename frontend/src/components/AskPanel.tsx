@@ -2,6 +2,7 @@ import type { FormEvent, RefObject } from "react";
 import { useState } from "react";
 
 import { askQuestion } from "../api";
+import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { AskResponse } from "../types";
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -71,7 +72,9 @@ export function AskPanel({ askRef, onResult }: AskPanelProps) {
         >
           {isAsking ? "Reading notes..." : "Ask"}
         </button>
-        <span className="text-[11px] text-text-muted">⌘I to focus</span>
+        <span className="text-[11px] text-text-muted">
+          {APP_SHORTCUTS.ask.label} to focus
+        </span>
       </div>
     </form>
   );

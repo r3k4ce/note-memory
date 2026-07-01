@@ -2,6 +2,15 @@ import { useEffect, type RefObject } from "react";
 
 export type AppMode = "capture" | "search" | "ask";
 
+export const APP_SHORTCUTS: Record<
+  AppMode,
+  { aria: string; key: string; label: string }
+> = {
+  capture: { aria: "Alt+1", key: "1", label: "Alt+1" },
+  search: { aria: "Alt+2", key: "2", label: "Alt+2" },
+  ask: { aria: "Alt+3", key: "3", label: "Alt+3" },
+};
+
 type Refs = {
   captureRef: RefObject<HTMLTextAreaElement | null>;
   searchRef: RefObject<HTMLInputElement | null>;
@@ -14,27 +23,27 @@ export function useKeyboardShortcuts(
 ) {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      const isModifier = event.metaKey || event.ctrlKey;
-
-      if (!isModifier) {
-        if (event.key === "Escape") {
-          const active = document.activeElement;
-          if (active instanceof HTMLElement) {
-            active.blur();
-          }
+      if (event.key === "Escape") {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) {
+          active.blur();
         }
         return;
       }
 
-      if (event.key === "k") {
+      if (!event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      if (event.key === APP_SHORTCUTS.search.key) {
         event.preventDefault();
         setMode("search");
         requestAnimationFrame(() => refs.searchRef.current?.focus());
-      } else if (event.key === "n") {
+      } else if (event.key === APP_SHORTCUTS.capture.key) {
         event.preventDefault();
         setMode("capture");
         requestAnimationFrame(() => refs.captureRef.current?.focus());
-      } else if (event.key === "i") {
+      } else if (event.key === APP_SHORTCUTS.ask.key) {
         event.preventDefault();
         setMode("ask");
         requestAnimationFrame(() => refs.askRef.current?.focus());

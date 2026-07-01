@@ -1,5 +1,7 @@
 import type { RefObject } from "react";
 
+import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
+
 type AddNoteProps = {
   captureRef: RefObject<HTMLTextAreaElement | null>;
   draftText: string;
@@ -35,7 +37,7 @@ export function AddNote({ captureRef, draftText, error, isSaving, onDraftTextCha
           {isSaving ? "Organizing..." : "Organize & save"}
         </button>
         <span className="text-[11px] text-text-muted">
-          {draftText.trim() ? `${draftText.trim().length} chars` : "⌘N to focus"}
+          {draftText.trim() ? `${draftText.trim().length} chars` : `${APP_SHORTCUTS.capture.label} to focus`}
         </span>
       </div>
     </div>

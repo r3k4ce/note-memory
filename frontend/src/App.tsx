@@ -6,7 +6,7 @@ import { NoteCard } from "./components/NoteCard";
 import { ResultPanel } from "./components/ResultPanel";
 import { SearchBar } from "./components/SearchBar";
 import { SegmentedControl } from "./components/SegmentedControl";
-import { useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
+import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type { AskResponse, Note, NoteCardData, NoteMetadataUpdate, SearchResult } from "./types";
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -332,7 +332,7 @@ export default function App() {
               <div className="px-2 py-6 text-center">
                 <p className="text-xs text-text-muted">No notes yet</p>
                 <p className="mt-1 text-[11px] text-text-muted">
-                  Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">⌘N</kbd> to capture
+                  Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> to capture
                 </p>
               </div>
             ) : null}

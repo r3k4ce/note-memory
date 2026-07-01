@@ -309,3 +309,12 @@ entries:
       - "Saving a note now auto-switches to search mode to show it in the list."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
+  - time_utc: "2026-07-01T15:57:01Z"
+    time_local: "2026-07-01T12:56:59-03:00"
+    summary: "Switched frontend shortcuts to Windows Alt keys and documented them."
+    changed:
+      - "Replaced Cmd/Ctrl mode shortcuts with Alt+1 Capture, Alt+2 Search, Alt+3 Ask, kept Escape blur, and preserved normal Tab focus navigation."
+      - "Updated inline UI shortcut hints, mode button titles/aria-keyshortcuts, and root README keyboard shortcut table."
+    verification:
+      - "Ran npm run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
