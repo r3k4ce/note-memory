@@ -117,3 +117,15 @@ entries:
     verification:
       - "Ran uv run pytest from backend/: 40 passed, coverage 85.45%."
       - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-07-01T00:15:28Z"
+    time_local: "2026-06-30T21:15:31-03:00"
+    summary: "Added isolated Chroma vector store wrapper for Slice 12."
+    changed:
+      - "Added chromadb dependency, CHROMA_PATH settings support, and a backend-only Chroma PersistentClient wrapper for chunk add, query, and delete-by-note_id."
+      - "Used collection note_data_chunks, stable note:{note_id}:chunk:{chunk_index} IDs, and scalar metadata with JSON-encoded tags."
+      - "Kept Chroma isolated from note creation, API search, ask mode, frontend behavior, and canonical note storage."
+    verification:
+      - "Ran uv run pytest tests/test_vector_store.py from backend/: vector store tests passed, command failed only because single-file coverage was below global threshold."
+      - "Ran uv run pytest from backend/: 48 passed, coverage 86.77%."
+      - "Ran uv run ruff format ., uv run ruff check ., and uv run pyright from backend/."
