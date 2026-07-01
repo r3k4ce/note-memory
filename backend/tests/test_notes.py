@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from mapping_memory.db import init_db
-from mapping_memory.notes import create_note, get_note, list_notes
+from mapping_memory.notes import create_note, get_note, list_notes, search_notes_exact
 
 
 @pytest.fixture
@@ -59,6 +59,18 @@ def test_create_note_persists_provided_metadata(sqlite_path: Path) -> None:
         ).fetchone()
 
     assert tags_json == ('["routing", "retrieval"]',)
+
+
+def test_create_note_indexes_note_for_exact_search(sqlite_path: Path) -> None:
+    note = create_note(
+        sqlite_path,
+        "Created note mentions source FferjComBrLiveAR.",
+        tags=["source-name"],
+    )
+
+    results = search_notes_exact(sqlite_path, "FferjComBrLiveAR")
+
+    assert [result.id for result in results] == [note.id]
 
 
 def test_get_note_returns_created_note(sqlite_path: Path) -> None:

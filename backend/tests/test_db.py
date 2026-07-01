@@ -23,6 +23,29 @@ def test_init_db_creates_sqlite_file_and_notes_table(tmp_path) -> None:
     assert table_name == ("notes",)
 
 
+def test_init_db_creates_notes_fts_table(tmp_path) -> None:
+    sqlite_path = tmp_path / "mapping_memory.sqlite"
+
+    init_db(sqlite_path)
+
+    with sqlite3.connect(sqlite_path) as connection:
+        table_name = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'notes_fts'"
+        ).fetchone()
+        create_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notes_fts'"
+        ).fetchone()
+        docsize_table = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'notes_fts_docsize'"
+        ).fetchone()
+
+    assert table_name == ("notes_fts",)
+    assert create_sql is not None
+    assert "content='notes'" in create_sql[0]
+    assert "content_rowid='id'" in create_sql[0]
+    assert docsize_table == ("notes_fts_docsize",)
+
+
 def test_notes_table_has_required_schema(tmp_path) -> None:
     sqlite_path = tmp_path / "mapping_memory.sqlite"
 

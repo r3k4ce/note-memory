@@ -2,6 +2,8 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from mapping_memory.fts import backfill_notes_fts_if_empty, init_notes_fts
+
 
 def connect_db(sqlite_path: Path) -> sqlite3.Connection:
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,4 +28,6 @@ def init_db(sqlite_path: Path) -> None:
             )
             """
         )
+        init_notes_fts(connection)
+        backfill_notes_fts_if_empty(connection)
         connection.commit()

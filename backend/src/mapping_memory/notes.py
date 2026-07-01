@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlite3 import Row
 
 from mapping_memory.db import connect_db
+from mapping_memory.fts import build_exact_match_query, index_note_fts, row_matches_literal
 from mapping_memory.schemas import NoteRead
 
 UNTITLED_NOTE_TITLE = "Untitled mapping note"
@@ -24,6 +25,8 @@ def create_note(
     timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
     note_tags = tags if tags is not None else []
     tags_json = json.dumps(note_tags)
+    note_title = ai_title if ai_title is not None else _fallback_title(original_text)
+    note_summary = short_summary if short_summary is not None else original_text[:250]
 
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
@@ -40,18 +43,26 @@ def create_note(
             """,
             (
                 original_text,
-                ai_title if ai_title is not None else _fallback_title(original_text),
-                short_summary if short_summary is not None else original_text[:250],
+                note_title,
+                note_summary,
                 tags_json,
                 timestamp,
                 timestamp,
             ),
         )
-        connection.commit()
         note_id = cursor.lastrowid
+        if note_id is None:
+            raise RuntimeError("created note id was not returned")
 
-    if note_id is None:
-        raise RuntimeError("created note id was not returned")
+        index_note_fts(
+            connection,
+            note_id=note_id,
+            ai_title=note_title,
+            short_summary=note_summary,
+            tags=note_tags,
+            original_text=original_text,
+        )
+        connection.commit()
 
     note = get_note(sqlite_path, note_id)
     if note is None:
@@ -88,6 +99,35 @@ def list_notes(sqlite_path: Path) -> list[NoteRead]:
         ).fetchall()
 
     return [_note_from_row(row) for row in rows]
+
+
+def search_notes_exact(sqlite_path: Path, query: str, *, limit: int = 20) -> list[NoteRead]:
+    stripped_query = query.strip()
+    if not stripped_query or limit <= 0:
+        return []
+
+    with closing(connect_db(sqlite_path)) as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                notes.id,
+                notes.original_text,
+                notes.ai_title,
+                notes.short_summary,
+                notes.tags_json,
+                notes.date_added,
+                notes.updated_at
+            FROM notes_fts
+            JOIN notes ON notes.id = notes_fts.rowid
+            WHERE notes_fts MATCH ?
+            ORDER BY bm25(notes_fts), notes.date_added DESC, notes.id DESC
+            LIMIT ?
+            """,
+            (build_exact_match_query(stripped_query), limit * 5),
+        ).fetchall()
+
+    matching_rows = [row for row in rows if row_matches_literal(row, stripped_query)]
+    return [_note_from_row(row) for row in matching_rows[:limit]]
 
 
 def _fallback_title(original_text: str) -> str:
