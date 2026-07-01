@@ -46,12 +46,24 @@ class NoteCreate(BaseModel):
 
 
 class NoteUpdate(BaseModel):
+    original_text: str | None = None
     ai_title: str | None = None
     short_summary: str | None = None
     tags: list[str] | None = None
     category_id: int | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("original_text", mode="before")
+    @classmethod
+    def original_text_must_not_be_empty(cls, value: Any) -> str:
+        if not isinstance(value, str):
+            raise ValueError("original_text must be a string")
+
+        if not value.strip():
+            raise ValueError("original_text must not be empty")
+
+        return value
 
     @field_validator("ai_title", "short_summary", mode="before")
     @classmethod
@@ -102,7 +114,7 @@ class NoteUpdate(BaseModel):
     @model_validator(mode="after")
     def at_least_one_field(self) -> "NoteUpdate":
         if not self.model_fields_set:
-            raise ValueError("at least one metadata field must be provided")
+            raise ValueError("at least one update field must be provided")
 
         return self
 

@@ -366,3 +366,14 @@ entries:
       - "Ran npm.cmd run lint from frontend/: passed."
       - "Ran npm.cmd run build from frontend/: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T21:54:48Z"
+    time_local: "2026-07-01T18:54:49-03:00"
+    summary: "Allowed note body text in backend update schema."
+    changed:
+      - "Added optional original_text validation to NoteUpdate, preserving submitted text exactly while rejecting blank and non-string values."
+      - "Added focused schema tests and removed the obsolete API test that expected original_text to be forbidden."
+    verification:
+      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes_api.py -q --no-cov from backend/: 29 passed, 2 Starlette deprecation warnings."
+      - "Ran uv run python -m pytest from backend/: 117 passed, 6 Starlette deprecation warnings, coverage 89.63%."
+      - "Ran backend Ruff format check, Ruff lint, and Pyright: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."

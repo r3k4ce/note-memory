@@ -279,29 +279,6 @@ def test_patch_note_updates_metadata_and_get_returns_updated_note(
     assert fetched_response.json() == response.json()
 
 
-def test_patch_note_rejects_original_text_update(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
-        lambda *args, **kwargs: None,
-        raising=False,
-    )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
-
-    with TestClient(app) as client:
-        created_response = client.post("/notes", json={"original_text": "Original body"})
-        response = client.patch(
-            f"/notes/{created_response.json()['id']}",
-            json={"original_text": "Changed body"},
-        )
-        fetched_response = client.get(f"/notes/{created_response.json()['id']}")
-
-    assert response.status_code == 422
-    assert fetched_response.json()["original_text"] == "Original body"
-
-
 def test_patch_note_rejects_empty_or_invalid_metadata(
     tmp_path: Path,
     monkeypatch,
