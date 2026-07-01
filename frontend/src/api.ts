@@ -6,7 +6,7 @@ import type {
   CategoryCreate,
   Note,
   NoteCreate,
-  NoteMetadataUpdate,
+  NoteUpdate,
   SearchResult,
 } from "./types";
 
@@ -122,7 +122,7 @@ export function createNote(originalText: string, categoryId: number | null): Pro
   });
 }
 
-export function updateNoteMetadata(noteId: number, body: NoteMetadataUpdate): Promise<Note> {
+export function updateNote(noteId: number, body: NoteUpdate): Promise<Note> {
   return requestJson<Note>(`/notes/${noteId}`, {
     method: "PATCH",
     body: JSON.stringify(body),

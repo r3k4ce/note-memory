@@ -405,3 +405,11 @@ entries:
       - "Confirmed the existing PATCH reindex flow already deletes old chunks and adds newly embedded chunks from the updated NoteRead."
     verification:
       - "Ran uv run python -m pytest from backend/: 122 passed, 6 Starlette 422 deprecation warnings, coverage 89.53%."
+  - time_utc: "2026-07-01T23:04:40Z"
+    time_local: "2026-07-01T20:04:40-03:00"
+    summary: "Added frontend full note update API types."
+    changed:
+      - "Replaced the frontend metadata update payload with NoteUpdate including optional original_text, renamed the API helper to updateNote, and updated existing metadata edit callers to use the widened type without UI changes."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."

@@ -9,7 +9,7 @@ import {
   listNotes,
   searchNotes,
   askQuestion,
-  updateNoteMetadata,
+  updateNote,
 } from "./api";
 import { CommandCenter } from "./components/CommandCenter";
 import { NoteCard } from "./components/NoteCard";
@@ -23,7 +23,7 @@ import type {
   ChatMessage,
   Note,
   NoteCardData,
-  NoteMetadataUpdate,
+  NoteUpdate,
   SearchResult,
 } from "./types";
 
@@ -408,12 +408,12 @@ export default function App() {
     }
   }
 
-  async function handleUpdateNoteMetadata(noteId: number, body: NoteMetadataUpdate) {
+  async function handleUpdateNoteMetadata(noteId: number, body: NoteUpdate) {
     setIsSavingMetadata(true);
     setMetadataSaveError(null);
 
     try {
-      const updatedNote = await updateNoteMetadata(noteId, body);
+      const updatedNote = await updateNote(noteId, body);
       setSelectedNote(updatedNote);
       setNotes((currentNotes) =>
         currentNotes.map((note) => (note.id === updatedNote.id ? updatedNote : note)),

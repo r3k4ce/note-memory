@@ -35,10 +35,11 @@ export type NoteCreate = {
   category_id?: number | null;
 };
 
-export type NoteMetadataUpdate = {
-  ai_title: string;
-  short_summary: string;
-  tags: string[];
+export type NoteUpdate = {
+  original_text?: string;
+  ai_title?: string;
+  short_summary?: string;
+  tags?: string[];
   category_id?: number | null;
 };
 

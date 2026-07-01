@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 
-import type { Category, Note, NoteMetadataUpdate } from "../types";
+import type { Category, Note, NoteUpdate } from "../types";
 import { MarkdownPreview } from "./MarkdownPreview";
 
 type NoteDetailProps = {
@@ -13,7 +13,7 @@ type NoteDetailProps = {
   isSavingMetadata: boolean;
   note: Note | null;
   onDelete: (noteId: number) => Promise<void>;
-  onSaveMetadata: (noteId: number, metadata: NoteMetadataUpdate) => Promise<void>;
+  onSaveMetadata: (noteId: number, metadata: NoteUpdate) => Promise<void>;
   saveError: string | null;
 };
 

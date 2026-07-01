@@ -1,4 +1,4 @@
-import type { Category, Note, NoteMetadataUpdate } from "../types";
+import type { Category, Note, NoteUpdate } from "../types";
 import { NoteDetail } from "./NoteDetail";
 
 type ResultPanelProps = {
@@ -9,7 +9,7 @@ type ResultPanelProps = {
   onDelete: (noteId: number) => Promise<void>;
   isDeleting: boolean;
   deleteError: string | null;
-  onSaveMetadata: (noteId: number, metadata: NoteMetadataUpdate) => Promise<void>;
+  onSaveMetadata: (noteId: number, metadata: NoteUpdate) => Promise<void>;
   isSavingMetadata: boolean;
   saveError: string | null;
 };
