@@ -10,8 +10,8 @@ from mapping_memory.ask import create_ask_router
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.notes import create_note, get_note, list_notes
-from mapping_memory.schemas import NoteCreate, NoteRead
+from mapping_memory.notes import create_note, get_note, list_notes, update_note_metadata
+from mapping_memory.schemas import NoteCreate, NoteRead, NoteUpdate
 from mapping_memory.search import create_search_router
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
@@ -33,7 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=LOCAL_FRONTEND_ORIGINS,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["content-type"],
     )
     app.include_router(create_search_router(app_settings))
@@ -70,6 +70,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def list_notes_endpoint() -> list[NoteRead]:
         return list_notes(app_settings.sqlite_path)
 
+    @app.patch("/notes/{note_id}", response_model=NoteRead)
+    def update_note_endpoint(note_id: int, note_update: NoteUpdate) -> NoteRead:
+        updates = note_update.model_dump(exclude_unset=True)
+        updated_note = update_note_metadata(
+            app_settings.sqlite_path,
+            note_id,
+            ai_title=updates.get("ai_title"),
+            short_summary=updates.get("short_summary"),
+            tags=updates.get("tags"),
+        )
+        if updated_note is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+
+        try:
+            _reindex_note_for_retrieval(updated_note, settings=app_settings)
+        except Exception:
+            logger.warning(
+                "Retrieval reindexing unavailable; saved note metadata without vector index"
+            )
+
+        return updated_note
+
     @app.get("/notes/{note_id}", response_model=NoteRead)
     def get_note_endpoint(note_id: int) -> NoteRead:
         note = get_note(app_settings.sqlite_path, note_id)
@@ -79,6 +101,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return note
 
     return app
+
+
+def _reindex_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:
+    vector_store = ChromaVectorStore(settings=settings)
+    vector_store.delete_chunks_for_note(note.id)
+    chunks = create_retrieval_chunks(
+        note_id=note.id,
+        original_text=note.original_text,
+        ai_title=note.ai_title,
+        short_summary=note.short_summary,
+        tags=note.tags,
+        date_added=note.date_added,
+    )
+    embeddings = embed_texts([chunk.text for chunk in chunks], settings=settings)
+    vector_store.add_chunks(chunks, embeddings=embeddings)
 
 
 def _index_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:

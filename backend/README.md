@@ -44,6 +44,14 @@ Get one note:
 Invoke-RestMethod http://127.0.0.1:8000/notes/1
 ```
 
+Update note metadata:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Patch -ContentType "application/json" -Body '{"ai_title":"Corrected title","short_summary":"Corrected summary.","tags":["routing","labels"]}'
+```
+
+Metadata updates refresh SQLite FTS and attempt Chroma reindexing. Chroma reindex failures are logged and do not roll back the saved metadata.
+
 Search notes:
 
 ```powershell

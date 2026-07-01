@@ -1,10 +1,17 @@
 import sqlite3
+from datetime import datetime, tzinfo
 from pathlib import Path
 
 import pytest
 
 from mapping_memory.db import init_db
-from mapping_memory.notes import create_note, get_note, list_notes, search_notes_exact
+from mapping_memory.notes import (
+    create_note,
+    get_note,
+    list_notes,
+    search_notes_exact,
+    update_note_metadata,
+)
 
 
 @pytest.fixture
@@ -92,6 +99,67 @@ def test_list_notes_returns_newest_first(sqlite_path: Path) -> None:
     notes = list_notes(sqlite_path)
 
     assert [note.id for note in notes] == [newer_note.id, older_note.id]
+
+
+def test_update_note_metadata_preserves_original_text_and_updates_fields(
+    sqlite_path: Path,
+    monkeypatch,
+) -> None:
+    created_note = create_note(
+        sqlite_path,
+        "Original note text",
+        ai_title="Old title",
+        short_summary="Old summary.",
+        tags=["old"],
+    )
+
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz: tzinfo | None) -> datetime:
+            return datetime(2099, 1, 2, 3, 4, 5, tzinfo=tz)
+
+    monkeypatch.setattr("mapping_memory.notes.datetime", FakeDateTime)
+
+    updated_note = update_note_metadata(
+        sqlite_path,
+        created_note.id,
+        ai_title="New title",
+        short_summary="New summary.",
+        tags=["new", "tags"],
+    )
+
+    assert updated_note is not None
+    assert updated_note.id == created_note.id
+    assert updated_note.original_text == "Original note text"
+    assert updated_note.ai_title == "New title"
+    assert updated_note.short_summary == "New summary."
+    assert updated_note.tags == ["new", "tags"]
+    assert updated_note.date_added == created_note.date_added
+    assert updated_note.updated_at == "2099-01-02T03:04:05+00:00"
+
+
+def test_update_note_metadata_refreshes_exact_search(sqlite_path: Path) -> None:
+    note = create_note(
+        sqlite_path,
+        "Stable original body.",
+        ai_title="Old metadata oldonly",
+        short_summary="Old summary.",
+        tags=["oldtag"],
+    )
+
+    updated_note = update_note_metadata(
+        sqlite_path,
+        note.id,
+        ai_title="New metadata newonly",
+        short_summary="New summary.",
+        tags=["newtag"],
+    )
+
+    assert updated_note is not None
+    assert [result.id for result in search_notes_exact(sqlite_path, "newonly")] == [note.id]
+    assert [result.id for result in search_notes_exact(sqlite_path, "newtag")] == [note.id]
+    assert search_notes_exact(sqlite_path, "oldonly") == []
+    assert search_notes_exact(sqlite_path, "oldtag") == []
 
 
 def test_create_note_preserves_original_text_exactly(sqlite_path: Path) -> None:

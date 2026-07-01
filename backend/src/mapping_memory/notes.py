@@ -71,6 +71,54 @@ def create_note(
     return note
 
 
+def update_note_metadata(
+    sqlite_path: Path,
+    note_id: int,
+    *,
+    ai_title: str | None = None,
+    short_summary: str | None = None,
+    tags: list[str] | None = None,
+) -> NoteRead | None:
+    timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            """
+            SELECT id, original_text, ai_title, short_summary, tags_json, date_added, updated_at
+            FROM notes
+            WHERE id = ?
+            """,
+            (note_id,),
+        ).fetchone()
+        if row is None:
+            return None
+
+        current_note = _note_from_row(row)
+        note_title = ai_title if ai_title is not None else current_note.ai_title
+        note_summary = short_summary if short_summary is not None else current_note.short_summary
+        note_tags = tags if tags is not None else current_note.tags
+
+        connection.execute(
+            """
+            UPDATE notes
+            SET ai_title = ?, short_summary = ?, tags_json = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (note_title, note_summary, json.dumps(note_tags), timestamp, note_id),
+        )
+        index_note_fts(
+            connection,
+            note_id=note_id,
+            ai_title=note_title,
+            short_summary=note_summary,
+            tags=note_tags,
+            original_text=current_note.original_text,
+        )
+        connection.commit()
+
+    return get_note(sqlite_path, note_id)
+
+
 def get_note(sqlite_path: Path, note_id: int) -> NoteRead | None:
     with closing(connect_db(sqlite_path)) as connection:
         row = connection.execute(

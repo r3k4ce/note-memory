@@ -214,3 +214,13 @@ entries:
     verification:
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T04:44:51Z"
+    time_local: "2026-07-01T01:44:47-03:00"
+    summary: "Added manual backend note metadata updates for Slice 20."
+    changed:
+      - "Added PATCH /notes/{id} for strict ai_title, short_summary, and tags updates while preserving original_text."
+      - "Metadata updates now refresh SQLite FTS transactionally and best-effort delete/rebuild Chroma chunks with safe warning logs on reindex failure."
+      - "Documented the PATCH example and added repository/API tests for validation, GET response consistency, FTS refresh, Chroma reindex, and reindex failure behavior."
+    verification:
+      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 28 passed."`r`n      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
