@@ -251,3 +251,14 @@ entries:
     verification:
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T05:45:00Z"
+    time_local: "2026-07-01T02:45:00-03:00"
+    summary: "Documented local MVP runbook for Slice 24."
+    changed:
+      - "Rewrote root README.md with product summary, local-first storage explanation, setup, run, verify, env var table, MVP verification checklist, data location, reset procedure, MVP non-goals, and project structure."
+      - "Added shields.io flat-square badges for CI, Python 3.12+, Node 24+, license, and last commit plus a tech stack row."
+      - "Added MIT LICENSE (Copyright 2026 Adrian Nunez)."
+      - "Added backend/.env to .gitignore as a safety net for the local secret file."
+      - "Kept backend/README.md as the authoritative API curl reference."
+    verification:
+      - "Ran .\\scripts\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."

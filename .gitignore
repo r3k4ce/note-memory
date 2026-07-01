@@ -8,6 +8,7 @@ __pycache__/
 .venv/
 .env
 .env.*
+backend/.env
 !.env.example
 !backend/.env.example
 
