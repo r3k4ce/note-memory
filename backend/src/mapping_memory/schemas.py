@@ -21,3 +21,12 @@ class NoteRead(BaseModel):
     tags: list[str]
     date_added: str
     updated_at: str
+
+
+class SearchResult(BaseModel):
+    id: int
+    ai_title: str
+    short_summary: str
+    tags: list[str]
+    date_added: str
+    score: float

@@ -11,6 +11,7 @@ from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
 from mapping_memory.notes import create_note, get_note, list_notes
 from mapping_memory.schemas import NoteCreate, NoteRead
+from mapping_memory.search import create_search_router
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
 
@@ -34,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["content-type"],
     )
+    app.include_router(create_search_router(app_settings))
 
     @app.get("/health")
     def health() -> dict[str, str]:

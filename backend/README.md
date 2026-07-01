@@ -44,6 +44,12 @@ Get one note:
 Invoke-RestMethod http://127.0.0.1:8000/notes/1
 ```
 
+Search notes:
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954"
+```
+
 ## Test
 
 ```powershell

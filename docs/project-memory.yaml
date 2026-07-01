@@ -151,3 +151,16 @@ entries:
       - "Ran uv run pytest tests/test_db.py tests/test_notes.py tests/test_exact_search.py from backend/: 20 passed; command failed only because partial-suite coverage was below the global threshold."
       - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 57 passed and 87.43% coverage."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
+
+  - time_utc: "2026-07-01T03:09:39Z"
+    time_local: "2026-07-01T00:09:37-03:00"
+    summary: "Added backend hybrid search endpoint for Slice 15."
+    changed:
+      - "Added GET /search?q=... returning card-level results from SQLite FTS exact search plus optional Chroma semantic search."
+      - "Merged exact and semantic results by note id with overlap ranking boost and exact fallback when embeddings or Chroma are unavailable."
+      - "Added mocked API coverage for exact-only, semantic-only, merged ranking, empty query rejection, and semantic fallback."
+    verification:
+      - "Ran uv run pytest tests/test_search_api.py -q: assertions passed, command failed only because partial-suite coverage was below global threshold."
+      - "Ran uv run pytest tests/test_search_api.py -q --no-cov: 5 passed."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 62 passed and 87.66% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root after npm.cmd install restored frontend dependencies: backend checks/tests passed; frontend lint/build passed."
