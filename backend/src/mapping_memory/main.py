@@ -10,8 +10,14 @@ from mapping_memory.ask import create_ask_router
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.notes import create_note, get_note, list_notes, update_note_metadata
-from mapping_memory.schemas import NoteCreate, NoteRead, NoteUpdate
+from mapping_memory.notes import (
+    create_note,
+    delete_note,
+    get_note,
+    list_notes,
+    update_note_metadata,
+)
+from mapping_memory.schemas import NoteCreate, NoteDeleteResponse, NoteRead, NoteUpdate
 from mapping_memory.search import create_search_router
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
@@ -33,7 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=LOCAL_FRONTEND_ORIGINS,
-        allow_methods=["GET", "POST", "PATCH"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["content-type"],
     )
     app.include_router(create_search_router(app_settings))
@@ -92,6 +98,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         return updated_note
 
+    @app.delete("/notes/{note_id}", response_model=NoteDeleteResponse)
+    def delete_note_endpoint(note_id: int) -> NoteDeleteResponse:
+        if not delete_note(app_settings.sqlite_path, note_id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
+
+        vector_cleanup = "deleted"
+        try:
+            _delete_note_from_retrieval(note_id, settings=app_settings)
+        except Exception:
+            logger.warning("Retrieval cleanup unavailable; deleted note without vector cleanup")
+            vector_cleanup = "failed"
+
+        return NoteDeleteResponse(id=note_id, deleted=True, vector_cleanup=vector_cleanup)
+
     @app.get("/notes/{note_id}", response_model=NoteRead)
     def get_note_endpoint(note_id: int) -> NoteRead:
         note = get_note(app_settings.sqlite_path, note_id)
@@ -101,6 +121,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return note
 
     return app
+
+
+def _delete_note_from_retrieval(note_id: int, *, settings: Settings) -> None:
+    ChromaVectorStore(settings=settings).delete_chunks_for_note(note_id)
 
 
 def _reindex_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:

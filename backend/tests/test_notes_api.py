@@ -426,6 +426,102 @@ def test_patch_note_keeps_sqlite_update_when_reindex_fails(
     assert "provider failure" not in caplog.text
 
 
+def test_delete_note_removes_note_and_chroma_chunks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    delete_calls: list[int] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def delete_chunks_for_note(self, note_id: int) -> None:
+            delete_calls.append(note_id)
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        first_response = client.post("/notes", json={"original_text": "Delete API note"})
+        second_response = client.post("/notes", json={"original_text": "Keep API note"})
+        note_id = first_response.json()["id"]
+        response = client.delete(f"/notes/{note_id}")
+        fetched_response = client.get(f"/notes/{note_id}")
+        list_response = client.get("/notes")
+
+    assert response.status_code == 200
+    assert response.json() == {"id": note_id, "deleted": True, "vector_cleanup": "deleted"}
+    assert fetched_response.status_code == 404
+    assert [note["id"] for note in list_response.json()] == [second_response.json()["id"]]
+    assert delete_calls == [note_id]
+
+
+def test_delete_note_returns_404_for_missing_id(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    delete_calls: list[int] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def delete_chunks_for_note(self, note_id: int) -> None:
+            delete_calls.append(note_id)
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        response = client.delete("/notes/999999")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Note not found"}
+    assert delete_calls == []
+
+
+def test_delete_note_keeps_sqlite_delete_when_chroma_cleanup_fails(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    original_text = "Delete body that must not be logged"
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def delete_chunks_for_note(self, note_id: int) -> None:
+            raise RuntimeError("provider failure with sensitive details")
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        created_response = client.post("/notes", json={"original_text": original_text})
+        note_id = created_response.json()["id"]
+        response = client.delete(f"/notes/{note_id}")
+        fetched_response = client.get(f"/notes/{note_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"id": note_id, "deleted": True, "vector_cleanup": "failed"}
+    assert fetched_response.status_code == 404
+    assert "Retrieval cleanup unavailable; deleted note without vector cleanup" in caplog.text
+    assert original_text not in caplog.text
+    assert "provider failure" not in caplog.text
+
+
 def test_get_notes_lists_saved_notes(tmp_path: Path) -> None:
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
@@ -478,6 +574,22 @@ def test_local_vite_origin_can_preflight_patch(tmp_path: Path) -> None:
             headers={
                 "Origin": "http://localhost:5173",
                 "Access-Control-Request-Method": "PATCH",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_local_vite_origin_can_preflight_delete(tmp_path: Path) -> None:
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/notes/1",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "DELETE",
             },
         )
 

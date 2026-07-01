@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -76,6 +76,12 @@ class NoteRead(BaseModel):
     tags: list[str]
     date_added: str
     updated_at: str
+
+
+class NoteDeleteResponse(BaseModel):
+    id: int
+    deleted: bool
+    vector_cleanup: Literal["deleted", "failed"]
 
 
 class SearchResult(BaseModel):

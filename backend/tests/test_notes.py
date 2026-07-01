@@ -7,6 +7,7 @@ import pytest
 from mapping_memory.db import init_db
 from mapping_memory.notes import (
     create_note,
+    delete_note,
     get_note,
     list_notes,
     search_notes_exact,
@@ -99,6 +100,37 @@ def test_list_notes_returns_newest_first(sqlite_path: Path) -> None:
     notes = list_notes(sqlite_path)
 
     assert [note.id for note in notes] == [newer_note.id, older_note.id]
+
+
+def test_delete_note_removes_existing_note_from_sqlite_and_fts(sqlite_path: Path) -> None:
+    note = create_note(sqlite_path, "Searchable delete note CD-30954.")
+
+    deleted = delete_note(sqlite_path, note.id)
+
+    assert deleted is True
+    assert get_note(sqlite_path, note.id) is None
+    assert note.id not in [listed_note.id for listed_note in list_notes(sqlite_path)]
+    assert search_notes_exact(sqlite_path, "CD-30954") == []
+
+
+def test_delete_note_rebuilds_fts_for_existing_note(
+    sqlite_path: Path,
+    monkeypatch,
+) -> None:
+    note = create_note(sqlite_path, "FTS rebuild delete note")
+    calls: list[object] = []
+
+    def rebuild_notes_fts(connection: object) -> None:
+        calls.append(connection)
+
+    monkeypatch.setattr("mapping_memory.notes.rebuild_notes_fts", rebuild_notes_fts)
+
+    assert delete_note(sqlite_path, note.id) is True
+    assert len(calls) == 1
+
+
+def test_delete_note_returns_false_for_missing_note(sqlite_path: Path) -> None:
+    assert delete_note(sqlite_path, 999999) is False
 
 
 def test_update_note_metadata_preserves_original_text_and_updates_fields(

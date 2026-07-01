@@ -234,3 +234,12 @@ entries:
     verification:
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T05:20:38Z"
+    time_local: "2026-07-01T02:20:38-03:00"
+    summary: "Added backend note deletion for Slice 22."
+    changed:
+      - "Added DELETE /notes/{id} with SQLite deletion, FTS rebuild, best-effort Chroma chunk cleanup, and DELETE CORS support."
+      - "Documented the backend delete example and response cleanup behavior."
+    verification:
+      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 35 passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."

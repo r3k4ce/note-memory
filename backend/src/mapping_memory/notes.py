@@ -5,7 +5,12 @@ from pathlib import Path
 from sqlite3 import Row
 
 from mapping_memory.db import connect_db
-from mapping_memory.fts import build_exact_match_query, index_note_fts, row_matches_literal
+from mapping_memory.fts import (
+    build_exact_match_query,
+    index_note_fts,
+    rebuild_notes_fts,
+    row_matches_literal,
+)
 from mapping_memory.schemas import NoteRead
 
 UNTITLED_NOTE_TITLE = "Untitled mapping note"
@@ -147,6 +152,18 @@ def list_notes(sqlite_path: Path) -> list[NoteRead]:
         ).fetchall()
 
     return [_note_from_row(row) for row in rows]
+
+
+def delete_note(sqlite_path: Path, note_id: int) -> bool:
+    with closing(connect_db(sqlite_path)) as connection:
+        cursor = connection.execute("DELETE FROM notes WHERE id = ?", (note_id,))
+        if cursor.rowcount == 0:
+            return False
+
+        rebuild_notes_fts(connection)
+        connection.commit()
+
+    return True
 
 
 def search_notes_exact(sqlite_path: Path, query: str, *, limit: int = 20) -> list[NoteRead]:

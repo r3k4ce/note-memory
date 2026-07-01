@@ -52,6 +52,14 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Patch -ContentType "appl
 
 Metadata updates refresh SQLite FTS and attempt Chroma reindexing. Chroma reindex failures are logged and do not roll back the saved metadata.
 
+Delete one note:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Delete
+```
+
+Delete removes the SQLite note, refreshes SQLite FTS, and attempts Chroma chunk cleanup. Chroma cleanup failures are logged and returned in `vector_cleanup` without restoring the deleted note.
+
 Search notes:
 
 ```powershell
