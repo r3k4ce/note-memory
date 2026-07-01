@@ -23,9 +23,14 @@
     "lucide-react": "^1.23.0",
     "react": "latest",
     "react-dom": "latest",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.3.2",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20"
   }
 }

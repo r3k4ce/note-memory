@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { Category } from "../types";
+import { MarkdownEditor } from "./MarkdownEditor";
 
 type AddNoteProps = {
   captureRef: RefObject<HTMLTextAreaElement | null>;
@@ -31,15 +32,6 @@ export function AddNote({
       <h2 className="sr-only" id="add-note-title">
         Capture a note
       </h2>
-      <textarea
-        className="min-h-48 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-        disabled={isSaving}
-        onChange={(event) => onDraftTextChange(event.target.value)}
-        placeholder="Paste an email, instruction, ticket note, or any messy work text - the AI will organize it."
-        ref={captureRef}
-        rows={6}
-        value={draftText}
-      />
       <div className="flex flex-col gap-1.5 sm:max-w-xs">
         <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="capture-category">
           Category
@@ -59,6 +51,16 @@ export function AddNote({
           ))}
         </select>
       </div>
+      <MarkdownEditor
+        disabled={isSaving}
+        onChange={onDraftTextChange}
+        placeholder="Paste a note in Markdown - the AI will organize it."
+        rows={10}
+        textareaId="capture-markdown"
+        textareaLabel="Capture note Markdown"
+        textareaRef={captureRef}
+        value={draftText}
+      />
       {error ? <p className="text-xs text-error">{error}</p> : null}
       <div className="flex items-center gap-2">
         <button
@@ -70,7 +72,7 @@ export function AddNote({
           {isSaving ? "Organizing..." : "Organize & save"}
         </button>
         <span className="text-[11px] text-text-muted">
-          {draftText.trim() ? `${draftText.trim().length} chars` : `${APP_SHORTCUTS.capture.label} to focus`}
+          {draftText.trim() ? `${draftText.length} chars` : `${APP_SHORTCUTS.capture.label} to focus`}
         </span>
       </div>
     </div>

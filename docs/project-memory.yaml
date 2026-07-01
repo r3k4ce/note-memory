@@ -223,7 +223,8 @@ entries:
       - "Metadata updates now refresh SQLite FTS transactionally and best-effort delete/rebuild Chroma chunks with safe warning logs on reindex failure."
       - "Documented the PATCH example and added repository/API tests for validation, GET response consistency, FTS refresh, Chroma reindex, and reindex failure behavior."
     verification:
-      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 28 passed."`r`n      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 28 passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
   - time_utc: "2026-07-01T05:05:17Z"
     time_local: "2026-07-01T02:05:17-03:00"
@@ -344,3 +345,15 @@ entries:
       - "Ran uv run python -m pytest from backend/: 112 passed, coverage 89.52%, with Starlette 422 deprecation warnings."
       - "Ran npm.cmd run lint and npm.cmd run build from frontend/: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+  - time_utc: "2026-07-01T19:13:08Z"
+    time_local: "2026-07-01T16:13:08-03:00"
+    summary: "Added Markdown capture preview and rendered note detail."
+    changed:
+      - "Added react-markdown, remark-gfm, and Tailwind Typography for safe Markdown rendering with GFM tables/task lists/code blocks."
+      - "Replaced Capture textarea with a Markdown write/preview editor while preserving exact original_text saves and existing category/save flow."
+      - "Rendered note original_text as Markdown by default in detail view with a Raw tab exposing exact source text."
+    verification:
+      - "Ran npm run lint from frontend/: passed."
+      - "Ran npm run build from frontend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+

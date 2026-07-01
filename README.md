@@ -22,7 +22,7 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 ## What it is
 
 A local-first notes workspace with AI-assisted metadata, hybrid search, and grounded
-ask-mode. Add free-form notes, optionally assign a manual category, and let the backend ask an LLM for title, summary, and tags. The app indexes notes for retrieval and exposes search and ask endpoints that return sourced answers from your own note collection.
+ask-mode. Add Markdown notes with live preview, optionally assign a manual category, and let the backend ask an LLM for title, summary, and tags. The app indexes notes for retrieval and exposes search and ask endpoints that return sourced answers from your own note collection.
 
 ## Local-first storage
 
@@ -110,7 +110,7 @@ controls normally; shortcuts use `Alt`, not `Ctrl`.
 
 | Shortcut | Action | Focus target |
 | --- | --- | --- |
-| `Alt+1` | Open Capture | Note capture textarea |
+| `Alt+1` | Open Capture | Note capture Markdown textarea |
 | `Alt+2` | Open Search | Search input |
 | `Alt+3` | Open Ask | Ask textarea |
 | `Escape` | Leave the current field | Blurs the active control |
@@ -152,7 +152,8 @@ Walk through these once after a clean install:
 - [ ] `GET /notes?category_id=<id>` filters notes by category
 - [ ] `PATCH /notes/{id}` updates title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`
-- [ ] Frontend at `http://localhost:5173` loads and Add, Search, and Ask panels work end-to-end
+- [ ] Frontend at `http://localhost:5173` loads and Capture, Search, and Ask panels work end-to-end
+- [ ] Capture Markdown preview renders tables, task lists, and code blocks; saved note detail shows Preview and exact Raw source
 
 ## Where local data is stored
 
@@ -217,5 +218,6 @@ docs/            Project memory and slice history
 
 - `backend/README.md` &mdash; full API curl reference, env var defaults, and test instructions.
 - `docs/project-memory.yaml` &mdash; chronological slice history and verification notes.
+
 
 

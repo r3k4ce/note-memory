@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pencil, Trash2, X } from "lucide-react";
 
 import type { Category, Note, NoteMetadataUpdate } from "../types";
+import { MarkdownPreview } from "./MarkdownPreview";
 
 type NoteDetailProps = {
   categories: Category[];
@@ -31,6 +32,8 @@ function categoryValue(categoryId: number | null): string {
   return categoryId === null ? "" : String(categoryId);
 }
 
+type SourceView = "preview" | "raw";
+
 export function NoteDetail({
   categories,
   deleteError,
@@ -49,6 +52,10 @@ export function NoteDetail({
   const [tagsDraft, setTagsDraft] = useState("");
   const [categoryDraftId, setCategoryDraftId] = useState<number | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [sourceViewSelection, setSourceViewSelection] = useState<{ noteId: number | null; view: SourceView }>({
+    noteId: null,
+    view: "preview",
+  });
 
   if (isLoading) {
     return (
@@ -94,6 +101,7 @@ export function NoteDetail({
     activeCategoryId !== categoryDraftId;
   const canSave = Boolean(title && summary && hasChanges && !isSavingMetadata);
   const actionsDisabled = isSavingMetadata || isDeleting;
+  const sourceView = sourceViewSelection.noteId === activeNote.id ? sourceViewSelection.view : "preview";
 
   async function handleSave() {
     if (!title || !summary) {
@@ -195,20 +203,18 @@ export function NoteDetail({
             </select>
           </div>
         </div>
-      ) : (
-        activeNote.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5" aria-label="Tags">
-            {activeNote.tags.map((tag) => (
-              <span
-                className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
-                key={tag}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        ) : null
-      )}
+      ) : activeNote.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5" aria-label="Tags">
+          {activeNote.tags.map((tag) => (
+            <span
+              className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
+              key={tag}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-1.5">
         <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Summary</h3>
@@ -230,10 +236,39 @@ export function NoteDetail({
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
-        <div className="rounded-md border border-border bg-surface-raised px-4 py-3 font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
-          {activeNote.original_text}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
+          <div className="flex rounded-md border border-border bg-surface p-0.5" role="tablist" aria-label="Original text view">
+            {(["preview", "raw"] as const).map((view) => {
+              const isActive = sourceView === view;
+              return (
+                <button
+                  aria-selected={isActive}
+                  className={`rounded px-2.5 py-1 text-[12px] font-medium capitalize transition-colors ${
+                    isActive
+                      ? "bg-surface-raised text-text-primary"
+                      : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                  }`}
+                  key={view}
+                  onClick={() => setSourceViewSelection({ noteId: activeNote.id, view })}
+                  role="tab"
+                  type="button"
+                >
+                  {view}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
+          {sourceView === "preview" ? (
+            <MarkdownPreview source={activeNote.original_text} />
+          ) : (
+            <div className="font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
+              {activeNote.original_text}
+            </div>
+          )}
         </div>
       </div>
 
