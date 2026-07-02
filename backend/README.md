@@ -73,7 +73,17 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Delete
 
 Delete removes the SQLite note, refreshes SQLite FTS, and attempts Chroma chunk cleanup. Chroma cleanup failures are logged and returned in `vector_cleanup` without restoring the deleted note.
 
-Rebuild the derived Chroma cache from SQLite:
+## Rebuild the Chroma index
+
+SQLite is the source of truth for saved notes and categories. Chroma stores the
+derived retrieval index: embedded chunks of saved notes plus metadata used by
+semantic search and ask-mode retrieval.
+
+Chroma is rebuildable. Run the reindex command when the Chroma directory is
+missing, has been deleted, looks stale, or semantic search / ask-mode retrieval
+is not reflecting the notes saved in SQLite.
+
+Run from `backend/`:
 
 ```powershell
 uv run python -m mapping_memory.reindex

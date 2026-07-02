@@ -167,6 +167,25 @@ Walk through these once after a clean install:
 Both paths are relative to the repository root by default and are listed in
 `.gitignore`.
 
+## Rebuild Chroma index
+
+SQLite is the source of truth for saved notes and categories. Chroma stores a
+rebuildable retrieval index in `data/chroma/`: embedded note chunks plus metadata
+used by semantic search and ask-mode retrieval.
+
+Run the reindex command when `data/chroma/` is missing, has been deleted, looks
+stale, or semantic search / ask-mode retrieval is not reflecting the notes saved
+in SQLite.
+
+Run from `backend/`:
+
+```powershell
+uv run python -m mapping_memory.reindex
+```
+
+The command requires `OPENAI_API_KEY` because it recreates embeddings. It does
+not delete SQLite data.
+
 ## Reset local data
 
 > [!WARNING]
