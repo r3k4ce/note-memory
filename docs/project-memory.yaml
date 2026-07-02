@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T17:11:31Z"
+    time_local: "2026-07-02T14:11:31-03:00"
+    summary: "Added backend Ask history schema validation."
+    changed:
+      - "Added AskHistoryMessage with user/assistant roles and non-blank trimmed content validation capped at 4000 characters."
+      - "Extended AskRequest with optional history defaulting to an empty list and rejected requests with more than 10 history messages."
+      - "Kept Ask retrieval, prompt construction, frontend behavior, persistence, and streaming unchanged; documented history as schema-only."
+    verification:
+      - "Ran uv run python -m pytest tests/test_schemas.py from backend/: schema tests passed, command failed only because partial-suite coverage was below the global threshold."
+      - "Ran uv run python -m ruff format --check ., uv run python -m ruff check ., uv run python -m pyright, and uv run python -m pytest from backend/: all passed; pytest reported 150 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T17:03:01Z"
     time_local: "2026-07-02T14:03:01-03:00"
     summary: "Sent selected frontend Ask note IDs to the backend."

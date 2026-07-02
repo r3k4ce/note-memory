@@ -88,7 +88,12 @@ Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "applicati
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","uncategorized":true}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","category_id":1}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","note_ids":[1,2,3]}'
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","history":[{"role":"user","content":"What did we discuss?"},{"role":"assistant","content":"We discussed source recreation."}]}'
 ```
+
+Ask `history` is accepted for schema compatibility only. It is limited to 10 messages, each
+message must use role `user` or `assistant`, and each non-blank content string is limited to
+4,000 characters. History is not used in retrieval or answer generation yet.
 
 ## Test
 
