@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T17:03:01Z"
+    time_local: "2026-07-02T14:03:01-03:00"
+    summary: "Sent selected frontend Ask note IDs to the backend."
+    changed:
+      - "Extended the frontend AskRequest type with optional note_ids and changed askQuestion to accept a single request object."
+      - "Built Ask payloads from the active category scope plus custom note scope, omitting note_ids for all-notes scope."
+      - "Disabled Ask submission for empty custom note scope with the helper message Select at least one note for Ask."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with Tailwind native dependency EPERM, then passed outside sandbox."
   - time_utc: "2026-07-02T16:56:24Z"
     time_local: "2026-07-02T13:56:24-03:00"
     summary: "Hardened Ask endpoint selected-note scope coverage."

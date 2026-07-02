@@ -2,8 +2,8 @@ import type {
   AskRequest,
   AskResponse,
   Category,
-  CategoryScopeRequest,
   CategoryCreate,
+  CategoryScopeRequest,
   Note,
   NoteCreate,
   NoteUpdate,
@@ -135,14 +135,9 @@ export async function deleteNote(noteId: number): Promise<void> {
   });
 }
 
-export function askQuestion(
-  question: string,
-  scope: CategoryScopeRequest = {},
-): Promise<AskResponse> {
-  const body: AskRequest = { question, ...scope };
-
+export function askQuestion(request: AskRequest): Promise<AskResponse> {
   return requestJson<AskResponse>("/ask", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(request),
   });
 }

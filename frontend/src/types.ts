@@ -54,6 +54,7 @@ export type AskNoteScope =
 
 export type AskRequest = CategoryScopeRequest & {
   question: string;
+  note_ids?: number[];
 };
 
 export type AskSource = {

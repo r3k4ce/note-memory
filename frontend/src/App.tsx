@@ -133,6 +133,7 @@ export default function App() {
   const hasUnsavedSelectedNoteEdit = workspaceMode === "edit-selected" && isSelectedNoteEditDirty;
   const askAvailableNoteIds = useMemo(() => notes.map((note) => note.id), [notes]);
   const askScopeLabel = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
+  const isAskNoteScopeEmpty = askNoteScope.mode === "custom" && askNoteScope.noteIds.length === 0;
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
     if (!hasUnsavedSelectedNoteEdit) {
@@ -355,7 +356,7 @@ export default function App() {
 
   async function handleAskSubmit(question: string) {
     const trimmedQuestion = question.trim();
-    if (!trimmedQuestion || askPendingMessageIdRef.current !== null) {
+    if (!trimmedQuestion || askPendingMessageIdRef.current !== null || isAskNoteScopeEmpty) {
       return;
     }
 
@@ -380,7 +381,11 @@ export default function App() {
     setAskMessages((currentMessages) => [...currentMessages, userMessage, pendingMessage]);
 
     try {
-      const result = await askQuestion(trimmedQuestion, categoryScope);
+      const result = await askQuestion({
+        question: trimmedQuestion,
+        ...categoryScope,
+        ...(askNoteScope.mode === "custom" ? { note_ids: askNoteScope.noteIds } : {}),
+      });
       if (askRequestId.current === requestId && askPendingMessageIdRef.current === pendingMessageId) {
         setAskMessages((currentMessages) =>
           currentMessages.map((message) =>
@@ -791,7 +796,9 @@ export default function App() {
             messages={askMessages}
             onSubmit={handleAskSubmit}
             pendingMessageId={askPendingMessageId}
+            isSubmitDisabled={isAskNoteScopeEmpty}
             scopeLabel={categoryScopeLabel}
+            submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one note for Ask" : undefined}
           />
         </aside>
       </div>

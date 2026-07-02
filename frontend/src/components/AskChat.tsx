@@ -10,7 +10,9 @@ type AskChatProps = {
   messages: ChatMessage[];
   onSubmit: (question: string) => void;
   pendingMessageId: string | null;
+  isSubmitDisabled?: boolean;
   scopeLabel: string;
+  submitDisabledMessage?: string;
 };
 
 type AssistantBubbleProps = {
@@ -76,18 +78,27 @@ function ErrorBubble({ content }: { content: string }) {
   );
 }
 
-export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLabel }: AskChatProps) {
+export function AskChat({
+  askRef,
+  messages,
+  onSubmit,
+  pendingMessageId,
+  isSubmitDisabled = false,
+  scopeLabel,
+  submitDisabledMessage,
+}: AskChatProps) {
   const [question, setQuestion] = useState("");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
+  const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, pendingMessageId]);
 
   function submitQuestion() {
-    if (!trimmedQuestion || isPending) {
+    if (isSendDisabled) {
       return;
     }
 
@@ -159,11 +170,11 @@ export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLab
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="min-w-0 flex-1 text-[11px] leading-relaxed text-text-muted">
-            Enter to send · Shift+Enter for newline · {APP_SHORTCUTS.ask.label} to focus
+            {submitDisabledMessage ?? `Enter to send · Shift+Enter for newline · ${APP_SHORTCUTS.ask.label} to focus`}
           </span>
           <button
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!trimmedQuestion || isPending}
+            disabled={isSendDisabled}
             type="submit"
           >
             <Send size={13} strokeWidth={2} />
