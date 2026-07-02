@@ -15,7 +15,6 @@ import { CommandCenter } from "./components/CommandCenter";
 import { NoteCard } from "./components/NoteCard";
 import { ResultPanel } from "./components/ResultPanel";
 import { SearchBar } from "./components/SearchBar";
-import { SegmentedControl } from "./components/SegmentedControl";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type {
   Category,
@@ -471,12 +470,11 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-bg text-text-primary">
-      <header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3">
+      <header className="flex h-11 shrink-0 items-center border-b border-border px-3">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent" />
           <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
         </div>
-        <SegmentedControl mode={mode} onModeChange={setMode} />
       </header>
 
       <div className="flex min-h-0 flex-1">

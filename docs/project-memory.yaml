@@ -413,3 +413,10 @@ entries:
     verification:
       - "Ran npm.cmd run typecheck from frontend/: passed."
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+  - time_utc: "2026-07-01T23:47:11Z"
+    time_local: "2026-07-01T20:47:09-03:00"
+    summary: "Removed visible mode selector from the frontend shell."
+    changed:
+      - "Removed the top-right Capture/Search/Ask SegmentedControl from the App header while preserving mode state, keyboard shortcuts, and existing Capture/Search/Ask panel wiring for compatibility."
+    verification:
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
