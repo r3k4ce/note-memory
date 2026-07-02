@@ -1,11 +1,15 @@
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, ClassVar
 
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from mapping_memory.db import init_db
+from mapping_memory.notes import create_category, create_note
 from mapping_memory.rag import RagContextChunk, RagRetrievalContext, RagSource
 from mapping_memory.settings import Settings
+from mapping_memory.vector_store import VectorSearchResult
 
 FALLBACK = "I do not have this in the saved notes."
 
@@ -100,6 +104,155 @@ def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 200
     assert captured["note_ids"] == [1, 2, 3]
+
+
+def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatch) -> None:
+    answer_calls: list[dict[str, Any]] = []
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        vector_results=[],
+        answer=lambda **kwargs: answer_calls.append(kwargs) or "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": []},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert answer_calls == []
+    assert FakeAskVectorStore.calls == []
+
+
+def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypatch) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    selected = create_note(sqlite_path, "Selected note body", ai_title="Selected note")
+    unselected = create_note(sqlite_path, "Unselected note body", ai_title="Unselected note")
+    captured: dict[str, Any] = {}
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[
+            _vector_hit(unselected.id, 0, "unselected chunk must not reach the model"),
+            _vector_hit(selected.id, 0, "selected chunk"),
+        ],
+        answer=lambda **kwargs: captured.update(kwargs) or "Selected answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": [selected.id]},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "Selected answer."
+    assert response.json()["sources"] == [
+        {
+            "note_id": selected.id,
+            "title": "Selected note",
+            "date_added": selected.date_added,
+        }
+    ]
+    assert "selected chunk" in captured["context"]
+    assert "unselected chunk must not reach the model" not in captured["context"]
+    assert FakeAskVectorStore.calls == [
+        {
+            "embedding": [0.1, 0.2, 0.3],
+            "limit": 20,
+            "where": {"note_id": {"$in": [selected.id]}},
+        }
+    ]
+
+
+def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    category = create_category(sqlite_path, "Projects")
+    matching = create_note(
+        sqlite_path, "Matching note body", ai_title="Matching note", category_id=category.id
+    )
+    selected_wrong_category = create_note(
+        sqlite_path, "Wrong category body", ai_title="Wrong category"
+    )
+    unselected_same_category = create_note(
+        sqlite_path,
+        "Unselected same category body",
+        ai_title="Unselected same category",
+        category_id=category.id,
+    )
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[
+            _vector_hit(selected_wrong_category.id, 0, "wrong category chunk"),
+            _vector_hit(unselected_same_category.id, 0, "unselected category chunk"),
+            _vector_hit(matching.id, 0, "matching chunk"),
+        ],
+        answer=lambda **_: "Matching answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What is scoped?",
+                "category_id": category.id,
+                "note_ids": [matching.id, selected_wrong_category.id],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == [
+        {
+            "note_id": matching.id,
+            "title": "Matching note",
+            "date_added": matching.date_added,
+        }
+    ]
+    assert FakeAskVectorStore.calls == [
+        {"updated_chunks": [(unselected_same_category.id, 0), (matching.id, 0)]},
+        {
+            "embedding": [0.1, 0.2, 0.3],
+            "limit": 20,
+            "where": {
+                "$and": [
+                    {"category_scope": f"category:{category.id}"},
+                    {"note_id": {"$in": [matching.id, selected_wrong_category.id]}},
+                ]
+            },
+        },
+    ]
+
+
+def test_ask_without_note_ids_keeps_existing_unscoped_behavior(tmp_path, monkeypatch) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    first = create_note(sqlite_path, "First note body", ai_title="First note")
+    second = create_note(sqlite_path, "Second note body", ai_title="Second note")
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[
+            _vector_hit(first.id, 0, "first chunk"),
+            _vector_hit(second.id, 0, "second chunk"),
+        ],
+        answer=lambda **_: "Unscoped answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/ask", json={"question": "What is scoped?"})
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == [
+        {"note_id": first.id, "title": "First note", "date_added": first.date_added},
+        {"note_id": second.id, "title": "Second note", "date_added": second.date_added},
+    ]
+    assert FakeAskVectorStore.calls == [{"embedding": [0.1, 0.2, 0.3], "limit": 20, "where": None}]
 
 
 def test_ask_rejects_invalid_note_ids(tmp_path, monkeypatch) -> None:
@@ -283,6 +436,29 @@ class FakeCompletions:
         return SimpleNamespace(choices=[choice])
 
 
+class FakeAskVectorStore:
+    results: ClassVar[list[VectorSearchResult]] = []
+    calls: ClassVar[list[dict[str, Any]]] = []
+
+    def __init__(self, *, settings: Settings) -> None:
+        self.settings = settings
+
+    def update_chunk_metadata(self, chunks: list[Any]) -> None:
+        self.calls.append(
+            {"updated_chunks": [(chunk.note_id, chunk.chunk_index) for chunk in chunks]}
+        )
+
+    def query_by_embedding(
+        self,
+        embedding: list[float],
+        *,
+        limit: int = 5,
+        where: dict[str, Any] | None = None,
+    ) -> list[VectorSearchResult]:
+        self.calls.append({"embedding": embedding, "limit": limit, "where": where})
+        return self.results
+
+
 def _ask_app(
     tmp_path,
     monkeypatch,
@@ -318,6 +494,39 @@ def _ask_app(
     )
 
 
+def _init_ask_path(tmp_path: Path) -> Path:
+    sqlite_path = tmp_path / "ask.sqlite"
+    init_db(sqlite_path)
+    return sqlite_path
+
+
+def _ask_app_with_real_retrieval(
+    tmp_path,
+    monkeypatch,
+    *,
+    vector_results: list[VectorSearchResult],
+    answer,
+    init_db_first: bool = True,
+):
+    from mapping_memory.main import create_app
+
+    sqlite_path = tmp_path / "ask.sqlite"
+    if init_db_first:
+        init_db(sqlite_path)
+
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        assert texts == ["What is scoped?"]
+        assert settings.sqlite_path == sqlite_path
+        return [[0.1, 0.2, 0.3]]
+
+    FakeAskVectorStore.results = vector_results
+    FakeAskVectorStore.calls = []
+    monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.rag.ChromaVectorStore", FakeAskVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.ask.generate_grounded_answer", answer, raising=False)
+    return create_app(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+
+
 def _source(note_id: int, title: str, date_added: str) -> RagSource:
     return RagSource(
         note_id=note_id,
@@ -327,4 +536,13 @@ def _source(note_id: int, title: str, date_added: str) -> RagSource:
         chunks=(
             RagContextChunk(chunk_id=f"chunk-{note_id}", chunk_index=0, text="text", distance=0.1),
         ),
+    )
+
+
+def _vector_hit(note_id: int, chunk_index: int, text: str) -> VectorSearchResult:
+    return VectorSearchResult(
+        id=f"note:{note_id}:chunk:{chunk_index}",
+        text=text,
+        metadata={"note_id": note_id, "chunk_index": chunk_index},
+        distance=0.1,
     )

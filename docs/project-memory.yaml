@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T16:56:24Z"
+    time_local: "2026-07-02T13:56:24-03:00"
+    summary: "Hardened Ask endpoint selected-note scope coverage."
+    changed:
+      - "Added endpoint-level Ask API regression tests for empty note_ids fallback, selected-note-only sources, category plus note_ids AND behavior, and omitted note_ids compatibility."
+      - "Exercised the real Ask-to-RAG retrieval path with mocked embeddings, vector store, and answer generation; production Ask forwarding already matched the slice requirements."
+      - "Kept frontend, chat history, vector indexing, persistence, streaming, and API response shape unchanged."
+    verification:
+      - "Ran uv run python -m pytest tests/test_ask_api.py tests/test_rag.py --no-cov from backend/: 28 passed with 2 existing Starlette deprecation warnings."
+      - "Ran uv run python -m ruff format --check ., uv run python -m ruff check ., uv run python -m pyright, and uv run python -m pytest from backend/: all passed; pytest reported 143 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T16:47:15Z"
     time_local: "2026-07-02T13:47:15-03:00"
     summary: "Filtered backend RAG retrieval by selected note IDs."
