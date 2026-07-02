@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 
 import type { Category, Note } from "../types";
 import { AddNote } from "./AddNote";
+import type { MarkdownPaneHandle } from "./MarkdownPane";
 import { ResultPanel } from "./ResultPanel";
 
 export type NoteWorkspaceMode = "new" | "read-selected" | "edit-selected";
@@ -9,7 +10,7 @@ export type NoteWorkspaceMode = "new" | "read-selected" | "edit-selected";
 type NoteWorkspaceProps = {
   mode: NoteWorkspaceMode;
 
-  captureRef: RefObject<HTMLTextAreaElement | null>;
+  captureRef: RefObject<MarkdownPaneHandle | null>;
   categories: Category[];
   draftCategoryId: number | null;
   draftText: string;

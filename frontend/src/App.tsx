@@ -26,6 +26,7 @@ import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspac
 import { NoteCard } from "./components/NoteCard";
 import { SearchBar } from "./components/SearchBar";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
+import type { MarkdownPaneHandle } from "./components/MarkdownPane";
 import type {
   AskHistoryMessage,
   Category,
@@ -143,7 +144,7 @@ export default function App() {
   const askRequestId = useRef(0);
   const askMessageId = useRef(0);
   const askPendingMessageIdRef = useRef<string | null>(null);
-  const captureRef = useRef<HTMLTextAreaElement>(null);
+  const captureRef = useRef<MarkdownPaneHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
 

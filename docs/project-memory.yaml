@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T19:41:24Z"
+    time_local: "2026-07-02T16:41:24-03:00"
+    summary: "Replaced Markdown edit textareas with a CodeMirror 6 Markdown editor."
+    changed:
+      - "Added @uiw/react-codemirror and @codemirror/lang-markdown to the frontend package dependencies."
+      - "Changed MarkdownPane edit mode to a controlled CodeMirror Markdown source editor with quiet writing-surface settings and app-scoped dark styling."
+      - "Replaced the Capture textarea ref with a MarkdownPane focus handle so Alt+1 continues to focus the capture editor."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with the known Tailwind oxide/native dependency EPERM, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T19:25:19Z"
     time_local: "2026-07-02T16:25:20-03:00"
     summary: "Used the single-pane Markdown component throughout the note workspace."

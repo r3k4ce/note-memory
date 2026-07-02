@@ -4,11 +4,12 @@ import type { AppMode } from "../hooks/useKeyboardShortcuts";
 import type { Category, ChatMessage } from "../types";
 import { AddNote } from "./AddNote";
 import { AskChat } from "./AskChat";
+import type { MarkdownPaneHandle } from "./MarkdownPane";
 
 type CommandCenterProps = {
   mode: AppMode;
 
-  captureRef: RefObject<HTMLTextAreaElement | null>;
+  captureRef: RefObject<MarkdownPaneHandle | null>;
   categories: Category[];
   draftCategoryId: number | null;
   draftText: string;

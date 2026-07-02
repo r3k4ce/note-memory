@@ -1,6 +1,12 @@
+import { markdown } from "@codemirror/lang-markdown";
+import CodeMirror from "@uiw/react-codemirror";
 import type { RefObject } from "react";
 
 import { MarkdownPreview } from "./MarkdownPreview";
+
+export type MarkdownPaneHandle = {
+  focus: () => void;
+};
 
 export type MarkdownPaneProps = {
   mode: "edit" | "read";
@@ -8,7 +14,7 @@ export type MarkdownPaneProps = {
   onChange?: (value: string) => void;
   disabled?: boolean;
   id?: string;
-  textareaRef?: RefObject<HTMLTextAreaElement | null>;
+  editorHandleRef?: RefObject<MarkdownPaneHandle | null>;
   placeholder?: string;
 };
 
@@ -18,7 +24,7 @@ export function MarkdownPane({
   mode,
   onChange,
   placeholder,
-  textareaRef,
+  editorHandleRef,
   value,
 }: MarkdownPaneProps) {
   if (mode === "read") {
@@ -29,16 +35,41 @@ export function MarkdownPane({
     );
   }
 
+  const editable = !disabled && Boolean(onChange);
+
   return (
-    <textarea
+    <CodeMirror
       aria-label="Markdown source"
-      className="min-h-72 w-full resize-y rounded-md border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60 md:min-h-[28rem]"
-      disabled={disabled}
+      basicSetup={{
+        autocompletion: false,
+        closeBrackets: true,
+        completionKeymap: false,
+        foldGutter: false,
+        foldKeymap: false,
+        highlightActiveLine: false,
+        highlightActiveLineGutter: false,
+        highlightSelectionMatches: false,
+        lineNumbers: false,
+        lintKeymap: false,
+      }}
+      className={`markdown-codemirror${disabled ? " markdown-codemirror-disabled" : ""}`}
+      editable={editable}
+      extensions={[markdown()]}
+      height="auto"
       id={id}
-      onChange={(event) => onChange?.(event.target.value)}
+      indentWithTab={false}
+      minHeight="18rem"
+      onChange={(nextValue) => onChange?.(nextValue)}
+      onCreateEditor={(view) => {
+        if (editorHandleRef) {
+          editorHandleRef.current = {
+            focus: () => view.focus(),
+          };
+        }
+      }}
       placeholder={placeholder}
-      readOnly={!onChange}
-      ref={textareaRef}
+      readOnly={!editable}
+      theme="none"
       value={value}
     />
   );
