@@ -132,7 +132,7 @@ export function AskChat({
           </h2>
         </div>
         <p className="text-[12px] leading-relaxed text-text-muted">
-          Each question is answered from saved notes in the selected scope, not from previous chat turns.
+          Recent chat turns can clarify follow-ups, but answers still cite saved notes in the selected scope.
         </p>
         <p className="text-[11px] text-text-muted">Scope: {scopeLabel}</p>
       </header>

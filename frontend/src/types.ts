@@ -52,9 +52,15 @@ export type AskNoteScope =
   | { mode: "all" }
   | { mode: "custom"; noteIds: number[] };
 
+export type AskHistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type AskRequest = CategoryScopeRequest & {
   question: string;
   note_ids?: number[];
+  history?: AskHistoryMessage[];
 };
 
 export type AskSource = {

@@ -27,6 +27,7 @@ import { NoteCard } from "./components/NoteCard";
 import { SearchBar } from "./components/SearchBar";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type {
+  AskHistoryMessage,
   Category,
   CategoryScopeRequest,
   ChatMessage,
@@ -36,9 +37,30 @@ import type {
 } from "./types";
 
 type CategoryFilter = "all" | "uncategorized" | number;
+type AskHistorySourceMessage = Extract<ChatMessage, { role: "user" | "assistant" }>;
+
+const ASK_HISTORY_MESSAGE_LIMIT = 6;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+function buildRecentAskHistory(
+  messages: ChatMessage[],
+  pendingMessageId: string | null,
+): AskHistoryMessage[] {
+  return messages
+    .filter(
+      (message): message is AskHistorySourceMessage =>
+        (message.role === "user" || message.role === "assistant") &&
+        message.id !== pendingMessageId &&
+        message.content.trim().length > 0,
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim(),
+    }))
+    .slice(-ASK_HISTORY_MESSAGE_LIMIT);
 }
 
 function filterNotesByCategory(notes: Note[], filter: CategoryFilter): Note[] {
@@ -362,6 +384,7 @@ export default function App() {
 
     const requestId = askRequestId.current + 1;
     askRequestId.current = requestId;
+    const history = buildRecentAskHistory(askMessages, askPendingMessageIdRef.current);
 
     const userMessage: ChatMessage = {
       id: createAskMessageId(),
@@ -383,6 +406,7 @@ export default function App() {
     try {
       const result = await askQuestion({
         question: trimmedQuestion,
+        history,
         ...categoryScope,
         ...(askNoteScope.mode === "custom" ? { note_ids: askNoteScope.noteIds } : {}),
       });

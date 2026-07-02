@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T17:53:04Z"
+    time_local: "2026-07-02T14:53:04-03:00"
+    summary: "Sent recent Ask chat history from the frontend."
+    changed:
+      - "Added the frontend AskHistoryMessage type and optional AskRequest.history field."
+      - "Sent the last 6 prior user/assistant Ask messages with each Ask request, excluding pending, error, blank, source metadata, and the new submitted question."
+      - "Updated Ask panel copy to reflect that recent turns can clarify follow-ups while answers still cite saved notes."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/ with escalation after sandbox EPERM on native Tailwind oxide loading: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root with escalation after sandbox denial on the uv cache: backend format/lint/typecheck/pytest passed with 160 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-02T17:43:07Z"
     time_local: "2026-07-02T14:43:07-03:00"
     summary: "Passed recent Ask history into grounded answer generation."
