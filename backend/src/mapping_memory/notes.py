@@ -3,6 +3,7 @@ import re
 import sqlite3
 import unicodedata
 from contextlib import closing
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from sqlite3 import Row
@@ -12,6 +13,7 @@ from mapping_memory.db import connect_db
 from mapping_memory.fts import (
     build_exact_match_query,
     index_note_fts,
+    literal_matched_snippet,
     rebuild_notes_fts,
     row_matches_literal,
 )
@@ -33,6 +35,12 @@ class _Unset:
 
 
 _UNSET = _Unset()
+
+
+@dataclass(frozen=True)
+class ExactSearchMatch:
+    note: NoteRead
+    matched_snippet: str | None
 
 
 def create_category(sqlite_path: Path, name: str) -> CategoryRead:
@@ -332,6 +340,24 @@ def search_notes_exact(
     limit: int = 20,
     category_scope: CategoryScope | None = None,
 ) -> list[NoteRead]:
+    return [
+        match.note
+        for match in search_notes_exact_matches(
+            sqlite_path,
+            query,
+            limit=limit,
+            category_scope=category_scope,
+        )
+    ]
+
+
+def search_notes_exact_matches(
+    sqlite_path: Path,
+    query: str,
+    *,
+    limit: int = 20,
+    category_scope: CategoryScope | None = None,
+) -> list[ExactSearchMatch]:
     stripped_query = query.strip()
     if not stripped_query or limit <= 0:
         return []
@@ -361,7 +387,13 @@ def search_notes_exact(
         ).fetchall()
 
     matching_rows = [row for row in rows if row_matches_literal(row, stripped_query)]
-    return [_note_from_row(row) for row in matching_rows[:limit]]
+    return [
+        ExactSearchMatch(
+            note=_note_from_row(row),
+            matched_snippet=literal_matched_snippet(row, stripped_query),
+        )
+        for row in matching_rows[:limit]
+    ]
 
 
 def _fallback_title(original_text: str) -> str:

@@ -52,7 +52,7 @@ def test_search_returns_exact_only_card_result(tmp_path: Path, monkeypatch) -> N
             "date_added": body[0]["date_added"],
             "score": 1.0,
             "category": None,
-            "matched_snippet": None,
+            "matched_snippet": "Investigate ticket CD-30954 before publishing.",
             "match_type": "exact",
         }
     ]
@@ -137,7 +137,49 @@ def test_search_ranks_merged_result_above_single_source_results(
         exact_only.id: "exact",
         semantic_only.id: "semantic",
     }
-    assert all(item["matched_snippet"] is None for item in body)
+    snippets = {item["id"]: item["matched_snippet"] for item in body}
+    assert snippets[merged.id] == "CD-30954 appears in both indexes."
+    assert snippets[exact_only.id] == "CD-30954 exact only."
+    assert snippets[semantic_only.id] is None
+
+
+def test_search_returns_exact_metadata_snippet(tmp_path: Path, monkeypatch) -> None:
+    sqlite_path = _init_path(tmp_path)
+    note = create_note(
+        sqlite_path,
+        "Body text only mentions general mapping work.",
+        ai_title="Competition import issue",
+        short_summary="Ticket CD-30954 needs source reconciliation.",
+        tags=["tickets"],
+    )
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[], init_db_first=False)
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "CD-30954"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["id"] for item in body] == [note.id]
+    assert body[0]["matched_snippet"] == "Ticket CD-30954 needs source reconciliation."
+
+
+def test_search_returns_short_exact_body_snippet(tmp_path: Path, monkeypatch) -> None:
+    sqlite_path = _init_path(tmp_path)
+    create_note(
+        sqlite_path,
+        (f"{'before ' * 80}CD-30954{' after' * 80}"),
+    )
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[], init_db_first=False)
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "CD-30954"})
+
+    assert response.status_code == 200
+    snippet = response.json()[0]["matched_snippet"]
+    assert snippet is not None
+    assert len(snippet) <= 240
+    assert snippet.startswith("...")
+    assert snippet.endswith("...")
 
 
 def test_search_filters_exact_results_to_uncategorized_scope(

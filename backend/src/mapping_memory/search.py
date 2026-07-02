@@ -7,7 +7,13 @@ from fastapi import APIRouter, HTTPException, Query, status
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.notes import get_category, get_note, list_notes, search_notes_exact
+from mapping_memory.notes import (
+    ExactSearchMatch,
+    get_category,
+    get_note,
+    list_notes,
+    search_notes_exact_matches,
+)
 from mapping_memory.schemas import NoteRead, SearchResult
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, VectorSearchResult
@@ -37,7 +43,7 @@ def create_search_router(settings: Settings) -> APIRouter:
         category_scope = _validated_category_scope(
             category_id=category_id, uncategorized=uncategorized, settings=settings
         )
-        exact_notes = search_notes_exact(
+        exact_matches = search_notes_exact_matches(
             settings.sqlite_path, query, limit=SEARCH_LIMIT, category_scope=category_scope
         )
         try:
@@ -48,7 +54,7 @@ def create_search_router(settings: Settings) -> APIRouter:
             logger.warning("Semantic search unavailable; returning exact search results")
             semantic_hits = []
 
-        return _merge_search_results(exact_notes, semantic_hits, limit=SEARCH_LIMIT)
+        return _merge_search_results(exact_matches, semantic_hits, limit=SEARCH_LIMIT)
 
     return router
 
@@ -77,14 +83,16 @@ def _search_semantic_notes(
 
 
 def _merge_search_results(
-    exact_notes: list[NoteRead],
+    exact_matches: list[ExactSearchMatch],
     semantic_notes: list[NoteRead],
     *,
     limit: int,
 ) -> list[SearchResult]:
+    exact_notes = [match.note for match in exact_matches]
     notes_by_id = {note.id: note for note in exact_notes}
     notes_by_id.update({note.id: note for note in semantic_notes})
     exact_ranks = {note.id: rank for rank, note in enumerate(exact_notes, start=1)}
+    exact_snippets = {match.note.id: match.matched_snippet for match in exact_matches}
     semantic_ranks = {note.id: rank for rank, note in enumerate(semantic_notes, start=1)}
 
     results = [
@@ -92,6 +100,7 @@ def _merge_search_results(
             note,
             exact_rank=exact_ranks.get(note.id),
             semantic_rank=semantic_ranks.get(note.id),
+            matched_snippet=exact_snippets.get(note.id),
         )
         for note in notes_by_id.values()
     ]
@@ -105,6 +114,7 @@ def _to_search_result(
     *,
     exact_rank: int | None,
     semantic_rank: int | None,
+    matched_snippet: str | None,
 ) -> SearchResult:
     score = _rank_score(exact_rank) + _rank_score(semantic_rank)
     if exact_rank is not None and semantic_rank is not None:
@@ -118,7 +128,7 @@ def _to_search_result(
         date_added=note.date_added,
         score=score,
         category=note.category,
-        matched_snippet=None,
+        matched_snippet=matched_snippet if exact_rank is not None else None,
         match_type=_match_type(exact_rank=exact_rank, semantic_rank=semantic_rank),
     )
 

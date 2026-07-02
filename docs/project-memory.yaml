@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T18:39:36Z"
+    time_local: "2026-07-02T15:39:36-03:00"
+    summary: "Added compact exact-match search snippets."
+    changed:
+      - "Added literal exact-match snippet extraction for note body, title, summary, and tags with body preferred and a 240-character response cap."
+      - "Added an exact-search match wrapper so /search can return snippets for exact and hybrid results while preserving the existing search_notes_exact note-list API."
+      - "Documented that semantic-only search results keep matched_snippet null and added repository/API coverage for body, metadata, compact, and semantic-null cases."
+    verification:
+      - "Ran uv run python -m pytest tests/test_exact_search.py tests/test_search_api.py tests/test_schemas.py --no-cov from backend/: 51 passed with 2 existing Starlette deprecation warnings."
+      - "Ran backend format check, Ruff lint, Pyright, and full pytest from backend/: all passed; pytest reported 177 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T18:26:49Z"
     time_local: "2026-07-02T15:26:49-03:00"
     summary: "Added backend search match metadata fields."
