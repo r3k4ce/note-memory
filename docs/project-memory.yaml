@@ -1,4 +1,17 @@
 entries:
+  - time_utc: "2026-07-02T15:53:11Z"
+    time_local: "2026-07-02T12:53:11-03:00"
+    summary: "Added visible Ask scope controls to the left sidebar."
+    changed:
+      - "Added an Ask scope control row above the note list with All and Clear actions plus All notes, selected count, and None selected labels."
+      - "Added per-note Ask scope checkboxes as valid siblings to note card buttons so checkbox clicks update scope while card clicks still open notes."
+      - "Kept selected note IDs frontend-only; backend Ask API, category-scoped ask submission, search, and note editing behavior were unchanged."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with EPERM/native Tailwind dependency loading, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
+      - "Browser smoke test was skipped because no in-app browser was available in this session."
   - time_utc: "2026-07-02T15:43:35Z"
     time_local: "2026-07-02T12:43:35-03:00"
     summary: "Added frontend-only Ask note scope state."

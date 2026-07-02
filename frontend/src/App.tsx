@@ -11,7 +11,16 @@ import {
   askQuestion,
   updateNote,
 } from "./api";
-import { areAskNoteScopesEqual, DEFAULT_ASK_NOTE_SCOPE, normalizeAskNoteScope } from "./askScope";
+import {
+  areAskNoteScopesEqual,
+  clearAskNotes,
+  DEFAULT_ASK_NOTE_SCOPE,
+  formatAskNoteScopeSelectedCount,
+  isNoteSelectedForAsk,
+  normalizeAskNoteScope,
+  selectAllAskNotes,
+  toggleAskNoteScope,
+} from "./askScope";
 import { AskChat } from "./components/AskChat";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
 import { NoteCard } from "./components/NoteCard";
@@ -123,6 +132,7 @@ export default function App() {
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
   const hasUnsavedSelectedNoteEdit = workspaceMode === "edit-selected" && isSelectedNoteEditDirty;
   const askAvailableNoteIds = useMemo(() => notes.map((note) => note.id), [notes]);
+  const askScopeLabel = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
     if (!hasUnsavedSelectedNoteEdit) {
@@ -163,6 +173,23 @@ export default function App() {
     setSearchResults([]);
     setSearchError(null);
     setIsSearching(false);
+  }, []);
+
+  const handleToggleAskNoteScope = useCallback(
+    (noteId: number) => {
+      setAskNoteScope((currentScope) =>
+        toggleAskNoteScope(currentScope, noteId, askAvailableNoteIds),
+      );
+    },
+    [askAvailableNoteIds],
+  );
+
+  const handleSelectAllAskNotes = useCallback(() => {
+    setAskNoteScope(selectAllAskNotes());
+  }, []);
+
+  const handleClearAskNotes = useCallback(() => {
+    setAskNoteScope(clearAskNotes());
   }, []);
 
   const handleCategoryFilterChange = useCallback(
@@ -642,6 +669,27 @@ export default function App() {
           </div>
 
           <div className="shrink-0 px-3 py-1.5">
+            <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md bg-surface-raised px-2 py-1.5">
+              <span className="min-w-0 truncate text-[11px] font-medium text-text-secondary">
+                {askScopeLabel}
+              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
+                  onClick={handleSelectAllAskNotes}
+                  type="button"
+                >
+                  All
+                </button>
+                <button
+                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
+                  onClick={handleClearAskNotes}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
                 {listTitle}
@@ -692,8 +740,10 @@ export default function App() {
             <div className="flex flex-col gap-0.5">
               {visibleNotes.map((note) => (
                 <NoteCard
+                  askScopeSelected={isNoteSelectedForAsk(askNoteScope, note.id)}
                   key={note.id}
                   note={note}
+                  onAskScopeToggle={handleToggleAskNoteScope}
                   onSelect={selectNote}
                   selected={note.id === selectedNoteId}
                 />

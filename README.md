@@ -22,7 +22,11 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 ## What it is
 
 A local-first notes workspace with AI-assisted metadata, hybrid search, and grounded
-ask-mode. Add Markdown notes with live preview, optionally assign a manual category, and let the backend ask an LLM for title, summary, and tags. The app indexes notes for retrieval and exposes search and ask endpoints that return sourced answers from your own note collection.
+ask-mode. Add Markdown notes with live preview, optionally assign a manual
+category, and let the backend ask an LLM for title, summary, and tags. The
+sidebar includes Ask scope controls for choosing which saved notes Ask may use in
+the frontend. The app indexes notes for retrieval and exposes search and ask
+endpoints that return sourced answers from your own note collection.
 
 ## Local-first storage
 
@@ -218,5 +222,3 @@ docs/            Project memory and slice history
 
 - `backend/README.md` &mdash; full API curl reference, env var defaults, and test instructions.
 - `docs/project-memory.yaml` &mdash; chronological slice history and verification notes.
-
-

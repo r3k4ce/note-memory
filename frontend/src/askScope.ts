@@ -56,6 +56,10 @@ export function toggleAskNoteScope(
     selectedNoteIds.add(noteId);
   }
 
+  if (selectedNoteIds.size === availableNoteIds.length) {
+    return DEFAULT_ASK_NOTE_SCOPE;
+  }
+
   return {
     mode: "custom",
     noteIds: availableNoteIds.filter((availableNoteId) => selectedNoteIds.has(availableNoteId)),
@@ -80,9 +84,15 @@ export function getAskNoteScopeSelectedCount(scope: AskNoteScope, totalNotes: nu
 
 export function formatAskNoteScopeSelectedCount(scope: AskNoteScope, totalNotes: number): string {
   if (scope.mode === "all") {
-    return `All notes (${totalNotes})`;
+    return "Ask scope · All notes";
   }
 
   const selectedCount = getAskNoteScopeSelectedCount(scope, totalNotes);
-  return selectedCount === 1 ? "1 selected" : `${selectedCount} selected`;
+  if (selectedCount === 0) {
+    return "Ask scope · None selected";
+  }
+
+  return selectedCount === 1
+    ? "Ask scope · 1 selected"
+    : `Ask scope · ${selectedCount} selected`;
 }
