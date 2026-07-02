@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T19:17:31Z"
+    time_local: "2026-07-02T16:17:31-03:00"
+    summary: "Added a single-pane Markdown component API."
+    changed:
+      - "Added frontend MarkdownPane with edit mode as one controlled textarea and read mode as the existing Markdown preview rendering."
+      - "Migrated the add-note capture editor and selected-note read preview to MarkdownPane while keeping the raw note toggle behavior."
+      - "Removed the legacy split-pane MarkdownEditor component."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with Tailwind oxide/native dependency EPERM, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T19:02:35Z"
     time_local: "2026-07-02T16:02:34-03:00"
     summary: "Displayed search match snippets in frontend note cards."

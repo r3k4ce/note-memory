@@ -2,7 +2,7 @@ import type { RefObject } from "react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { Category } from "../types";
-import { MarkdownEditor } from "./MarkdownEditor";
+import { MarkdownPane } from "./MarkdownPane";
 
 type AddNoteProps = {
   captureRef: RefObject<HTMLTextAreaElement | null>;
@@ -53,13 +53,11 @@ export function AddNote({
           </select>
         </div>
       ) : null}
-      <MarkdownEditor
+      <MarkdownPane
         disabled={isSaving}
+        mode="edit"
         onChange={onDraftTextChange}
         placeholder="Paste a note in Markdown - the AI will organize it."
-        rows={10}
-        textareaId="capture-markdown"
-        textareaLabel="Capture note Markdown"
         textareaRef={captureRef}
         value={draftText}
       />

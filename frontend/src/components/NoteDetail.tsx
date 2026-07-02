@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 
 import type { Category, Note } from "../types";
+import { MarkdownPane } from "./MarkdownPane";
 import type { NoteWorkspaceMode } from "./NoteWorkspace";
-import { MarkdownPreview } from "./MarkdownPreview";
 
 type NoteDetailProps = {
   categories: Category[];
@@ -362,15 +362,15 @@ export function NoteDetail({
                 })}
               </div>
             </div>
-            <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
-              {sourceView === "preview" ? (
-                <MarkdownPreview source={note.original_text} />
-              ) : (
+            {sourceView === "preview" ? (
+              <MarkdownPane mode="read" value={note.original_text} />
+            ) : (
+              <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
                 <div className="font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
                   {note.original_text}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
       </div>
