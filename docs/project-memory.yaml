@@ -1,4 +1,20 @@
 entries:
+  - time_utc: "2026-07-02T03:05:28Z"
+    time_local: "2026-07-02T00:05:28-03:00"
+    summary: "Stopped tracking .opencode and erased yaml_check.py from project history."
+    changed:
+      - "Replaced the .opencode/* pattern in .gitignore with .opencode/ so the rule matches the directory itself and all nested paths, not only direct children."
+      - "Rewrote dev history with git filter-repo --invert-paths --path .opencode/plans/yaml_check.py to drop the only previously tracked .opencode file, then force-pushed origin/dev with --force-with-lease."
+      - "Re-added the origin remote and fetched refs that filter-repo had cleared so the force-push lease check could verify against the real pre-rewrite remote head."
+      - "Restored .opencode/plans/yaml_check.py to disk from a pre-filter-repo backup after filter-repo reset the working tree; the file is no longer tracked or visible in any commit."
+    verification:
+      - "git ls-files .opencode: empty."
+      - "git log --all --oneline -- .opencode/plans/yaml_check.py: empty."
+      - "git check-ignore -v .opencode/plans/yaml_check.py: matches .gitignore:43:.opencode/."
+      - "git check-ignore -v .opencode/: matches .gitignore:43:.opencode/."
+      - "Test-Path .opencode/plans/yaml_check.py: True (file preserved on disk)."
+      - "git log -1 --stat HEAD: post-rewrite dev head a7fd1f5 (then amended to 644a481 with the .gitignore fix) shows only the NoteWorkspace changes; no yaml_check.py line."
+      - "git push --force-with-lease origin dev: succeeded, dev force-updated from c45289e to 644a481, pre-push project check passed."
   - time_utc: "2026-07-02T01:20:26Z"
     time_local: "2026-07-01T22:20:26-03:00"
     summary: "Made center workspace default to new note capture."
