@@ -1,296 +1,123 @@
 entries:
-  - time_utc: "2026-06-30T17:35:00Z"
-    time_local: "2026-06-30T14:35:00-03:00"
-    summary: "Normalized Slice 01 scaffold-only monorepo structure."
+  - time_utc: "2026-07-01T23:47:11Z"
+    time_local: "2026-07-01T20:47:09-03:00"
+    summary: "Removed visible mode selector from the frontend shell."
     changed:
-      - "Aligned backend package path to backend/src/mapping_memory, added backend/.env.example and data/.gitkeep, removed generated API/frontend behavior."
+      - "Removed the top-right Capture/Search/Ask SegmentedControl from the App header while preserving mode state, keyboard shortcuts, and existing Capture/Search/Ask panel wiring for compatibility."
     verification:
-      - "Ran .\\scripts\\check.ps1: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-06-30T17:22:21Z"
-    time_local: "2026-06-30T14:22:21-03:00"
-    summary: "Created initial web app scaffold."
-    changed:
-      - "Initial FastAPI backend, React TypeScript frontend, checks, CI, hooks, AGENTS.md, and memory file."
-    verification:
-      - 'Not run yet; run .\scripts\check.ps1 before first commit.'
-  - time_utc: "2026-06-30T18:09:57Z"
-    time_local: "2026-06-30T15:09:57-03:00"
-    summary: "Added backend settings and health check for Slice 02."
-    changed:
-      - "Added pydantic-settings configuration, FastAPI app boot path, GET /health, backend health test, and backend run instructions."
-    verification:
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-      - "Confirmed backend/.env is absent and app imports with OPENAI_API_KEY unset."
-      - "Started Uvicorn locally and confirmed GET /health returned HTTP 200 in server logs."
-  - time_utc: "2026-06-30T18:57:50Z"
-    time_local: "2026-06-30T15:57:50-03:00"
-    summary: "Added SQLite notes table initialization for Slice 03."
-    changed:
-      - "Added sqlite3 database helpers, SQLITE_PATH resolution, FastAPI lifespan initialization, and focused temp-database tests for the notes table."
-    verification:
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-  - time_utc: "2026-06-30T19:59:31Z"
-    time_local: "2026-06-30T16:59:30-03:00"
-    summary: "Added backend note repository functions for Slice 04."
-    changed:
-      - "Added internal SQLite note create, fetch, and newest-first list functions with fallback metadata and Pydantic return objects."
-      - "Added repository tests for creation, fetching, listing order, original text preservation, fallback title behavior, empty-text rejection, and empty tag round-trip."
-    verification:
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-  - time_utc: "2026-06-30T21:37:06Z"
-    time_local: "2026-06-30T18:37:06-03:00"
-    summary: "Added fallback note API endpoints for Slice 05."
-    changed:
-      - "Added FastAPI note create, list, and get endpoints using existing SQLite repository functions and shared request/response schemas."
-      - "Added API tests for create, list, get, missing id, and empty input validation."
-      - "Documented note endpoint examples in the backend README."
-    verification:
-      - "Ran uv run pytest tests/test_notes_api.py from backend/."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_db.py tests/test_health.py from backend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
-
-  - time_utc: "2026-06-30T21:56:19Z"
-    time_local: "2026-06-30T18:56:16-03:00"
-    summary: "Added frontend static app shell for Slice 06."
+  - time_utc: "2026-07-01T23:04:40Z"
+    time_local: "2026-07-01T20:04:40-03:00"
+    summary: "Added frontend full note update API types."
     changed:
-      - "Replaced the placeholder React app with a static notes workspace, disabled Add/Search/Ask panels, sample note cards, selected note detail, backend-shaped note type, and responsive CSS."
+      - "Replaced the frontend metadata update payload with NoteUpdate including optional original_text, renamed the API helper to updateNote, and updated existing metadata edit callers to use the widened type without UI changes."
     verification:
-      - "Ran npm.cmd run build from frontend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-  - time_utc: "2026-06-30T22:31:29Z"
-    time_local: "2026-06-30T19:31:29-03:00"
-    summary: "Wired frontend note capture and browsing for Slice 07."
-    changed:
-      - "Added frontend API helpers, React note loading/saving/detail selection state, active Add Note UI, local backend CORS for Vite, and run/config docs."
-      - "Kept Search and Ask visible but disabled, with no routing, edit/delete, AI, or search behavior."
-    verification:
-      - "Added CORS regression coverage; focused test failed before middleware and passed its assertion after middleware."
-      - "Ran uv run pytest from backend/."
-      - "Ran npm.cmd run build from frontend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-      - "Started backend/frontend with a temp SQLite database; confirmed health, Vite HTTP 200, CORS preflight, POST /notes, GET /notes, and GET /notes/{id}."
-
-  - time_utc: "2026-06-30T22:54:15Z"
-    time_local: "2026-06-30T19:54:15-03:00"
-    summary: "Added isolated AI organizer module for Slice 08."
-    changed:
-      - "Added OpenAI SDK dependency, organizer settings, Pydantic organizer metadata validation, structured-output OpenAI call, and typed organizer errors without wiring POST /notes."
-      - "Added mocked organizer tests plus a real OpenAI API integration test using backend/.env when configured."
-    verification:
-      - "Ran uv run pytest tests/test_ai.py -q from backend/: all tests passed, command failed only because single-file coverage was below global threshold."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-
-  - time_utc: "2026-06-30T23:07:40Z"
-    time_local: "2026-06-30T20:07:40-03:00"
-    summary: "Wired AI organizer into note creation for Slice 09."
-    changed:
-      - "POST /notes now attempts organizer metadata, saves AI title/summary/tags on success, and falls back safely without changing the response shape."
-      - "Repository note creation accepts optional metadata while preserving existing fallback metadata and exact original text storage."
-      - "Added mocked API and repository tests for AI success, organizer failure, missing API key fallback, and exact original text preservation."
-    verification:
-      - "Ran uv run pytest tests/test_notes_api.py tests/test_notes.py from backend/ during red/green cycle."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_ai.py from backend/."
-      - "Ran npm.cmd run build from frontend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-  - time_utc: "2026-06-30T23:31:39Z"
-    time_local: "2026-06-30T20:31:39-03:00"
-    summary: "Added deterministic retrieval chunking for Slice 10."
-    changed:
-      - "Added a pure backend chunking module with frozen retrieval chunk metadata, fixed chunk headers, approximate token thresholds, summary chunks for longer notes, and paragraph-first content chunking."
-      - "Added chunking tests for short notes, longer notes, fixed headers, and retrieval metadata."
-    verification:
-      - "Ran uv run pytest tests/test_chunking.py from backend/: chunking tests passed, command failed only because single-file coverage was below global threshold."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-
-  - time_utc: "2026-07-01T02:40:00Z"
-    time_local: "2026-06-30T23:40:00-03:00"
-    summary: "Added isolated OpenAI embeddings module for Slice 11."
-    changed:
-      - "Added embedding model settings, a backend-only OpenAI embeddings helper with typed errors and input validation, mocked embeddings tests, and a minimal backend config note."
-      - "Kept embeddings isolated from Chroma, note creation, search, ask mode, and frontend behavior."
-    verification:
-      - "Ran uv run pytest from backend/: 40 passed, coverage 85.45%."
-      - "Ran .\\scripts\\check.ps1 from the repository root."
-
-  - time_utc: "2026-07-01T00:15:28Z"
-    time_local: "2026-06-30T21:15:31-03:00"
-    summary: "Added isolated Chroma vector store wrapper for Slice 12."
-    changed:
-      - "Added chromadb dependency, CHROMA_PATH settings support, and a backend-only Chroma PersistentClient wrapper for chunk add, query, and delete-by-note_id."
-      - "Used collection note_data_chunks, stable note:{note_id}:chunk:{chunk_index} IDs, and scalar metadata with JSON-encoded tags."
-      - "Kept Chroma isolated from note creation, API search, ask mode, frontend behavior, and canonical note storage."
-    verification:
-      - "Ran uv run pytest tests/test_vector_store.py from backend/: vector store tests passed, command failed only because single-file coverage was below global threshold."
-      - "Ran uv run pytest from backend/: 48 passed, coverage 86.77%."
-      - "Ran uv run ruff format ., uv run ruff check ., and uv run pyright from backend/."
-  - time_utc: "2026-07-01T00:29:56Z"
-    time_local: "2026-06-30T21:29:56-03:00"
-    summary: "Indexed newly created notes into Chroma for Slice 13."
-    changed:
-      - "POST /notes now saves to SQLite first, builds retrieval chunks from the saved note, embeds only those chunk texts, and stores them through the Chroma vector store."
-      - "Indexing failures log a safe warning and do not roll back or block note creation; the API response shape remains unchanged."
-      - "Updated API tests with mocked embeddings/vector store coverage and removed the obsolete embeddings isolation test."
-    verification:
-      - "Ran uv run pytest tests/test_notes_api.py tests/test_embeddings.py from backend/: 16 assertions passed, command failed only because partial-suite coverage was below the global threshold."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 48 passed and 87.13% coverage."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
-  - time_utc: "2026-07-01T00:53:01Z"
-    time_local: "2026-06-30T21:53:01-03:00"
-    summary: "Added SQLite FTS5 exact search foundation for Slice 14."
-    changed:
-      - "Added an external-content notes_fts table, transactional note FTS indexing, manual rebuild/backfill helpers, and exact-search repository results returning NoteRead objects."
-      - "Exact search covers ai_title, short_summary, tags text, and original_text with FTS phrase candidates plus case-insensitive literal filtering for punctuation-sensitive IDs."
-      - "Kept Chroma indexing, public API routes, frontend behavior, and canonical note storage unchanged."
-    verification:
-      - "Ran uv run pytest tests/test_db.py tests/test_notes.py tests/test_exact_search.py from backend/: 20 passed; command failed only because partial-suite coverage was below the global threshold."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 57 passed and 87.43% coverage."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
-
-  - time_utc: "2026-07-01T03:09:39Z"
-    time_local: "2026-07-01T00:09:37-03:00"
-    summary: "Added backend hybrid search endpoint for Slice 15."
-    changed:
-      - "Added GET /search?q=... returning card-level results from SQLite FTS exact search plus optional Chroma semantic search."
-      - "Merged exact and semantic results by note id with overlap ranking boost and exact fallback when embeddings or Chroma are unavailable."
-      - "Added mocked API coverage for exact-only, semantic-only, merged ranking, empty query rejection, and semantic fallback."
-    verification:
-      - "Ran uv run pytest tests/test_search_api.py -q: assertions passed, command failed only because partial-suite coverage was below global threshold."
-      - "Ran uv run pytest tests/test_search_api.py -q --no-cov: 5 passed."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 62 passed and 87.66% coverage."
-      - "Ran .\\scripts\\check.ps1 from the repository root after npm.cmd install restored frontend dependencies: backend checks/tests passed; frontend lint/build passed."
-
-  - time_utc: "2026-07-01T03:36:28Z"
-    time_local: "2026-07-01T00:36:28-03:00"
-    summary: "Wired frontend search UI to the backend for Slice 16."
-    changed:
-      - "Added a typed frontend search API helper, enabled the Search panel with explicit submit and Clear behavior, and rendered backend search results through the existing note card/detail flow."
-      - "Kept recent notes and search results as separate frontend state; clearing search or saving a new note restores the recent-note list."
-    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+
+  - time_utc: "2026-07-01T22:55:38Z"
+    time_local: "2026-07-01T19:55:38-03:00"
+    summary: "Added Chroma reindex regression coverage for body edits."
+    changed:
+      - "Added backend API tests proving PATCH /notes/{id} passes the updated body to the reindex path and rebuilds Chroma chunks from the edited body instead of stale content."
+      - "Confirmed the existing PATCH reindex flow already deletes old chunks and adds newly embedded chunks from the updated NoteRead."
+    verification:
+      - "Ran uv run python -m pytest from backend/: 122 passed, 6 Starlette 422 deprecation warnings, coverage 89.53%."
+
+  - time_utc: "2026-07-01T22:43:11Z"
+    time_local: "2026-07-01T19:43:11-03:00"
+    summary: "Added FTS regression coverage for body edits."
+    changed:
+      - "Added backend repository and API tests proving edited body terms are searchable, old body-only terms stop matching, and metadata-only patches preserve body searchability."
+      - "Confirmed the existing SQLite update path already passes the resolved updated body to index_note_fts, so no production code change was needed."
+    verification:
+      - "Ran uv run python -m pytest tests/test_notes.py::test_update_note_refreshes_exact_search_for_updated_body tests/test_notes.py::test_update_note_metadata_refreshes_exact_search tests/test_notes_api.py::test_patch_note_refreshes_exact_search_for_updated_body --no-cov -q from backend/: 3 passed."
+      - "Ran uv run ruff format --check tests/test_notes.py tests/test_notes_api.py and uv run ruff check tests/test_notes.py tests/test_notes_api.py from backend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 121 tests; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T22:23:03Z"
+    time_local: "2026-07-01T19:23:05-03:00"
+    summary: "Enabled backend note body updates."
+    changed:
+      - "Renamed the primary SQLite update function to update_note with an update_note_metadata compatibility wrapper, persisted original_text in PATCH /notes/{id}, and documented body patching in the backend API notes."
+      - "Added repository and API coverage for body-only patching, GET consistency, metadata-only patch preservation, and blank body rejection."
+    verification:
+      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 49 passed, 2 Starlette 422 deprecation warnings."
+      - "Ran uv run python -m ruff format --check ., uv run python -m ruff check ., uv run python -m pyright, and uv run python -m pytest from backend/: all passed; pytest reported 119 passed, 6 Starlette 422 deprecation warnings, and 89.53% coverage."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
-  - time_utc: "2026-07-01T03:55:00Z"
-    time_local: "2026-07-01T00:55:00-03:00"
-    summary: "Added combined backend/frontend dev runner."
+  - time_utc: "2026-07-01T21:54:48Z"
+    time_local: "2026-07-01T18:54:49-03:00"
+    summary: "Allowed note body text in backend update schema."
     changed:
-      - "Added scripts/run.ps1 to start Uvicorn and Vite together and clean up both process trees on cancellation."
-      - "Documented the combined runner in the root README command list."
+      - "Added optional original_text validation to NoteUpdate, preserving submitted text exactly while rejecting blank and non-string values."
+      - "Added focused schema tests and removed the obsolete API test that expected original_text to be forbidden."
     verification:
-      - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-      - "Smoke-tested .\\scripts\\run.ps1 startup: backend and frontend ports listened, then process-tree cleanup left ports 8000 and 5173 clean."
-  - time_utc: "2026-07-01T04:02:23Z"
-    time_local: "2026-07-01T01:02:23-03:00"
-    summary: "Prepared internal RAG retrieval context for Slice 17."
-    changed:
-      - "Added a backend-only rag module that embeds a question, queries Chroma for top chunks, groups by note, caps per-note chunks, and formats prompt context with source metadata."
-      - "Added mocked RAG retrieval tests for grouping, per-note limits, final cap, invalid hits, empty results, and blank questions."
-    verification:
-      - "Ran uv run pytest tests/test_rag.py -q --no-cov from backend/: 5 passed."
-      - "Ran uv run pytest tests/test_search_api.py tests/test_exact_search.py tests/test_vector_store.py tests/test_rag.py -q --no-cov from backend/: 25 passed."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 67 passed and 89.29% coverage."
-  - time_utc: "2026-07-01T04:30:00Z"
-    time_local: "2026-07-01T01:30:00-03:00"
-    summary: "Added grounded backend ask endpoint for Slice 18."
-    changed:
-      - "Added POST /ask with non-empty question validation, RAG context retrieval, grounded OpenAI answer generation, exact fallback behavior, sanitized 503 failures, and source metadata responses."
-      - "Reused OPENAI_ORGANIZER_MODEL for ask answer generation and kept frontend/search behavior unchanged."
-    verification:
-      - "Ran uv run pytest tests/test_ask_api.py -q --no-cov from backend/: 7 passed."
-      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 74 passed and 88.39% coverage."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T04:27:39Z"
-    time_local: "2026-07-01T01:27:39-03:00"
-    summary: "Wired frontend Ask panel to backend POST /ask for Slice 19."
-    changed:
-      - "Added typed frontend ask request/response shapes, an askQuestion API helper, and a controlled Ask panel with loading, empty-question validation, error display, answer display, and static supporting source cards."
-      - "Kept ask results visually separate from search/list note cards and did not change backend contracts, search behavior, note selection, chat history, streaming, or markdown rendering."
-    verification:
-      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes_api.py -q --no-cov from backend/: 29 passed, 2 Starlette deprecation warnings."
+      - "Ran uv run python -m pytest from backend/: 117 passed, 6 Starlette deprecation warnings, coverage 89.63%."
+      - "Ran backend Ruff format check, Ruff lint, and Pyright: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
-  - time_utc: "2026-07-01T04:44:51Z"
-    time_local: "2026-07-01T01:44:47-03:00"
-    summary: "Added manual backend note metadata updates for Slice 20."
+  - time_utc: "2026-07-01T19:32:52Z"
+    time_local: "2026-07-01T16:32:50-03:00"
+    summary: "Added frontend-only Ask chat transcript."
     changed:
-      - "Added PATCH /notes/{id} for strict ai_title, short_summary, and tags updates while preserving original_text."
-      - "Metadata updates now refresh SQLite FTS transactionally and best-effort delete/rebuild Chroma chunks with safe warning logs on reindex failure."
-      - "Documented the PATCH example and added repository/API tests for validation, GET response consistency, FTS refresh, Chroma reindex, and reindex failure behavior."
+      - "Replaced the one-shot Ask panel with an AskChat transcript, App-owned in-memory message state, pending assistant bubbles, inline error bubbles, Enter-to-send behavior, and source cards inside assistant answers."
+      - "Kept POST /ask stateless and category-scoped per submitted question; Ask history persists only during the current frontend session and is not stored."
     verification:
-      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 28 passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
-  - time_utc: "2026-07-01T05:05:17Z"
-    time_local: "2026-07-01T02:05:17-03:00"
-    summary: "Added frontend manual metadata editing for Slice 21."
+  - time_utc: "2026-07-01T19:13:08Z"
+    time_local: "2026-07-01T16:13:08-03:00"
+    summary: "Added Markdown capture preview and rendered note detail."
     changed:
-      - "Added PATCH /notes/{id} frontend API support and inline detail-panel edit mode for title, summary, and comma-separated tags while keeping original text read-only."
-      - "Successful saves update selected note state plus saved-note and active search-result card state from the backend response."
+      - "Added react-markdown, remark-gfm, and Tailwind Typography for safe Markdown rendering with GFM tables/task lists/code blocks."
+      - "Replaced Capture textarea with a Markdown write/preview editor while preserving exact original_text saves and existing category/save flow."
+      - "Rendered note original_text as Markdown by default in detail view with a Raw tab exposing exact source text."
     verification:
-      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran npm run lint from frontend/: passed."
+      - "Ran npm run build from frontend/: passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T05:20:38Z"
-    time_local: "2026-07-01T02:20:38-03:00"
-    summary: "Added backend note deletion for Slice 22."
-    changed:
-      - "Added DELETE /notes/{id} with SQLite deletion, FTS rebuild, best-effort Chroma chunk cleanup, and DELETE CORS support."
-      - "Documented the backend delete example and response cleanup behavior."
-    verification:
-      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 35 passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T05:31:50Z"
-    time_local: "2026-07-01T02:31:50-03:00"
-    summary: "Added frontend selected-note deletion for Slice 23."
-    changed:
-      - "Added a DELETE /notes/{id} frontend helper, selected-note Delete button with browser confirmation, list/search state removal, cleared selection after delete, and cited Ask-result cleanup."
-    verification:
-      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T05:45:00Z"
-    time_local: "2026-07-01T02:45:00-03:00"
-    summary: "Documented local MVP runbook for Slice 24."
-    changed:
-      - "Rewrote root README.md with product summary, local-first storage explanation, setup, run, verify, env var table, MVP verification checklist, data location, reset procedure, MVP non-goals, and project structure."
-      - "Added shields.io flat-square badges for CI, Python 3.12+, Node 24+, license, and last commit plus a tech stack row."
-      - "Added MIT LICENSE (Copyright 2026 Adrian Nunez)."
-      - "Added backend/.env to .gitignore as a safety net for the local secret file."
-      - "Kept backend/README.md as the authoritative API curl reference."
-    verification:
-      - "Ran .\\scripts\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T14:11:05Z"
-    time_local: "2026-07-01T11:11:05-03:00"
-    summary: "Made Windows uv script launches use Python module execution."
-    changed:
-      - "Updated scripts/run.ps1 to validate uv/npm availability and launch Uvicorn via uv run python -m uvicorn."
-      - "Updated scripts/check.ps1 and scripts/fix.ps1 to run Ruff, Pyright, and Pytest through uv run python -m to avoid uv console-script trampoline failures on Windows."
-      - "Updated current README backend run/test commands to use Python module execution."
-    verification:
-      - "Ran uv run python -m uvicorn --version from backend/: Uvicorn 0.49.0 reported successfully."
-      - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 89 tests; frontend lint/build passed."
-      - "Smoke-tested .\\scripts\\run.ps1 startup: backend /health and frontend / responded, then process-tree cleanup left ports 8000 and 5173 clean."
 
-  - time_utc: "2026-07-01T15:25:00Z"
-    time_local: "2026-07-01T12:25:00-03:00"
-    summary: "Promoted Capture and Ask to top command center with segmented mode switcher, keyboard shortcuts, design tokens, and lucide-react icons."
+  - time_utc: "2026-07-01T18:33:39Z"
+    time_local: "2026-07-01T15:33:39-03:00"
+    summary: "Scoped Search and Ask retrieval by selected category."
     changed:
-      - "Added CommandCenter card at the top of the page with a SegmentedControl switching between Capture, Search, and Ask modes."
-      - "Added ResultPanel in the right column showing NoteDetail or Ask answer with sources based on active mode."
-      - "Stripped outer cards from AddNote, SearchBar, and AskPanel — they now render inside the CommandCenter."
-      - "Added design tokens (tokens.css) and Tailwind v4 @theme block with brand (teal) and accent (indigo for Ask) colors, card radius, shadows, and motion tokens."
-      - "Added keyboard shortcuts: Cmd/Ctrl+K (search), Cmd/Ctrl+N (capture), Cmd/Ctrl+I (ask), Escape to blur."
-      - "Added lucide-react dependency for icons (PenLine, Search, Sparkles)."
-      - "Auto-focuses capture mode on empty library, search mode when notes exist; auto-selects first note on load."
+      - "Added optional category_id and uncategorized scope handling to backend Search and Ask, including exact search filters, Chroma metadata filters, and SQLite post-filtering to prevent stale vector metadata leaks."
+      - "Added category metadata and an uncategorized sentinel to Chroma chunk metadata, plus lazy in-place metadata sync for scoped retrieval without resetting the collection."
+      - "Updated the frontend so sidebar category selection controls Search and Ask request scope, displays the current scope, and clears stale scoped outputs on category changes."
+      - "Documented scoped Search and Ask examples in README.md and backend/README.md."
     verification:
-      - "Ran npm.cmd run typecheck from frontend/: passed clean."
-      - "Ran npm.cmd run lint from frontend/: passed clean."
-      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran uv run python -m pytest from backend/: 112 passed, coverage 89.52%, with Starlette 422 deprecation warnings."
+      - "Ran npm.cmd run lint and npm.cmd run build from frontend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T17:38:28Z"
+    time_local: "2026-07-01T14:38:28-03:00"
+    summary: "Renamed visible product copy to Note Memory and added manual categories."
+    changed:
+      - "Added SQLite categories table, nullable notes.category_id migration, category schemas, GET/POST /categories, category-aware note create/update/read/list responses, and category_id filtering for GET /notes."
+      - "Updated organizer prompt and visible app copy to general note language while keeping internal mapping_memory names."
+      - "Added frontend category loading, sidebar filters, inline category creation, capture category selection, and category labels/editing in note cards and detail."
+      - "Updated README and backend API docs for Note Memory categories."
+    verification:
+      - "Ran uv run python -m pytest from backend/: 98 passed, 2 warnings, coverage 88.48%."
+      - "Ran backend ruff format --check, ruff check, and pyright: passed."
+      - "Ran npm run lint and npm run build from frontend/: passed."
+
+  - time_utc: "2026-07-01T15:57:01Z"
+    time_local: "2026-07-01T12:56:59-03:00"
+    summary: "Switched frontend shortcuts to Windows Alt keys and documented them."
+    changed:
+      - "Replaced Cmd/Ctrl mode shortcuts with Alt+1 Capture, Alt+2 Search, Alt+3 Ask, kept Escape blur, and preserved normal Tab focus navigation."
+      - "Updated inline UI shortcut hints, mode button titles/aria-keyshortcuts, and root README keyboard shortcut table."
+    verification:
+      - "Ran npm run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
+
   - time_utc: "2026-07-01T19:00:00Z"
     time_local: "2026-07-01T16:00:00-03:00"
     summary: "Complete frontend UI overhaul: dark mode by default, sidebar layout, amber accent, polished 2026 aesthetic."
@@ -310,113 +137,311 @@ entries:
       - "Saving a note now auto-switches to search mode to show it in the list."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
-  - time_utc: "2026-07-01T15:57:01Z"
-    time_local: "2026-07-01T12:56:59-03:00"
-    summary: "Switched frontend shortcuts to Windows Alt keys and documented them."
-    changed:
-      - "Replaced Cmd/Ctrl mode shortcuts with Alt+1 Capture, Alt+2 Search, Alt+3 Ask, kept Escape blur, and preserved normal Tab focus navigation."
-      - "Updated inline UI shortcut hints, mode button titles/aria-keyshortcuts, and root README keyboard shortcut table."
-    verification:
-      - "Ran npm run build from frontend/: TypeScript and Vite build passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
-  - time_utc: "2026-07-01T17:38:28Z"
-    time_local: "2026-07-01T14:38:28-03:00"
-    summary: "Renamed visible product copy to Note Memory and added manual categories."
-    changed:
-      - "Added SQLite categories table, nullable notes.category_id migration, category schemas, GET/POST /categories, category-aware note create/update/read/list responses, and category_id filtering for GET /notes."
-      - "Updated organizer prompt and visible app copy to general note language while keeping internal mapping_memory names."
-      - "Added frontend category loading, sidebar filters, inline category creation, capture category selection, and category labels/editing in note cards and detail."
-      - "Updated README and backend API docs for Note Memory categories."
-    verification:
-      - "Ran uv run python -m pytest from backend/: 98 passed, 2 warnings, coverage 88.48%."
-      - "Ran backend ruff format --check, ruff check, and pyright: passed."
-      - "Ran npm run lint and npm run build from frontend/: passed."
 
-
-  - time_utc: "2026-07-01T18:33:39Z"
-    time_local: "2026-07-01T15:33:39-03:00"
-    summary: "Scoped Search and Ask retrieval by selected category."
+  - time_utc: "2026-07-01T15:25:00Z"
+    time_local: "2026-07-01T12:25:00-03:00"
+    summary: "Promoted Capture and Ask to top command center with segmented mode switcher, keyboard shortcuts, design tokens, and lucide-react icons."
     changed:
-      - "Added optional category_id and uncategorized scope handling to backend Search and Ask, including exact search filters, Chroma metadata filters, and SQLite post-filtering to prevent stale vector metadata leaks."
-      - "Added category metadata and an uncategorized sentinel to Chroma chunk metadata, plus lazy in-place metadata sync for scoped retrieval without resetting the collection."
-      - "Updated the frontend so sidebar category selection controls Search and Ask request scope, displays the current scope, and clears stale scoped outputs on category changes."
-      - "Documented scoped Search and Ask examples in README.md and backend/README.md."
+      - "Added CommandCenter card at the top of the page with a SegmentedControl switching between Capture, Search, and Ask modes."
+      - "Added ResultPanel in the right column showing NoteDetail or Ask answer with sources based on active mode."
+      - "Stripped outer cards from AddNote, SearchBar, and AskPanel — they now render inside the CommandCenter."
+      - "Added design tokens (tokens.css) and Tailwind v4 @theme block with brand (teal) and accent (indigo for Ask) colors, card radius, shadows, and motion tokens."
+      - "Added keyboard shortcuts: Cmd/Ctrl+K (search), Cmd/Ctrl+N (capture), Cmd/Ctrl+I (ask), Escape to blur."
+      - "Added lucide-react dependency for icons (PenLine, Search, Sparkles)."
+      - "Auto-focuses capture mode on empty library, search mode when notes exist; auto-selects first note on load."
     verification:
-      - "Ran uv run python -m pytest from backend/: 112 passed, coverage 89.52%, with Starlette 422 deprecation warnings."
-      - "Ran npm.cmd run lint and npm.cmd run build from frontend/: passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T19:13:08Z"
-    time_local: "2026-07-01T16:13:08-03:00"
-    summary: "Added Markdown capture preview and rendered note detail."
-    changed:
-      - "Added react-markdown, remark-gfm, and Tailwind Typography for safe Markdown rendering with GFM tables/task lists/code blocks."
-      - "Replaced Capture textarea with a Markdown write/preview editor while preserving exact original_text saves and existing category/save flow."
-      - "Rendered note original_text as Markdown by default in detail view with a Raw tab exposing exact source text."
-    verification:
-      - "Ran npm run lint from frontend/: passed."
-      - "Ran npm run build from frontend/: passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T19:32:52Z"
-    time_local: "2026-07-01T16:32:50-03:00"
-    summary: "Added frontend-only Ask chat transcript."
-    changed:
-      - "Replaced the one-shot Ask panel with an AskChat transcript, App-owned in-memory message state, pending assistant bubbles, inline error bubbles, Enter-to-send behavior, and source cards inside assistant answers."
-      - "Kept POST /ask stateless and category-scoped per submitted question; Ask history persists only during the current frontend session and is not stored."
-    verification:
-      - "Ran npm.cmd run lint from frontend/: passed."
-      - "Ran npm.cmd run build from frontend/: passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T21:54:48Z"
-    time_local: "2026-07-01T18:54:49-03:00"
-    summary: "Allowed note body text in backend update schema."
-    changed:
-      - "Added optional original_text validation to NoteUpdate, preserving submitted text exactly while rejecting blank and non-string values."
-      - "Added focused schema tests and removed the obsolete API test that expected original_text to be forbidden."
-    verification:
-      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes_api.py -q --no-cov from backend/: 29 passed, 2 Starlette deprecation warnings."
-      - "Ran uv run python -m pytest from backend/: 117 passed, 6 Starlette deprecation warnings, coverage 89.63%."
-      - "Ran backend Ruff format check, Ruff lint, and Pyright: passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T22:23:03Z"
-    time_local: "2026-07-01T19:23:05-03:00"
-    summary: "Enabled backend note body updates."
-    changed:
-      - "Renamed the primary SQLite update function to update_note with an update_note_metadata compatibility wrapper, persisted original_text in PATCH /notes/{id}, and documented body patching in the backend API notes."
-      - "Added repository and API coverage for body-only patching, GET consistency, metadata-only patch preservation, and blank body rejection."
-    verification:
-      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 49 passed, 2 Starlette 422 deprecation warnings."
-      - "Ran uv run python -m ruff format --check ., uv run python -m ruff check ., uv run python -m pyright, and uv run python -m pytest from backend/: all passed; pytest reported 119 passed, 6 Starlette 422 deprecation warnings, and 89.53% coverage."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
-  - time_utc: "2026-07-01T22:43:11Z"
-    time_local: "2026-07-01T19:43:11-03:00"
-    summary: "Added FTS regression coverage for body edits."
-    changed:
-      - "Added backend repository and API tests proving edited body terms are searchable, old body-only terms stop matching, and metadata-only patches preserve body searchability."
-      - "Confirmed the existing SQLite update path already passes the resolved updated body to index_note_fts, so no production code change was needed."
-    verification:
-      - "Ran uv run python -m pytest tests/test_notes.py::test_update_note_refreshes_exact_search_for_updated_body tests/test_notes.py::test_update_note_metadata_refreshes_exact_search tests/test_notes_api.py::test_patch_note_refreshes_exact_search_for_updated_body --no-cov -q from backend/: 3 passed."
-      - "Ran uv run ruff format --check tests/test_notes.py tests/test_notes_api.py and uv run ruff check tests/test_notes.py tests/test_notes_api.py from backend/: passed."
-      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 121 tests; frontend lint/build passed."
-  - time_utc: "2026-07-01T22:55:38Z"
-    time_local: "2026-07-01T19:55:38-03:00"
-    summary: "Added Chroma reindex regression coverage for body edits."
-    changed:
-      - "Added backend API tests proving PATCH /notes/{id} passes the updated body to the reindex path and rebuilds Chroma chunks from the edited body instead of stale content."
-      - "Confirmed the existing PATCH reindex flow already deletes old chunks and adds newly embedded chunks from the updated NoteRead."
-    verification:
-      - "Ran uv run python -m pytest from backend/: 122 passed, 6 Starlette 422 deprecation warnings, coverage 89.53%."
-  - time_utc: "2026-07-01T23:04:40Z"
-    time_local: "2026-07-01T20:04:40-03:00"
-    summary: "Added frontend full note update API types."
-    changed:
-      - "Replaced the frontend metadata update payload with NoteUpdate including optional original_text, renamed the API helper to updateNote, and updated existing metadata edit callers to use the widened type without UI changes."
-    verification:
-      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run typecheck from frontend/: passed clean."
+      - "Ran npm.cmd run lint from frontend/: passed clean."
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
-  - time_utc: "2026-07-01T23:47:11Z"
-    time_local: "2026-07-01T20:47:09-03:00"
-    summary: "Removed visible mode selector from the frontend shell."
+
+  - time_utc: "2026-07-01T14:11:05Z"
+    time_local: "2026-07-01T11:11:05-03:00"
+    summary: "Made Windows uv script launches use Python module execution."
     changed:
-      - "Removed the top-right Capture/Search/Ask SegmentedControl from the App header while preserving mode state, keyboard shortcuts, and existing Capture/Search/Ask panel wiring for compatibility."
+      - "Updated scripts/run.ps1 to validate uv/npm availability and launch Uvicorn via uv run python -m uvicorn."
+      - "Updated scripts/check.ps1 and scripts/fix.ps1 to run Ruff, Pyright, and Pytest through uv run python -m to avoid uv console-script trampoline failures on Windows."
+      - "Updated current README backend run/test commands to use Python module execution."
+    verification:
+      - "Ran uv run python -m uvicorn --version from backend/: Uvicorn 0.49.0 reported successfully."
+      - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 89 tests; frontend lint/build passed."
+      - "Smoke-tested .\\scripts\\run.ps1 startup: backend /health and frontend / responded, then process-tree cleanup left ports 8000 and 5173 clean."
+
+  - time_utc: "2026-07-01T05:45:00Z"
+    time_local: "2026-07-01T02:45:00-03:00"
+    summary: "Documented local MVP runbook for Slice 24."
+    changed:
+      - "Rewrote root README.md with product summary, local-first storage explanation, setup, run, verify, env var table, MVP verification checklist, data location, reset procedure, MVP non-goals, and project structure."
+      - "Added shields.io flat-square badges for CI, Python 3.12+, Node 24+, license, and last commit plus a tech stack row."
+      - "Added MIT LICENSE (Copyright 2026 Adrian Nunez)."
+      - "Added backend/.env to .gitignore as a safety net for the local secret file."
+      - "Kept backend/README.md as the authoritative API curl reference."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T05:31:50Z"
+    time_local: "2026-07-01T02:31:50-03:00"
+    summary: "Added frontend selected-note deletion for Slice 23."
+    changed:
+      - "Added a DELETE /notes/{id} frontend helper, selected-note Delete button with browser confirmation, list/search state removal, cleared selection after delete, and cited Ask-result cleanup."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T05:20:38Z"
+    time_local: "2026-07-01T02:20:38-03:00"
+    summary: "Added backend note deletion for Slice 22."
+    changed:
+      - "Added DELETE /notes/{id} with SQLite deletion, FTS rebuild, best-effort Chroma chunk cleanup, and DELETE CORS support."
+      - "Documented the backend delete example and response cleanup behavior."
+    verification:
+      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 35 passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T05:05:17Z"
+    time_local: "2026-07-01T02:05:17-03:00"
+    summary: "Added frontend manual metadata editing for Slice 21."
+    changed:
+      - "Added PATCH /notes/{id} frontend API support and inline detail-panel edit mode for title, summary, and comma-separated tags while keeping original text read-only."
+      - "Successful saves update selected note state plus saved-note and active search-result card state from the backend response."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T04:44:51Z"
+    time_local: "2026-07-01T01:44:47-03:00"
+    summary: "Added manual backend note metadata updates for Slice 20."
+    changed:
+      - "Added PATCH /notes/{id} for strict ai_title, short_summary, and tags updates while preserving original_text."
+      - "Metadata updates now refresh SQLite FTS transactionally and best-effort delete/rebuild Chroma chunks with safe warning logs on reindex failure."
+      - "Documented the PATCH example and added repository/API tests for validation, GET response consistency, FTS refresh, Chroma reindex, and reindex failure behavior."
+    verification:
+      - "Ran uv run pytest tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 28 passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T04:27:39Z"
+    time_local: "2026-07-01T01:27:39-03:00"
+    summary: "Wired frontend Ask panel to backend POST /ask for Slice 19."
+    changed:
+      - "Added typed frontend ask request/response shapes, an askQuestion API helper, and a controlled Ask panel with loading, empty-question validation, error display, answer display, and static supporting source cards."
+      - "Kept ask results visually separate from search/list note cards and did not change backend contracts, search behavior, note selection, chat history, streaming, or markdown rendering."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T04:30:00Z"
+    time_local: "2026-07-01T01:30:00-03:00"
+    summary: "Added grounded backend ask endpoint for Slice 18."
+    changed:
+      - "Added POST /ask with non-empty question validation, RAG context retrieval, grounded OpenAI answer generation, exact fallback behavior, sanitized 503 failures, and source metadata responses."
+      - "Reused OPENAI_ORGANIZER_MODEL for ask answer generation and kept frontend/search behavior unchanged."
+    verification:
+      - "Ran uv run pytest tests/test_ask_api.py -q --no-cov from backend/: 7 passed."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 74 passed and 88.39% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T04:02:23Z"
+    time_local: "2026-07-01T01:02:23-03:00"
+    summary: "Prepared internal RAG retrieval context for Slice 17."
+    changed:
+      - "Added a backend-only rag module that embeds a question, queries Chroma for top chunks, groups by note, caps per-note chunks, and formats prompt context with source metadata."
+      - "Added mocked RAG retrieval tests for grouping, per-note limits, final cap, invalid hits, empty results, and blank questions."
+    verification:
+      - "Ran uv run pytest tests/test_rag.py -q --no-cov from backend/: 5 passed."
+      - "Ran uv run pytest tests/test_search_api.py tests/test_exact_search.py tests/test_vector_store.py tests/test_rag.py -q --no-cov from backend/: 25 passed."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 67 passed and 89.29% coverage."
+
+  - time_utc: "2026-07-01T03:55:00Z"
+    time_local: "2026-07-01T00:55:00-03:00"
+    summary: "Added combined backend/frontend dev runner."
+    changed:
+      - "Added scripts/run.ps1 to start Uvicorn and Vite together and clean up both process trees on cancellation."
+      - "Documented the combined runner in the root README command list."
+    verification:
+      - "Ran powershell -NoProfile -Command \"[scriptblock]::Create((Get-Content scripts\\run.ps1 -Raw)) | Out-Null\": script parsed successfully."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+      - "Smoke-tested .\\scripts\\run.ps1 startup: backend and frontend ports listened, then process-tree cleanup left ports 8000 and 5173 clean."
+
+  - time_utc: "2026-07-01T03:36:28Z"
+    time_local: "2026-07-01T00:36:28-03:00"
+    summary: "Wired frontend search UI to the backend for Slice 16."
+    changed:
+      - "Added a typed frontend search API helper, enabled the Search panel with explicit submit and Clear behavior, and rendered backend search results through the existing note card/detail flow."
+      - "Kept recent notes and search results as separate frontend state; clearing search or saving a new note restores the recent-note list."
+    verification:
+      - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T03:09:39Z"
+    time_local: "2026-07-01T00:09:37-03:00"
+    summary: "Added backend hybrid search endpoint for Slice 15."
+    changed:
+      - "Added GET /search?q=... returning card-level results from SQLite FTS exact search plus optional Chroma semantic search."
+      - "Merged exact and semantic results by note id with overlap ranking boost and exact fallback when embeddings or Chroma are unavailable."
+      - "Added mocked API coverage for exact-only, semantic-only, merged ranking, empty query rejection, and semantic fallback."
+    verification:
+      - "Ran uv run pytest tests/test_search_api.py -q: assertions passed, command failed only because partial-suite coverage was below global threshold."
+      - "Ran uv run pytest tests/test_search_api.py -q --no-cov: 5 passed."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 62 passed and 87.66% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root after npm.cmd install restored frontend dependencies: backend checks/tests passed; frontend lint/build passed."
+
+  - time_utc: "2026-07-01T00:53:01Z"
+    time_local: "2026-06-30T21:53:01-03:00"
+    summary: "Added SQLite FTS5 exact search foundation for Slice 14."
+    changed:
+      - "Added an external-content notes_fts table, transactional note FTS indexing, manual rebuild/backfill helpers, and exact-search repository results returning NoteRead objects."
+      - "Exact search covers ai_title, short_summary, tags text, and original_text with FTS phrase candidates plus case-insensitive literal filtering for punctuation-sensitive IDs."
+      - "Kept Chroma indexing, public API routes, frontend behavior, and canonical note storage unchanged."
+    verification:
+      - "Ran uv run pytest tests/test_db.py tests/test_notes.py tests/test_exact_search.py from backend/: 20 passed; command failed only because partial-suite coverage was below the global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 57 passed and 87.43% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
+
+  - time_utc: "2026-07-01T00:29:56Z"
+    time_local: "2026-06-30T21:29:56-03:00"
+    summary: "Indexed newly created notes into Chroma for Slice 13."
+    changed:
+      - "POST /notes now saves to SQLite first, builds retrieval chunks from the saved note, embeds only those chunk texts, and stores them through the Chroma vector store."
+      - "Indexing failures log a safe warning and do not roll back or block note creation; the API response shape remains unchanged."
+      - "Updated API tests with mocked embeddings/vector store coverage and removed the obsolete embeddings isolation test."
+    verification:
+      - "Ran uv run pytest tests/test_notes_api.py tests/test_embeddings.py from backend/: 16 assertions passed, command failed only because partial-suite coverage was below the global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/: all passed; pytest reported 48 passed and 87.13% coverage."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests passed, frontend lint/build passed."
+
+  - time_utc: "2026-07-01T00:15:28Z"
+    time_local: "2026-06-30T21:15:31-03:00"
+    summary: "Added isolated Chroma vector store wrapper for Slice 12."
+    changed:
+      - "Added chromadb dependency, CHROMA_PATH settings support, and a backend-only Chroma PersistentClient wrapper for chunk add, query, and delete-by-note_id."
+      - "Used collection note_data_chunks, stable note:{note_id}:chunk:{chunk_index} IDs, and scalar metadata with JSON-encoded tags."
+      - "Kept Chroma isolated from note creation, API search, ask mode, frontend behavior, and canonical note storage."
+    verification:
+      - "Ran uv run pytest tests/test_vector_store.py from backend/: vector store tests passed, command failed only because single-file coverage was below global threshold."
+      - "Ran uv run pytest from backend/: 48 passed, coverage 86.77%."
+      - "Ran uv run ruff format ., uv run ruff check ., and uv run pyright from backend/."
+
+  - time_utc: "2026-07-01T02:40:00Z"
+    time_local: "2026-06-30T23:40:00-03:00"
+    summary: "Added isolated OpenAI embeddings module for Slice 11."
+    changed:
+      - "Added embedding model settings, a backend-only OpenAI embeddings helper with typed errors and input validation, mocked embeddings tests, and a minimal backend config note."
+      - "Kept embeddings isolated from Chroma, note creation, search, ask mode, and frontend behavior."
+    verification:
+      - "Ran uv run pytest from backend/: 40 passed, coverage 85.45%."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T23:31:39Z"
+    time_local: "2026-06-30T20:31:39-03:00"
+    summary: "Added deterministic retrieval chunking for Slice 10."
+    changed:
+      - "Added a pure backend chunking module with frozen retrieval chunk metadata, fixed chunk headers, approximate token thresholds, summary chunks for longer notes, and paragraph-first content chunking."
+      - "Added chunking tests for short notes, longer notes, fixed headers, and retrieval metadata."
+    verification:
+      - "Ran uv run pytest tests/test_chunking.py from backend/: chunking tests passed, command failed only because single-file coverage was below global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T23:07:40Z"
+    time_local: "2026-06-30T20:07:40-03:00"
+    summary: "Wired AI organizer into note creation for Slice 09."
+    changed:
+      - "POST /notes now attempts organizer metadata, saves AI title/summary/tags on success, and falls back safely without changing the response shape."
+      - "Repository note creation accepts optional metadata while preserving existing fallback metadata and exact original text storage."
+      - "Added mocked API and repository tests for AI success, organizer failure, missing API key fallback, and exact original text preservation."
+    verification:
+      - "Ran uv run pytest tests/test_notes_api.py tests/test_notes.py from backend/ during red/green cycle."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_ai.py from backend/."
+      - "Ran npm.cmd run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T22:54:15Z"
+    time_local: "2026-06-30T19:54:15-03:00"
+    summary: "Added isolated AI organizer module for Slice 08."
+    changed:
+      - "Added OpenAI SDK dependency, organizer settings, Pydantic organizer metadata validation, structured-output OpenAI call, and typed organizer errors without wiring POST /notes."
+      - "Added mocked organizer tests plus a real OpenAI API integration test using backend/.env when configured."
+    verification:
+      - "Ran uv run pytest tests/test_ai.py -q from backend/: all tests passed, command failed only because single-file coverage was below global threshold."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T22:31:29Z"
+    time_local: "2026-06-30T19:31:29-03:00"
+    summary: "Wired frontend note capture and browsing for Slice 07."
+    changed:
+      - "Added frontend API helpers, React note loading/saving/detail selection state, active Add Note UI, local backend CORS for Vite, and run/config docs."
+      - "Kept Search and Ask visible but disabled, with no routing, edit/delete, AI, or search behavior."
+    verification:
+      - "Added CORS regression coverage; focused test failed before middleware and passed its assertion after middleware."
+      - "Ran uv run pytest from backend/."
+      - "Ran npm.cmd run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+      - "Started backend/frontend with a temp SQLite database; confirmed health, Vite HTTP 200, CORS preflight, POST /notes, GET /notes, and GET /notes/{id}."
+
+  - time_utc: "2026-06-30T21:56:19Z"
+    time_local: "2026-06-30T18:56:16-03:00"
+    summary: "Added frontend static app shell for Slice 06."
+    changed:
+      - "Replaced the placeholder React app with a static notes workspace, disabled Add/Search/Ask panels, sample note cards, selected note detail, backend-shaped note type, and responsive CSS."
+    verification:
+      - "Ran npm.cmd run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T21:37:06Z"
+    time_local: "2026-06-30T18:37:06-03:00"
+    summary: "Added fallback note API endpoints for Slice 05."
+    changed:
+      - "Added FastAPI note create, list, and get endpoints using existing SQLite repository functions and shared request/response schemas."
+      - "Added API tests for create, list, get, missing id, and empty input validation."
+      - "Documented note endpoint examples in the backend README."
+    verification:
+      - "Ran uv run pytest tests/test_notes_api.py from backend/."
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest tests/test_notes_api.py tests/test_notes.py tests/test_db.py tests/test_health.py from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T19:59:31Z"
+    time_local: "2026-06-30T16:59:30-03:00"
+    summary: "Added backend note repository functions for Slice 04."
+    changed:
+      - "Added internal SQLite note create, fetch, and newest-first list functions with fallback metadata and Pydantic return objects."
+      - "Added repository tests for creation, fetching, listing order, original text preservation, fallback title behavior, empty-text rejection, and empty tag round-trip."
+    verification:
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T18:57:50Z"
+    time_local: "2026-06-30T15:57:50-03:00"
+    summary: "Added SQLite notes table initialization for Slice 03."
+    changed:
+      - "Added sqlite3 database helpers, SQLITE_PATH resolution, FastAPI lifespan initialization, and focused temp-database tests for the notes table."
+    verification:
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+
+  - time_utc: "2026-06-30T18:09:57Z"
+    time_local: "2026-06-30T15:09:57-03:00"
+    summary: "Added backend settings and health check for Slice 02."
+    changed:
+      - "Added pydantic-settings configuration, FastAPI app boot path, GET /health, backend health test, and backend run instructions."
+    verification:
+      - "Ran uv run ruff format --check ., uv run ruff check ., uv run pyright, and uv run pytest from backend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root."
+      - "Confirmed backend/.env is absent and app imports with OPENAI_API_KEY unset."
+      - "Started Uvicorn locally and confirmed GET /health returned HTTP 200 in server logs."
+
+  - time_utc: "2026-06-30T17:22:21Z"
+    time_local: "2026-06-30T14:22:21-03:00"
+    summary: "Created initial web app scaffold."
+    changed:
+      - "Initial FastAPI backend, React TypeScript frontend, checks, CI, hooks, AGENTS.md, and memory file."
+    verification:
+      - 'Not run yet; run .\scripts\check.ps1 before first commit.'
+
+  - time_utc: "2026-06-30T17:35:00Z"
+    time_local: "2026-06-30T14:35:00-03:00"
+    summary: "Normalized Slice 01 scaffold-only monorepo structure."
+    changed:
+      - "Aligned backend package path to backend/src/mapping_memory, added backend/.env.example and data/.gitkeep, removed generated API/frontend behavior."
+    verification:
+      - "Ran .\\scripts\\check.ps1: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
