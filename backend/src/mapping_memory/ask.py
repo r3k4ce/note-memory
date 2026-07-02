@@ -40,6 +40,7 @@ def create_ask_router(settings: Settings) -> APIRouter:
             answer = generate_grounded_answer(
                 question=request.question,
                 context=retrieval_context.formatted_context,
+                history=request.history,
                 settings=settings,
             )
         except Exception:

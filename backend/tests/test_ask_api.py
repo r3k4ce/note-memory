@@ -135,6 +135,35 @@ def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
     ]
 
 
+def test_ask_passes_history_to_answer_generation(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    source = _source(note_id=7, title="Source recreation", date_added="2026-07-01T01:00:00Z")
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
+        answer=lambda **kwargs: captured.update(kwargs) or "Grounded answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What happened next?",
+                "history": [
+                    {"role": "user", "content": "What did we discuss?"},
+                    {"role": "assistant", "content": "Source recreation."},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert [message.model_dump() for message in captured["history"]] == [
+        {"role": "user", "content": "What did we discuss?"},
+        {"role": "assistant", "content": "Source recreation."},
+    ]
+
+
 def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatch) -> None:
     answer_calls: list[dict[str, Any]] = []
     app = _ask_app_with_real_retrieval(
@@ -395,6 +424,66 @@ def test_ask_sends_only_retrieved_context_to_answer_model(tmp_path, monkeypatch)
     assert response.text.find(forbidden_full_database_text) == -1
 
 
+def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
+    source = _source(note_id=9, title="Retrieved card", date_added="2026-07-01T05:00:00Z")
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(
+            sources=(source,), formatted_context="retrieved context"
+        ),
+        answer=lambda **_: "Grounded answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What source should be cited?",
+                "history": [
+                    {
+                        "role": "assistant",
+                        "content": "Source: fake-note-999, title: History-only source",
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == [
+        {
+            "note_id": 9,
+            "title": "Retrieved card",
+            "date_added": "2026-07-01T05:00:00Z",
+        }
+    ]
+
+
+def test_ask_history_alone_cannot_produce_answer_without_note_context(
+    tmp_path, monkeypatch
+) -> None:
+    calls: list[str] = []
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: calls.append("called") or "history-only answer",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What was the decision?",
+                "history": [{"role": "assistant", "content": "The decision was to ship history."}],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert calls == []
+
+
 def test_ask_returns_empty_sources_when_model_returns_fallback(tmp_path, monkeypatch) -> None:
     source = _source(note_id=4, title="Unhelpful source", date_added="2026-07-01T03:00:00Z")
     app = _ask_app(
@@ -434,12 +523,17 @@ def test_ask_returns_sanitized_503_when_answer_generation_fails(tmp_path, monkey
 
 def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> None:
     from mapping_memory.ai import ANSWER_SYSTEM_PROMPT, generate_grounded_answer
+    from mapping_memory.schemas import AskHistoryMessage
 
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
 
     answer = generate_grounded_answer(
         "What should we do?",
         context="Card title: Saved card\nRelevant text:\nUse saved decision.",
+        history=[
+            AskHistoryMessage(role="user", content="What source is relevant?"),
+            AskHistoryMessage(role="assistant", content="The saved card is relevant."),
+        ],
         settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
         client=fake_client,
     )
@@ -450,8 +544,33 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
     assert call["messages"][0] == {"role": "system", "content": ANSWER_SYSTEM_PROMPT}
     user_message = call["messages"][1]["content"]
     assert "Card title: Saved card" in user_message
+    assert "Recent chat history (for question interpretation only):" in user_message
+    assert "user: What source is relevant?" in user_message
+    assert "assistant: The saved card is relevant." in user_message
     assert "What should we do?" in user_message
     assert "full database" not in user_message
+
+
+def test_generate_grounded_answer_includes_only_recent_history_in_prompt() -> None:
+    from mapping_memory.ai import generate_grounded_answer
+    from mapping_memory.schemas import AskHistoryMessage
+
+    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+
+    generate_grounded_answer(
+        "What happened next?",
+        context="Card title: Saved card\nRelevant text:\nUse saved decision.",
+        history=[AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)],
+        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        client=fake_client,
+    )
+
+    user_message = fake_client.chat.completions.calls[0]["messages"][1]["content"]
+    assert "user: message 0" not in user_message
+    assert "user: message 1" not in user_message
+    for index in range(2, 8):
+        assert f"user: message {index}" in user_message
+    assert "Current question:\nWhat happened next?" in user_message
 
 
 class FakeCompletions:

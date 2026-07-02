@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-02T17:43:07Z"
+    time_local: "2026-07-02T14:43:07-03:00"
+    summary: "Passed recent Ask history into grounded answer generation."
+    changed:
+      - "Extended grounded answer generation to receive the last 6 Ask history messages in a labeled prompt section for question interpretation only."
+      - "Updated the answer prompt to keep saved-note context as the only factual source and preserve the exact saved-notes fallback."
+      - "Forwarded AskRequest.history from POST /ask into answer generation while keeping response sources derived only from retrieved notes."
+    verification:
+      - "Ran uv run python -m pytest tests/test_ask_api.py --no-cov from backend/: 22 passed with 2 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 160 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-02T17:26:53Z"
     time_local: "2026-07-02T14:26:53-03:00"
     summary: "Used recent Ask history for backend retrieval queries."
