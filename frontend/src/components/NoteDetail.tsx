@@ -1,61 +1,36 @@
 import { useState } from "react";
-import { Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
-import type { Category, Note, NoteUpdate } from "../types";
+import type { Note } from "../types";
 import { MarkdownPreview } from "./MarkdownPreview";
 
 type NoteDetailProps = {
-  categories: Category[];
   deleteError: string | null;
   error: string | null;
   isDeleting: boolean;
   isLoading: boolean;
-  isSavingMetadata: boolean;
   note: Note | null;
   onDelete: (noteId: number) => Promise<void>;
-  onSaveMetadata: (noteId: number, metadata: NoteUpdate) => Promise<void>;
-  saveError: string | null;
+  onNewNote: () => void;
 };
-
-function parseTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
-function tagsMatch(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((tag, index) => tag === right[index]);
-}
-
-function categoryValue(categoryId: number | null): string {
-  return categoryId === null ? "" : String(categoryId);
-}
 
 type SourceView = "preview" | "raw";
 
 export function NoteDetail({
-  categories,
   deleteError,
   error,
   isDeleting,
   isLoading,
-  isSavingMetadata,
   note,
   onDelete,
-  onSaveMetadata,
-  saveError,
+  onNewNote,
 }: NoteDetailProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [titleDraft, setTitleDraft] = useState("");
-  const [summaryDraft, setSummaryDraft] = useState("");
-  const [tagsDraft, setTagsDraft] = useState("");
-  const [categoryDraftId, setCategoryDraftId] = useState<number | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [sourceViewSelection, setSourceViewSelection] = useState<{ noteId: number | null; view: SourceView }>({
-    noteId: null,
-    view: "preview",
-  });
+  const [sourceViewSelection, setSourceViewSelection] = useState<{ noteId: number | null; view: SourceView }>(
+    {
+      noteId: null,
+      view: "preview",
+    },
+  );
 
   if (isLoading) {
     return (
@@ -89,123 +64,31 @@ export function NoteDetail({
     );
   }
 
-  const activeNote = note;
-  const title = titleDraft.trim();
-  const summary = summaryDraft.trim();
-  const tags = parseTags(tagsDraft);
-  const activeCategoryId = activeNote.category?.id ?? null;
-  const hasChanges =
-    activeNote.ai_title !== title ||
-    activeNote.short_summary !== summary ||
-    !tagsMatch(activeNote.tags, tags) ||
-    activeCategoryId !== categoryDraftId;
-  const canSave = Boolean(title && summary && hasChanges && !isSavingMetadata);
-  const actionsDisabled = isSavingMetadata || isDeleting;
-  const sourceView = sourceViewSelection.noteId === activeNote.id ? sourceViewSelection.view : "preview";
-
-  async function handleSave() {
-    if (!title || !summary) {
-      setValidationError("Title and summary cannot be blank.");
-      return;
-    }
-
-    setValidationError(null);
-
-    try {
-      await onSaveMetadata(activeNote.id, {
-        ai_title: title,
-        short_summary: summary,
-        tags,
-        category_id: categoryDraftId,
-      });
-      setIsEditing(false);
-    } catch {
-      // Keep the draft open; App renders the API error.
-    }
-  }
-
-  function resetDrafts() {
-    setTitleDraft(activeNote.ai_title);
-    setSummaryDraft(activeNote.short_summary);
-    setTagsDraft(activeNote.tags.join(", "));
-    setCategoryDraftId(activeCategoryId);
-  }
-
-  function handleCancel() {
-    setIsEditing(false);
-    setValidationError(null);
-    resetDrafts();
-  }
+  const sourceView = sourceViewSelection.noteId === note.id ? sourceViewSelection.view : "preview";
+  const actionsDisabled = isDeleting;
 
   return (
     <article className="mx-auto flex h-full max-w-3xl flex-col gap-6 py-2">
       <header className="flex flex-col gap-3">
-        {isEditing ? (
-          <input
-            aria-label="Note title"
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-xl font-semibold leading-tight text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-            disabled={isSavingMetadata}
-            onChange={(event) => {
-              setTitleDraft(event.target.value);
-              setValidationError(null);
-            }}
-            value={titleDraft}
-          />
-        ) : (
-          <h2 className="text-xl font-semibold leading-tight text-text-primary">{activeNote.ai_title}</h2>
-        )}
+        <h2 className="text-xl font-semibold leading-tight text-text-primary">{note.ai_title}</h2>
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
-          <time dateTime={activeNote.date_added}>{activeNote.date_added}</time>
+          <time dateTime={note.date_added}>{note.date_added}</time>
           <span className="text-border-strong">·</span>
-          <time dateTime={activeNote.updated_at}>updated {activeNote.updated_at}</time>
-          {activeNote.category ? (
+          <time dateTime={note.updated_at}>updated {note.updated_at}</time>
+          {note.category ? (
             <>
               <span className="text-border-strong">·</span>
               <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
-                {activeNote.category.name}
+                {note.category.name}
               </span>
             </>
           ) : null}
         </div>
       </header>
 
-      {isEditing ? (
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="tags-input">
-              Tags
-            </label>
-            <input
-              className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-              disabled={isSavingMetadata}
-              id="tags-input"
-              onChange={(event) => setTagsDraft(event.target.value)}
-              value={tagsDraft}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="detail-category">
-              Category
-            </label>
-            <select
-              className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-              disabled={isSavingMetadata}
-              id="detail-category"
-              onChange={(event) => setCategoryDraftId(event.target.value ? Number(event.target.value) : null)}
-              value={categoryValue(categoryDraftId)}
-            >
-              <option value="">Uncategorized</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      ) : activeNote.tags.length > 0 ? (
+      {note.tags.length > 0 ? (
         <div className="flex flex-wrap gap-1.5" aria-label="Tags">
-          {activeNote.tags.map((tag) => (
+          {note.tags.map((tag) => (
             <span
               className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
               key={tag}
@@ -218,22 +101,7 @@ export function NoteDetail({
 
       <div className="flex flex-col gap-1.5">
         <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Summary</h3>
-        {isEditing ? (
-          <textarea
-            aria-label="Note summary"
-            className="min-h-24 w-full resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-            disabled={isSavingMetadata}
-            onChange={(event) => {
-              setSummaryDraft(event.target.value);
-              setValidationError(null);
-            }}
-            value={summaryDraft}
-          />
-        ) : (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-            {activeNote.short_summary}
-          </p>
-        )}
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{note.short_summary}</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -251,7 +119,7 @@ export function NoteDetail({
                       : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
                   }`}
                   key={view}
-                  onClick={() => setSourceViewSelection({ noteId: activeNote.id, view })}
+                  onClick={() => setSourceViewSelection({ noteId: note.id, view })}
                   role="tab"
                   type="button"
                 >
@@ -263,66 +131,44 @@ export function NoteDetail({
         </div>
         <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
           {sourceView === "preview" ? (
-            <MarkdownPreview source={activeNote.original_text} />
+            <MarkdownPreview source={note.original_text} />
           ) : (
             <div className="font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
-              {activeNote.original_text}
+              {note.original_text}
             </div>
           )}
         </div>
       </div>
 
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">
-        {isEditing ? (
-          <>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
-              disabled={!canSave}
-              onClick={handleSave}
-              type="button"
-            >
-              {isSavingMetadata ? "Saving..." : "Save changes"}
-            </button>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={handleCancel}
-              type="button"
-            >
-              <X size={13} strokeWidth={2} />
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={() => {
-                resetDrafts();
-                setValidationError(null);
-                setIsEditing(true);
-              }}
-              type="button"
-            >
-              <Pencil size={13} strokeWidth={2} />
-              Edit
-            </button>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-md border border-error/20 px-3 py-1.5 text-[13px] font-medium text-error transition-colors hover:bg-error-muted disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={() => void onDelete(activeNote.id)}
-              type="button"
-            >
-              <Trash2 size={13} strokeWidth={2} />
-              {isDeleting ? "Deleting..." : "Delete"}
-            </button>
-          </>
-        )}
+        <button
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+          disabled
+          type="button"
+        >
+          <Pencil size={13} strokeWidth={2} />
+          Edit
+        </button>
+        <button
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+          disabled={actionsDisabled}
+          onClick={onNewNote}
+          type="button"
+        >
+          <Plus size={13} strokeWidth={2} />
+          New note
+        </button>
+        <button
+          className="inline-flex items-center gap-1.5 rounded-md border border-error/20 px-3 py-1.5 text-[13px] font-medium text-error transition-colors hover:bg-error-muted disabled:opacity-40"
+          disabled={actionsDisabled}
+          onClick={() => void onDelete(note.id)}
+          type="button"
+        >
+          <Trash2 size={13} strokeWidth={2} />
+          {isDeleting ? "Deleting..." : "Delete"}
+        </button>
       </div>
 
-      {validationError ? <p className="text-xs text-error">{validationError}</p> : null}
-      {saveError ? <p className="text-xs text-error">{saveError}</p> : null}
       {deleteError ? <p className="text-xs text-error">{deleteError}</p> : null}
     </article>
   );

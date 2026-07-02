@@ -9,7 +9,6 @@ import {
   listNotes,
   searchNotes,
   askQuestion,
-  updateNote,
 } from "./api";
 import { CommandCenter } from "./components/CommandCenter";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
@@ -22,7 +21,6 @@ import type {
   ChatMessage,
   Note,
   NoteCardData,
-  NoteUpdate,
   SearchResult,
 } from "./types";
 
@@ -89,7 +87,6 @@ export default function App() {
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSavingMetadata, setIsSavingMetadata] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
@@ -97,7 +94,6 @@ export default function App() {
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [metadataSaveError, setMetadataSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
@@ -232,7 +228,6 @@ export default function App() {
     async function loadSelectedNote() {
       setIsLoadingDetail(true);
       setDetailError(null);
-      setMetadataSaveError(null);
       setDeleteError(null);
 
       try {
@@ -413,37 +408,14 @@ export default function App() {
     }
   }
 
-  async function handleUpdateNoteMetadata(noteId: number, body: NoteUpdate) {
-    setIsSavingMetadata(true);
-    setMetadataSaveError(null);
-
-    try {
-      const updatedNote = await updateNote(noteId, body);
-      setSelectedNote(updatedNote);
-      setNotes((currentNotes) =>
-        currentNotes.map((note) => (note.id === updatedNote.id ? updatedNote : note)),
-      );
-      setSearchResults((currentResults) =>
-        currentResults.map((result) =>
-          result.id === updatedNote.id
-            ? {
-                ...result,
-                ai_title: updatedNote.ai_title,
-                short_summary: updatedNote.short_summary,
-                tags: updatedNote.tags,
-                date_added: updatedNote.date_added,
-                category: updatedNote.category,
-              }
-            : result,
-        ),
-      );
-    } catch (error) {
-      setMetadataSaveError(getErrorMessage(error, "Could not update note metadata."));
-      throw error;
-    } finally {
-      setIsSavingMetadata(false);
-    }
-  }
+  const handleNewNote = useCallback(() => {
+    setSelectedNoteId(null);
+    setSelectedNote(null);
+    setDetailError(null);
+    setDeleteError(null);
+    setWorkspaceMode("new");
+    setMode("capture");
+  }, []);
 
   async function handleDeleteNote(noteId: number) {
     const title = selectedNote?.id === noteId ? selectedNote.ai_title : "this note";
@@ -462,7 +434,8 @@ export default function App() {
       setSelectedNoteId(null);
       setSelectedNote(null);
       setDetailError(null);
-      setMetadataSaveError(null);
+      setWorkspaceMode("new");
+      setMode("capture");
     } catch (error) {
       setDeleteError(getErrorMessage(error, "Could not delete note."));
     } finally {
@@ -674,8 +647,6 @@ export default function App() {
               isDeleting={isDeleting}
               isLoading={isLoadingDetail}
               isSaving={isSaving}
-              isSavingMetadata={isSavingMetadata}
-              metadataSaveError={metadataSaveError}
               mode={workspaceMode}
               note={selectedNote}
               onDelete={handleDeleteNote}
@@ -686,8 +657,8 @@ export default function App() {
                   setSaveError(null);
                 }
               }}
+              onNewNote={handleNewNote}
               onSave={handleSaveNote}
-              onSaveMetadata={handleUpdateNoteMetadata}
               saveError={saveError}
             />
           )}
@@ -696,4 +667,3 @@ export default function App() {
     </div>
   );
 }
-

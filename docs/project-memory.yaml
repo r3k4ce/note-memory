@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T14:51:51Z"
+    time_local: "2026-07-02T11:51:51-03:00"
+    summary: "Added selected-note read-only center view."
+    changed:
+      - "Made selected note detail strictly read-only by removing the reachable inline metadata edit UI while preserving title, category, tags, summary, Markdown preview, raw body toggle, and delete action."
+      - "Added a New note action in selected-note read mode that clears the selected note and returns the center workspace to capture mode; successful delete now does the same after existing single-note deletion."
+      - "Kept the Edit button visible as a disabled placeholder for a later edit-mode slice."
+    verification:
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 122 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-02T03:05:28Z"
     time_local: "2026-07-02T00:05:28-03:00"
     summary: "Stopped tracking .opencode and erased yaml_check.py from project history."

@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-import type { Category, Note, NoteUpdate } from "../types";
+import type { Category, Note } from "../types";
 import { AddNote } from "./AddNote";
 import { ResultPanel } from "./ResultPanel";
 
@@ -22,12 +22,10 @@ type NoteWorkspaceProps = {
   note: Note | null;
   isLoading: boolean;
   error: string | null;
+  onNewNote: () => void;
   onDelete: (noteId: number) => Promise<void>;
   isDeleting: boolean;
   deleteError: string | null;
-  onSaveMetadata: (noteId: number, metadata: NoteUpdate) => Promise<void>;
-  isSavingMetadata: boolean;
-  metadataSaveError: string | null;
 };
 
 export function NoteWorkspace({
@@ -44,12 +42,10 @@ export function NoteWorkspace({
   note,
   isLoading,
   error,
+  onNewNote,
   onDelete,
   isDeleting,
   deleteError,
-  onSaveMetadata,
-  isSavingMetadata,
-  metadataSaveError,
 }: NoteWorkspaceProps) {
   if (mode === "new") {
     return (
@@ -72,16 +68,13 @@ export function NoteWorkspace({
   return (
     <div className="px-6 py-6">
       <ResultPanel
-        categories={categories}
         deleteError={deleteError}
         error={error}
         isDeleting={isDeleting}
         isLoading={isLoading}
-        isSavingMetadata={isSavingMetadata}
         note={note}
         onDelete={onDelete}
-        onSaveMetadata={onSaveMetadata}
-        saveError={metadataSaveError}
+        onNewNote={onNewNote}
       />
     </div>
   );
