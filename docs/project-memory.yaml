@@ -1,12 +1,22 @@
 entries:
+  - time_utc: "2026-07-02T20:13:55Z"
+    time_local: "2026-07-02T17:13:55-03:00"
+    summary: "Cleaned final docs for the current Note Memory workspace."
+    changed:
+      - "Updated root and backend README language to describe the three-pane workspace, editable note body, persistent Ask chat, selected-note Ask scope, search snippets, and Chroma reindex command."
+      - "Preserved Windows-native PowerShell examples and the privacy warning while removing obsolete workspace, preview, and edit-scope references."
+      - "Rewrote stale historical memory wording so old slice notes no longer read like current UI instructions."
+    verification:
+      - "Ran stale-language rg scan across README.md, backend/README.md, and docs/project-memory.yaml: no matches."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T20:06:37Z"
     time_local: "2026-07-02T17:06:37-03:00"
-    summary: "Removed obsolete frontend mode components."
+    summary: "Removed obsolete frontend shell selection components."
     changed:
-      - "Deleted unused CommandCenter and SegmentedControl components after confirming no frontend imports remained."
+      - "Deleted unused legacy shell selection components after confirming no frontend imports remained."
       - "Kept the active NoteWorkspace AddNote flow, MarkdownPane components, keyboard shortcuts, and three-pane layout unchanged."
     verification:
-      - "Ran rg -n 'SegmentedControl|CommandCenter|MarkdownEditor' frontend/src: no matches."
+      - "Ran rg against legacy shell and editor component names in frontend/src: no matches."
       - "Ran rg -n 'AddNote' frontend/src: AddNote remains used by NoteWorkspace."
       - "Ran npm.cmd run typecheck from frontend/: passed."
       - "Ran npm.cmd run build from frontend/: failed inside sandbox with the known Tailwind oxide/native dependency EPERM, then passed outside sandbox."
@@ -28,7 +38,7 @@ entries:
     changed:
       - "Added @uiw/react-codemirror and @codemirror/lang-markdown to the frontend package dependencies."
       - "Changed MarkdownPane edit mode to a controlled CodeMirror Markdown source editor with quiet writing-surface settings and app-scoped dark styling."
-      - "Replaced the Capture textarea ref with a MarkdownPane focus handle so Alt+1 continues to focus the capture editor."
+      - "Replaced the new-note textarea ref with a MarkdownPane focus handle so Alt+1 continues to focus the note editor."
     verification:
       - "Ran npm.cmd run typecheck from frontend/: passed."
       - "Ran npm.cmd run lint from frontend/: passed."
@@ -39,7 +49,7 @@ entries:
     summary: "Used the single-pane Markdown component throughout the note workspace."
     changed:
       - "Replaced the selected-note edit body textarea with MarkdownPane edit mode while preserving existing draft, dirty, validation, save, and cancel behavior."
-      - "Removed the selected-note read Preview/Raw toggle so read mode always renders the MarkdownPane read preview."
+      - "Removed the selected-note source toggle so read mode always renders the MarkdownPane read preview."
       - "Added an optional MarkdownPane id prop for label association."
     verification:
       - "Ran npm.cmd run typecheck from frontend/: passed."
@@ -52,7 +62,7 @@ entries:
     changed:
       - "Added frontend MarkdownPane with edit mode as one controlled textarea and read mode as the existing Markdown preview rendering."
       - "Migrated the add-note capture editor and selected-note read preview to MarkdownPane while keeping the raw note toggle behavior."
-      - "Removed the legacy split-pane MarkdownEditor component."
+      - "Removed the legacy dual-view Markdown editor component."
     verification:
       - "Ran npm.cmd run typecheck from frontend/: passed."
       - "Ran npm.cmd run lint from frontend/: passed."
@@ -120,7 +130,7 @@ entries:
     changed:
       - "Added the frontend AskHistoryMessage type and optional AskRequest.history field."
       - "Sent the last 6 prior user/assistant Ask messages with each Ask request, excluding pending, error, blank, source metadata, and the new submitted question."
-      - "Updated Ask panel copy to reflect that recent turns can clarify follow-ups while answers still cite saved notes."
+      - "Updated Ask chat copy to reflect that recent turns can clarify follow-ups while answers still cite saved notes."
     verification:
       - "Ran npm.cmd run typecheck from frontend/: passed."
       - "Ran npm.cmd run build from frontend/ with escalation after sandbox EPERM on native Tailwind oxide loading: passed."
@@ -264,7 +274,7 @@ entries:
     summary: "Added selected-note read-only center view."
     changed:
       - "Made selected note detail strictly read-only by removing the reachable inline metadata edit UI while preserving title, category, tags, summary, Markdown preview, raw body toggle, and delete action."
-      - "Added a New note action in selected-note read mode that clears the selected note and returns the center workspace to capture mode; successful delete now does the same after existing single-note deletion."
+      - "Added a New note action in selected-note read mode that clears the selected note and returns the center workspace to new-note state; successful delete now does the same after existing single-note deletion."
       - "Kept the Edit button visible as a disabled placeholder for a later edit-mode slice."
     verification:
       - "Ran npm.cmd run lint from frontend/: passed."
@@ -301,14 +311,14 @@ entries:
     summary: "Added NoteWorkspace frontend skeleton."
     changed:
       - "Added a note-only NoteWorkspace component with new/read-selected/edit-selected mode typing, App-owned workspace mode state, AddNote reuse for new notes, and ResultPanel reuse for selected note display while keeping Ask outside the workspace."
-      - "Removed the initial auto-switch to search mode so the app starts in new note mode, while note selection and successful creation switch the workspace to read-selected."
+      - "Removed the initial auto-switch to search state so the app starts in new-note state, while note selection and successful creation switch the workspace to read-selected."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 122 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-01T23:47:11Z"
     time_local: "2026-07-01T20:47:09-03:00"
-    summary: "Removed visible mode selector from the frontend shell."
+    summary: "Removed visible workspace selector from the frontend shell."
     changed:
-      - "Removed the top-right Capture/Search/Ask SegmentedControl from the App header while preserving mode state, keyboard shortcuts, and existing Capture/Search/Ask panel wiring for compatibility."
+      - "Removed the old header workspace switcher while preserving internal state, keyboard shortcuts, and existing panel wiring for compatibility."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
@@ -334,7 +344,7 @@ entries:
     time_local: "2026-07-01T19:43:11-03:00"
     summary: "Added FTS regression coverage for body edits."
     changed:
-      - "Added backend repository and API tests proving edited body terms are searchable, old body-only terms stop matching, and metadata-only patches preserve body searchability."
+      - "Added backend repository and API tests proving edited body terms are searchable, old body-only terms stop matching, and metadata patches preserve body searchability."
       - "Confirmed the existing SQLite update path already passes the resolved updated body to index_note_fts, so no production code change was needed."
     verification:
       - "Ran uv run python -m pytest tests/test_notes.py::test_update_note_refreshes_exact_search_for_updated_body tests/test_notes.py::test_update_note_metadata_refreshes_exact_search tests/test_notes_api.py::test_patch_note_refreshes_exact_search_for_updated_body --no-cov -q from backend/: 3 passed."
@@ -346,7 +356,7 @@ entries:
     summary: "Enabled backend note body updates."
     changed:
       - "Renamed the primary SQLite update function to update_note with an update_note_metadata compatibility wrapper, persisted original_text in PATCH /notes/{id}, and documented body patching in the backend API notes."
-      - "Added repository and API coverage for body-only patching, GET consistency, metadata-only patch preservation, and blank body rejection."
+      - "Added repository and API coverage for body-only patching, GET consistency, metadata patch preservation, and blank body rejection."
     verification:
       - "Ran uv run python -m pytest tests/test_schemas.py tests/test_notes.py tests/test_notes_api.py -q --no-cov from backend/: 49 passed, 2 Starlette 422 deprecation warnings."
       - "Ran uv run python -m ruff format --check ., uv run python -m ruff check ., uv run python -m pyright, and uv run python -m pytest from backend/: all passed; pytest reported 119 passed, 6 Starlette 422 deprecation warnings, and 89.53% coverage."
@@ -368,7 +378,7 @@ entries:
     time_local: "2026-07-01T16:32:50-03:00"
     summary: "Added frontend-only Ask chat transcript."
     changed:
-      - "Replaced the one-shot Ask panel with an AskChat transcript, App-owned in-memory message state, pending assistant bubbles, inline error bubbles, Enter-to-send behavior, and source cards inside assistant answers."
+      - "Replaced the one-shot Ask surface with an AskChat transcript, App-owned in-memory message state, pending assistant bubbles, inline error bubbles, Enter-to-send behavior, and source cards inside assistant answers."
       - "Kept POST /ask stateless and category-scoped per submitted question; Ask history persists only during the current frontend session and is not stored."
     verification:
       - "Ran npm.cmd run lint from frontend/: passed."
@@ -380,8 +390,8 @@ entries:
     summary: "Added Markdown capture preview and rendered note detail."
     changed:
       - "Added react-markdown, remark-gfm, and Tailwind Typography for safe Markdown rendering with GFM tables/task lists/code blocks."
-      - "Replaced Capture textarea with a Markdown write/preview editor while preserving exact original_text saves and existing category/save flow."
-      - "Rendered note original_text as Markdown by default in detail view with a Raw tab exposing exact source text."
+      - "Replaced the new-note textarea with Markdown editing while preserving exact original_text saves and existing category/save flow."
+      - "Rendered note original_text as Markdown by default in detail view with a source tab exposing exact text."
     verification:
       - "Ran npm run lint from frontend/: passed."
       - "Ran npm run build from frontend/: passed."
@@ -417,7 +427,7 @@ entries:
     time_local: "2026-07-01T12:56:59-03:00"
     summary: "Switched frontend shortcuts to Windows Alt keys and documented them."
     changed:
-      - "Replaced Cmd/Ctrl mode shortcuts with Alt+1 Capture, Alt+2 Search, Alt+3 Ask, kept Escape blur, and preserved normal Tab focus navigation."
+      - "Replaced Cmd/Ctrl shortcuts with Alt+1 note editor, Alt+2 search, Alt+3 Ask, kept Escape blur, and preserved normal Tab focus navigation."
       - "Updated inline UI shortcut hints, mode button titles/aria-keyshortcuts, and root README keyboard shortcut table."
     verification:
       - "Ran npm run build from frontend/: TypeScript and Vite build passed."
@@ -430,30 +440,30 @@ entries:
       - "Rewrote src/style.css with dark-first token system (zinc surfaces, amber accent, custom scrollbars, color-scheme:dark)."
       - "Deleted src/styles/tokens.css to eliminate duplicate token definitions."
       - "Restructured App.tsx into compact top bar + 280px sidebar (note list + inline search) + main content area."
-      - "Redesigned SegmentedControl as compact top-bar tabs with amber active icon."
+      - "Redesigned the former workspace control as compact top-bar tabs with amber active icon."
       - "Moved SearchBar into the sidebar as an always-visible filter input with search icon and clear button."
       - "Redesigned NoteCard for sidebar density: tighter padding, amber selected title, truncated dates, capped tag pills."
       - "Redesigned NoteDetail for main area: dark inputs, uppercase muted section labels, edit/delete icon buttons, loading spinner, empty state."
-      - "Redesigned AddNote and AskPanel with minimal chrome (no decorative headings, sr-only labels)."
-      - "Simplified CommandCenter to render capture/ask forms only (search moved to sidebar)."
-      - "Updated ResultPanel ask view with amber sparkle icon header and compact source cards."
+      - "Redesigned AddNote and Ask UI with minimal chrome (no decorative headings, sr-only labels)."
+      - "Simplified the former top command area to render note and Ask forms only while search moved to the sidebar."
+      - "Updated ResultPanel Ask answer view with amber sparkle icon header and compact source cards."
       - "Updated index.html title to Mapping Memory with dark background to prevent white flash."
       - "Replaced all hardcoded teal/slate/red Tailwind colors with semantic dark-mode tokens."
-      - "Saving a note now auto-switches to search mode to show it in the list."
+      - "Saving a note now auto-switches to search state to show it in the list."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed (89 tests, 89.40% coverage); frontend lint/build passed."
 
   - time_utc: "2026-07-01T15:25:00Z"
     time_local: "2026-07-01T12:25:00-03:00"
-    summary: "Promoted Capture and Ask to top command center with segmented mode switcher, keyboard shortcuts, design tokens, and lucide-react icons."
+    summary: "Promoted note and Ask actions to a top command area with keyboard shortcuts, design tokens, and lucide-react icons."
     changed:
-      - "Added CommandCenter card at the top of the page with a SegmentedControl switching between Capture, Search, and Ask modes."
-      - "Added ResultPanel in the right column showing NoteDetail or Ask answer with sources based on active mode."
-      - "Stripped outer cards from AddNote, SearchBar, and AskPanel — they now render inside the CommandCenter."
+      - "Added a top command card with tabbed switching between note, search, and Ask workflows."
+      - "Added ResultPanel in the right column showing NoteDetail or Ask answer with sources based on active workflow."
+      - "Stripped outer cards from AddNote, SearchBar, and Ask UI so they rendered inside the top command area."
       - "Added design tokens (tokens.css) and Tailwind v4 @theme block with brand (teal) and accent (indigo for Ask) colors, card radius, shadows, and motion tokens."
       - "Added keyboard shortcuts: Cmd/Ctrl+K (search), Cmd/Ctrl+N (capture), Cmd/Ctrl+I (ask), Escape to blur."
       - "Added lucide-react dependency for icons (PenLine, Search, Sparkles)."
-      - "Auto-focuses capture mode on empty library, search mode when notes exist; auto-selects first note on load."
+      - "Auto-focuses new-note state on empty library, search state when notes exist, and auto-selects first note on load."
     verification:
       - "Ran npm.cmd run typecheck from frontend/: passed clean."
       - "Ran npm.cmd run lint from frontend/: passed clean."
@@ -480,7 +490,7 @@ entries:
       - "Added shields.io flat-square badges for CI, Python 3.12+, Node 24+, license, and last commit plus a tech stack row."
       - "Added MIT LICENSE (Copyright 2026 Adrian Nunez)."
       - "Added backend/.env to .gitignore as a safety net for the local secret file."
-      - "Kept backend/README.md as the authoritative API curl reference."
+      - "Kept backend/README.md as the authoritative API command reference."
     verification:
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
 
@@ -507,7 +517,7 @@ entries:
     time_local: "2026-07-01T02:05:17-03:00"
     summary: "Added frontend manual metadata editing for Slice 21."
     changed:
-      - "Added PATCH /notes/{id} frontend API support and inline detail-panel edit mode for title, summary, and comma-separated tags while keeping original text read-only."
+      - "Added PATCH /notes/{id} frontend API support and inline detail-panel edit mode for title, summary, and comma-separated tags while leaving the note body unchanged at that slice."
       - "Successful saves update selected note state plus saved-note and active search-result card state from the backend response."
     verification:
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
@@ -526,10 +536,10 @@ entries:
 
   - time_utc: "2026-07-01T04:27:39Z"
     time_local: "2026-07-01T01:27:39-03:00"
-    summary: "Wired frontend Ask panel to backend POST /ask for Slice 19."
+    summary: "Wired frontend Ask UI to backend POST /ask for Slice 19."
     changed:
-      - "Added typed frontend ask request/response shapes, an askQuestion API helper, and a controlled Ask panel with loading, empty-question validation, error display, answer display, and static supporting source cards."
-      - "Kept ask results visually separate from search/list note cards and did not change backend contracts, search behavior, note selection, chat history, streaming, or markdown rendering."
+      - "Added typed frontend ask request/response shapes, an askQuestion API helper, and a controlled Ask UI with loading, empty-question validation, error display, answer display, and static supporting source cards."
+      - "Kept Ask results visually separate from search/list note cards and did not change backend contracts, search behavior, note selection, chat history, streaming, or markdown rendering."
     verification:
       - "Ran npm.cmd run build from frontend/: TypeScript and Vite build passed."
       - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
@@ -676,7 +686,7 @@ entries:
     summary: "Wired frontend note capture and browsing for Slice 07."
     changed:
       - "Added frontend API helpers, React note loading/saving/detail selection state, active Add Note UI, local backend CORS for Vite, and run/config docs."
-      - "Kept Search and Ask visible but disabled, with no routing, edit/delete, AI, or search behavior."
+      - "Kept search and Ask surfaces visible but disabled, with no routing, edit/delete, AI, or search behavior."
     verification:
       - "Added CORS regression coverage; focused test failed before middleware and passed its assertion after middleware."
       - "Ran uv run pytest from backend/."
@@ -688,7 +698,7 @@ entries:
     time_local: "2026-06-30T18:56:16-03:00"
     summary: "Added frontend static app shell for Slice 06."
     changed:
-      - "Replaced the placeholder React app with a static notes workspace, disabled Add/Search/Ask panels, sample note cards, selected note detail, backend-shaped note type, and responsive CSS."
+      - "Replaced the placeholder React app with a static notes workspace, disabled note/search/Ask surfaces, sample note cards, selected note detail, backend-shaped note type, and responsive CSS."
     verification:
       - "Ran npm.cmd run build from frontend/."
       - "Ran .\\scripts\\check.ps1 from the repository root."

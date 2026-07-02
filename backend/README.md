@@ -8,6 +8,14 @@ uv sync --dev
 
 The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage.
 
+> [!WARNING]
+> **Privacy and work data.**
+>
+> Notes are stored locally in SQLite and Chroma, but when `OPENAI_API_KEY` is set,
+> note text and Ask questions are sent to the configured OpenAI API account for
+> metadata, embeddings, and grounded answers. Do not store confidential or
+> work-restricted material unless your policy permits sending it to that account.
+
 ## Run
 
 ```powershell
@@ -77,10 +85,10 @@ Delete removes the SQLite note, refreshes SQLite FTS, and attempts Chroma chunk 
 
 SQLite is the source of truth for saved notes and categories. Chroma stores the
 derived retrieval index: embedded chunks of saved notes plus metadata used by
-semantic search and ask-mode retrieval.
+semantic search and Ask retrieval.
 
 Chroma is rebuildable. Run the reindex command when the Chroma directory is
-missing, has been deleted, looks stale, or semantic search / ask-mode retrieval
+missing, has been deleted, looks stale, or semantic search / Ask retrieval
 is not reflecting the notes saved in SQLite.
 
 Run from `backend/`:
@@ -107,7 +115,8 @@ Search results include `match_type` (`exact`, `semantic`, or `hybrid`) and
 note body or metadata. Semantic matches include a compact cleaned snippet from the best
 matching retrieval chunk, and hybrid matches prefer the exact snippet when available.
 
-Ask a grounded question across all notes, only Uncategorized, or one category:
+Ask a grounded question across all notes, only Uncategorized, one category, or
+selected note IDs:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?"}'
