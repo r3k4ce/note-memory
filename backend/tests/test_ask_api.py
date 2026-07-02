@@ -1,11 +1,15 @@
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, ClassVar
 
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from mapping_memory.db import init_db
+from mapping_memory.notes import create_category, create_note
 from mapping_memory.rag import RagContextChunk, RagRetrievalContext, RagSource
 from mapping_memory.settings import Settings
+from mapping_memory.vector_store import VectorSearchResult
 
 FALLBACK = "I do not have this in the saved notes."
 
@@ -80,6 +84,267 @@ def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
     assert response.status_code == 200
     assert captured["category_scope"].category_id == category["id"]
     assert captured["category_scope"].uncategorized is False
+
+
+def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+        capture=captured,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": [1, 2, 3]},
+        )
+
+    assert response.status_code == 200
+    assert captured["note_ids"] == [1, 2, 3]
+
+
+def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+        capture=captured,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What happened next?",
+                "history": [
+                    {"role": "user", "content": "What did we discuss?"},
+                    {"role": "assistant", "content": "Source recreation."},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert [message.model_dump() for message in captured["history"]] == [
+        {"role": "user", "content": "What did we discuss?"},
+        {"role": "assistant", "content": "Source recreation."},
+    ]
+
+
+def test_ask_passes_history_to_answer_generation(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    source = _source(note_id=7, title="Source recreation", date_added="2026-07-01T01:00:00Z")
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
+        answer=lambda **kwargs: captured.update(kwargs) or "Grounded answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What happened next?",
+                "history": [
+                    {"role": "user", "content": "What did we discuss?"},
+                    {"role": "assistant", "content": "Source recreation."},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert [message.model_dump() for message in captured["history"]] == [
+        {"role": "user", "content": "What did we discuss?"},
+        {"role": "assistant", "content": "Source recreation."},
+    ]
+
+
+def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatch) -> None:
+    answer_calls: list[dict[str, Any]] = []
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        vector_results=[],
+        answer=lambda **kwargs: answer_calls.append(kwargs) or "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": []},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert answer_calls == []
+    assert FakeAskVectorStore.calls == []
+
+
+def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypatch) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    selected = create_note(sqlite_path, "Selected note body", ai_title="Selected note")
+    unselected = create_note(sqlite_path, "Unselected note body", ai_title="Unselected note")
+    captured: dict[str, Any] = {}
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[
+            _vector_hit(unselected.id, 0, "unselected chunk must not reach the model"),
+            _vector_hit(selected.id, 0, "selected chunk"),
+        ],
+        answer=lambda **kwargs: captured.update(kwargs) or "Selected answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": [selected.id]},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "Selected answer."
+    assert response.json()["sources"] == [
+        {
+            "note_id": selected.id,
+            "title": "Selected note",
+            "date_added": selected.date_added,
+        }
+    ]
+    assert "selected chunk" in captured["context"]
+    assert "unselected chunk must not reach the model" not in captured["context"]
+    assert FakeAskVectorStore.calls == [
+        {
+            "embedding": [0.1, 0.2, 0.3],
+            "limit": 20,
+            "where": {"note_id": {"$in": [selected.id]}},
+        }
+    ]
+
+
+def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    category = create_category(sqlite_path, "Projects")
+    matching = create_note(
+        sqlite_path, "Matching note body", ai_title="Matching note", category_id=category.id
+    )
+    selected_wrong_category = create_note(
+        sqlite_path, "Wrong category body", ai_title="Wrong category"
+    )
+    unselected_same_category = create_note(
+        sqlite_path,
+        "Unselected same category body",
+        ai_title="Unselected same category",
+        category_id=category.id,
+    )
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[
+            _vector_hit(selected_wrong_category.id, 0, "wrong category chunk"),
+            _vector_hit(unselected_same_category.id, 0, "unselected category chunk"),
+            _vector_hit(matching.id, 0, "matching chunk"),
+        ],
+        answer=lambda **_: "Matching answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What is scoped?",
+                "category_id": category.id,
+                "note_ids": [matching.id, selected_wrong_category.id],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == [
+        {
+            "note_id": matching.id,
+            "title": "Matching note",
+            "date_added": matching.date_added,
+        }
+    ]
+    assert FakeAskVectorStore.calls == [
+        {"updated_chunks": [(unselected_same_category.id, 0), (matching.id, 0)]},
+        {
+            "embedding": [0.1, 0.2, 0.3],
+            "limit": 20,
+            "where": {
+                "$and": [
+                    {"category_scope": f"category:{category.id}"},
+                    {"note_id": {"$in": [matching.id, selected_wrong_category.id]}},
+                ]
+            },
+        },
+    ]
+
+
+def test_ask_without_note_ids_keeps_existing_unscoped_behavior(tmp_path, monkeypatch) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    first = create_note(sqlite_path, "First note body", ai_title="First note")
+    second = create_note(sqlite_path, "Second note body", ai_title="Second note")
+    app = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[
+            _vector_hit(first.id, 0, "first chunk"),
+            _vector_hit(second.id, 0, "second chunk"),
+        ],
+        answer=lambda **_: "Unscoped answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/ask", json={"question": "What is scoped?"})
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == [
+        {"note_id": first.id, "title": "First note", "date_added": first.date_added},
+        {"note_id": second.id, "title": "Second note", "date_added": second.date_added},
+    ]
+    assert FakeAskVectorStore.calls == [{"embedding": [0.1, 0.2, 0.3], "limit": 20, "where": None}]
+
+
+def test_ask_rejects_invalid_note_ids(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": [0]},
+        )
+
+    assert response.status_code == 422
+
+
+def test_ask_rejects_more_than_500_note_ids(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": list(range(1, 502))},
+        )
+
+    assert response.status_code == 422
 
 
 def test_ask_rejects_missing_category_scope(tmp_path, monkeypatch) -> None:
@@ -159,6 +424,66 @@ def test_ask_sends_only_retrieved_context_to_answer_model(tmp_path, monkeypatch)
     assert response.text.find(forbidden_full_database_text) == -1
 
 
+def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
+    source = _source(note_id=9, title="Retrieved card", date_added="2026-07-01T05:00:00Z")
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(
+            sources=(source,), formatted_context="retrieved context"
+        ),
+        answer=lambda **_: "Grounded answer.",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What source should be cited?",
+                "history": [
+                    {
+                        "role": "assistant",
+                        "content": "Source: fake-note-999, title: History-only source",
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == [
+        {
+            "note_id": 9,
+            "title": "Retrieved card",
+            "date_added": "2026-07-01T05:00:00Z",
+        }
+    ]
+
+
+def test_ask_history_alone_cannot_produce_answer_without_note_context(
+    tmp_path, monkeypatch
+) -> None:
+    calls: list[str] = []
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: calls.append("called") or "history-only answer",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What was the decision?",
+                "history": [{"role": "assistant", "content": "The decision was to ship history."}],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert calls == []
+
+
 def test_ask_returns_empty_sources_when_model_returns_fallback(tmp_path, monkeypatch) -> None:
     source = _source(note_id=4, title="Unhelpful source", date_added="2026-07-01T03:00:00Z")
     app = _ask_app(
@@ -198,12 +523,17 @@ def test_ask_returns_sanitized_503_when_answer_generation_fails(tmp_path, monkey
 
 def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> None:
     from mapping_memory.ai import ANSWER_SYSTEM_PROMPT, generate_grounded_answer
+    from mapping_memory.schemas import AskHistoryMessage
 
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
 
     answer = generate_grounded_answer(
         "What should we do?",
         context="Card title: Saved card\nRelevant text:\nUse saved decision.",
+        history=[
+            AskHistoryMessage(role="user", content="What source is relevant?"),
+            AskHistoryMessage(role="assistant", content="The saved card is relevant."),
+        ],
         settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
         client=fake_client,
     )
@@ -214,8 +544,33 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
     assert call["messages"][0] == {"role": "system", "content": ANSWER_SYSTEM_PROMPT}
     user_message = call["messages"][1]["content"]
     assert "Card title: Saved card" in user_message
+    assert "Recent chat history (for question interpretation only):" in user_message
+    assert "user: What source is relevant?" in user_message
+    assert "assistant: The saved card is relevant." in user_message
     assert "What should we do?" in user_message
     assert "full database" not in user_message
+
+
+def test_generate_grounded_answer_includes_only_recent_history_in_prompt() -> None:
+    from mapping_memory.ai import generate_grounded_answer
+    from mapping_memory.schemas import AskHistoryMessage
+
+    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+
+    generate_grounded_answer(
+        "What happened next?",
+        context="Card title: Saved card\nRelevant text:\nUse saved decision.",
+        history=[AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)],
+        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        client=fake_client,
+    )
+
+    user_message = fake_client.chat.completions.calls[0]["messages"][1]["content"]
+    assert "user: message 0" not in user_message
+    assert "user: message 1" not in user_message
+    for index in range(2, 8):
+        assert f"user: message {index}" in user_message
+    assert "Current question:\nWhat happened next?" in user_message
 
 
 class FakeCompletions:
@@ -227,6 +582,29 @@ class FakeCompletions:
         message = SimpleNamespace(content="Use saved decision.")
         choice = SimpleNamespace(message=message)
         return SimpleNamespace(choices=[choice])
+
+
+class FakeAskVectorStore:
+    results: ClassVar[list[VectorSearchResult]] = []
+    calls: ClassVar[list[dict[str, Any]]] = []
+
+    def __init__(self, *, settings: Settings) -> None:
+        self.settings = settings
+
+    def update_chunk_metadata(self, chunks: list[Any]) -> None:
+        self.calls.append(
+            {"updated_chunks": [(chunk.note_id, chunk.chunk_index) for chunk in chunks]}
+        )
+
+    def query_by_embedding(
+        self,
+        embedding: list[float],
+        *,
+        limit: int = 5,
+        where: dict[str, Any] | None = None,
+    ) -> list[VectorSearchResult]:
+        self.calls.append({"embedding": embedding, "limit": limit, "where": where})
+        return self.results
 
 
 def _ask_app(
@@ -244,11 +622,15 @@ def _ask_app(
         *,
         settings: Settings,
         category_scope=None,
+        note_ids=None,
+        history=None,
     ) -> RagRetrievalContext:
         assert question.strip()
         assert settings.sqlite_path
         if capture is not None:
             capture["category_scope"] = category_scope
+            capture["note_ids"] = note_ids
+            capture["history"] = history
         return retrieval_context
 
     monkeypatch.setattr(
@@ -262,6 +644,39 @@ def _ask_app(
     )
 
 
+def _init_ask_path(tmp_path: Path) -> Path:
+    sqlite_path = tmp_path / "ask.sqlite"
+    init_db(sqlite_path)
+    return sqlite_path
+
+
+def _ask_app_with_real_retrieval(
+    tmp_path,
+    monkeypatch,
+    *,
+    vector_results: list[VectorSearchResult],
+    answer,
+    init_db_first: bool = True,
+):
+    from mapping_memory.main import create_app
+
+    sqlite_path = tmp_path / "ask.sqlite"
+    if init_db_first:
+        init_db(sqlite_path)
+
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        assert texts == ["user: What is scoped?"]
+        assert settings.sqlite_path == sqlite_path
+        return [[0.1, 0.2, 0.3]]
+
+    FakeAskVectorStore.results = vector_results
+    FakeAskVectorStore.calls = []
+    monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.rag.ChromaVectorStore", FakeAskVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.ask.generate_grounded_answer", answer, raising=False)
+    return create_app(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+
+
 def _source(note_id: int, title: str, date_added: str) -> RagSource:
     return RagSource(
         note_id=note_id,
@@ -271,4 +686,13 @@ def _source(note_id: int, title: str, date_added: str) -> RagSource:
         chunks=(
             RagContextChunk(chunk_id=f"chunk-{note_id}", chunk_index=0, text="text", distance=0.1),
         ),
+    )
+
+
+def _vector_hit(note_id: int, chunk_index: int, text: str) -> VectorSearchResult:
+    return VectorSearchResult(
+        id=f"note:{note_id}:chunk:{chunk_index}",
+        text=text,
+        metadata={"note_id": note_id, "chunk_index": chunk_index},
+        distance=0.1,
     )

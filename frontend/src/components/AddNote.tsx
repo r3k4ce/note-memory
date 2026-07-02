@@ -2,10 +2,10 @@ import type { RefObject } from "react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { Category } from "../types";
-import { MarkdownEditor } from "./MarkdownEditor";
+import { MarkdownPane, type MarkdownPaneHandle } from "./MarkdownPane";
 
 type AddNoteProps = {
-  captureRef: RefObject<HTMLTextAreaElement | null>;
+  captureRef: RefObject<MarkdownPaneHandle | null>;
   categories: Category[];
   draftText: string;
   error: string | null;
@@ -32,33 +32,33 @@ export function AddNote({
       <h2 className="sr-only" id="add-note-title">
         Capture a note
       </h2>
-      <div className="flex flex-col gap-1.5 sm:max-w-xs">
-        <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="capture-category">
-          Category
-        </label>
-        <select
-          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-          disabled={isSaving}
-          id="capture-category"
-          onChange={(event) => onCategoryChange(event.target.value ? Number(event.target.value) : null)}
-          value={selectedCategoryId ?? ""}
-        >
-          <option value="">Uncategorized</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <MarkdownEditor
+      {categories.length > 0 ? (
+        <div className="flex flex-col gap-1.5 sm:max-w-xs">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="capture-category">
+            Category
+          </label>
+          <select
+            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+            disabled={isSaving}
+            id="capture-category"
+            onChange={(event) => onCategoryChange(event.target.value ? Number(event.target.value) : null)}
+            value={selectedCategoryId ?? ""}
+          >
+            <option value="">Uncategorized</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+      <MarkdownPane
         disabled={isSaving}
+        editorHandleRef={captureRef}
+        mode="edit"
         onChange={onDraftTextChange}
         placeholder="Paste a note in Markdown - the AI will organize it."
-        rows={10}
-        textareaId="capture-markdown"
-        textareaLabel="Capture note Markdown"
-        textareaRef={captureRef}
         value={draftText}
       />
       {error ? <p className="text-xs text-error">{error}</p> : null}

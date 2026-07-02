@@ -46,12 +46,24 @@ class NoteCreate(BaseModel):
 
 
 class NoteUpdate(BaseModel):
+    original_text: str | None = None
     ai_title: str | None = None
     short_summary: str | None = None
     tags: list[str] | None = None
     category_id: int | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("original_text", mode="before")
+    @classmethod
+    def original_text_must_not_be_empty(cls, value: Any) -> str:
+        if not isinstance(value, str):
+            raise ValueError("original_text must be a string")
+
+        if not value.strip():
+            raise ValueError("original_text must not be empty")
+
+        return value
 
     @field_validator("ai_title", "short_summary", mode="before")
     @classmethod
@@ -102,7 +114,7 @@ class NoteUpdate(BaseModel):
     @model_validator(mode="after")
     def at_least_one_field(self) -> "NoteUpdate":
         if not self.model_fields_set:
-            raise ValueError("at least one metadata field must be provided")
+            raise ValueError("at least one update field must be provided")
 
         return self
 
@@ -132,12 +144,38 @@ class SearchResult(BaseModel):
     date_added: str
     score: float
     category: CategoryRead | None = None
+    matched_snippet: str | None = None
+    match_type: Literal["exact", "semantic", "hybrid"]
+
+
+ASK_HISTORY_MAX_MESSAGES = 10
+ASK_HISTORY_CONTENT_MAX_LENGTH = 4000
+
+
+class AskHistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def content_must_not_be_empty(cls, value: str) -> str:
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("history content must not be empty")
+        if len(stripped_value) > ASK_HISTORY_CONTENT_MAX_LENGTH:
+            raise ValueError(
+                f"history content must contain at most {ASK_HISTORY_CONTENT_MAX_LENGTH} characters"
+            )
+
+        return stripped_value
 
 
 class AskRequest(BaseModel):
     question: str
     category_id: int | None = None
     uncategorized: bool = False
+    note_ids: list[int] | None = None
+    history: list[AskHistoryMessage] = []
 
     @field_validator("question")
     @classmethod
@@ -147,6 +185,39 @@ class AskRequest(BaseModel):
             raise ValueError("question must not be empty")
 
         return stripped_value
+
+    @field_validator("note_ids", mode="before")
+    @classmethod
+    def note_ids_must_be_positive_integers(cls, value: Any) -> list[int] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("note_ids must be a list")
+        if len(value) > 500:
+            raise ValueError("note_ids must contain at most 500 values")
+
+        normalized_note_ids: list[int] = []
+        seen_note_ids: set[int] = set()
+        for note_id in value:
+            if type(note_id) is not int or note_id < 1:
+                raise ValueError("note_ids must contain positive integers")
+            if note_id in seen_note_ids:
+                continue
+
+            normalized_note_ids.append(note_id)
+            seen_note_ids.add(note_id)
+
+        return normalized_note_ids
+
+    @field_validator("history")
+    @classmethod
+    def history_must_not_exceed_max_messages(
+        cls, value: list[AskHistoryMessage]
+    ) -> list[AskHistoryMessage]:
+        if len(value) > ASK_HISTORY_MAX_MESSAGES:
+            raise ValueError(f"history must contain at most {ASK_HISTORY_MAX_MESSAGES} messages")
+
+        return value
 
     @field_validator("category_id")
     @classmethod

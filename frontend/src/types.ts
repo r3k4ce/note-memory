@@ -24,6 +24,8 @@ export type NoteCardData = Pick<
 
 export type SearchResult = NoteCardData & {
   score: number;
+  match_type: "exact" | "semantic" | "hybrid";
+  matched_snippet: string | null;
 };
 
 export type CategoryCreate = {
@@ -35,10 +37,11 @@ export type NoteCreate = {
   category_id?: number | null;
 };
 
-export type NoteMetadataUpdate = {
-  ai_title: string;
-  short_summary: string;
-  tags: string[];
+export type NoteUpdate = {
+  original_text?: string;
+  ai_title?: string;
+  short_summary?: string;
+  tags?: string[];
   category_id?: number | null;
 };
 
@@ -47,8 +50,19 @@ export type CategoryScopeRequest = {
   uncategorized?: boolean;
 };
 
+export type AskNoteScope =
+  | { mode: "all" }
+  | { mode: "custom"; noteIds: number[] };
+
+export type AskHistoryMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type AskRequest = CategoryScopeRequest & {
   question: string;
+  note_ids?: number[];
+  history?: AskHistoryMessage[];
 };
 
 export type AskSource = {

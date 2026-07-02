@@ -2,11 +2,11 @@ import type {
   AskRequest,
   AskResponse,
   Category,
-  CategoryScopeRequest,
   CategoryCreate,
+  CategoryScopeRequest,
   Note,
   NoteCreate,
-  NoteMetadataUpdate,
+  NoteUpdate,
   SearchResult,
 } from "./types";
 
@@ -122,7 +122,7 @@ export function createNote(originalText: string, categoryId: number | null): Pro
   });
 }
 
-export function updateNoteMetadata(noteId: number, body: NoteMetadataUpdate): Promise<Note> {
+export function updateNote(noteId: number, body: NoteUpdate): Promise<Note> {
   return requestJson<Note>(`/notes/${noteId}`, {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -135,14 +135,9 @@ export async function deleteNote(noteId: number): Promise<void> {
   });
 }
 
-export function askQuestion(
-  question: string,
-  scope: CategoryScopeRequest = {},
-): Promise<AskResponse> {
-  const body: AskRequest = { question, ...scope };
-
+export function askQuestion(request: AskRequest): Promise<AskResponse> {
   return requestJson<AskResponse>("/ask", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(request),
   });
 }

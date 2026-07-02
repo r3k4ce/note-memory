@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from chromadb.errors import NotFoundError
 
 from mapping_memory.chunking import RetrievalChunk
 from mapping_memory.settings import Settings
@@ -44,10 +45,17 @@ class FakeClient:
     def __init__(self, collection: FakeCollection) -> None:
         self.collection = collection
         self.collection_names: list[str] = []
+        self.delete_collection_calls: list[str] = []
+        self.delete_exception: Exception | None = None
 
     def get_or_create_collection(self, *, name: str) -> FakeCollection:
         self.collection_names.append(name)
         return self.collection
+
+    def delete_collection(self, name: str) -> None:
+        self.delete_collection_calls.append(name)
+        if self.delete_exception is not None:
+            raise self.delete_exception
 
 
 def test_build_chunk_id_uses_stable_note_and_chunk_index() -> None:
@@ -285,3 +293,37 @@ def test_delete_chunks_for_note_deletes_by_note_id_metadata() -> None:
     store.delete_chunks_for_note(7)
 
     assert collection.delete_calls == [{"where": {"note_id": 7}}]
+
+
+def test_recreate_collection_deletes_and_reopens_collection() -> None:
+    collection = FakeCollection()
+    client = FakeClient(collection)
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+
+    store.recreate_collection()
+
+    assert client.delete_collection_calls == [COLLECTION_NAME]
+    assert client.collection_names == [COLLECTION_NAME, COLLECTION_NAME]
+    assert store.collection is collection
+
+
+def test_recreate_collection_ignores_missing_collection_only() -> None:
+    collection = FakeCollection()
+    client = FakeClient(collection)
+    client.delete_exception = NotFoundError("Collection does not exist")
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+
+    store.recreate_collection()
+
+    assert client.delete_collection_calls == [COLLECTION_NAME]
+    assert client.collection_names == [COLLECTION_NAME, COLLECTION_NAME]
+
+
+def test_recreate_collection_propagates_unexpected_chroma_errors() -> None:
+    collection = FakeCollection()
+    client = FakeClient(collection)
+    client.delete_exception = RuntimeError("provider failed")
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+
+    with pytest.raises(RuntimeError, match="provider failed"):
+        store.recreate_collection()

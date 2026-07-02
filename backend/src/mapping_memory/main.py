@@ -20,7 +20,7 @@ from mapping_memory.notes import (
     get_note,
     list_categories,
     list_notes,
-    update_note_metadata,
+    update_note,
 )
 from mapping_memory.schemas import (
     CategoryCreate,
@@ -135,6 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def update_note_endpoint(note_id: int, note_update: NoteUpdate) -> NoteRead:
         updates = note_update.model_dump(exclude_unset=True)
         update_kwargs = {
+            "original_text": updates.get("original_text"),
             "ai_title": updates.get("ai_title"),
             "short_summary": updates.get("short_summary"),
             "tags": updates.get("tags"),
@@ -143,7 +144,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             update_kwargs["category_id"] = updates["category_id"]
 
         try:
-            updated_note = update_note_metadata(
+            updated_note = update_note(
                 app_settings.sqlite_path,
                 note_id,
                 **update_kwargs,

@@ -20,7 +20,11 @@ def create_ask_router(settings: Settings) -> APIRouter:
         category_scope = _validated_category_scope(request, settings=settings)
         try:
             retrieval_context = prepare_retrieval_context(
-                request.question, settings=settings, category_scope=category_scope
+                request.question,
+                settings=settings,
+                category_scope=category_scope,
+                note_ids=request.note_ids,
+                history=request.history,
             )
         except Exception:
             logger.warning("Ask retrieval unavailable")
@@ -36,6 +40,7 @@ def create_ask_router(settings: Settings) -> APIRouter:
             answer = generate_grounded_answer(
                 question=request.question,
                 context=retrieval_context.formatted_context,
+                history=request.history,
                 settings=settings,
             )
         except Exception:

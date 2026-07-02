@@ -10,7 +10,9 @@ type AskChatProps = {
   messages: ChatMessage[];
   onSubmit: (question: string) => void;
   pendingMessageId: string | null;
+  isSubmitDisabled?: boolean;
   scopeLabel: string;
+  submitDisabledMessage?: string;
 };
 
 type AssistantBubbleProps = {
@@ -76,18 +78,27 @@ function ErrorBubble({ content }: { content: string }) {
   );
 }
 
-export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLabel }: AskChatProps) {
+export function AskChat({
+  askRef,
+  messages,
+  onSubmit,
+  pendingMessageId,
+  isSubmitDisabled = false,
+  scopeLabel,
+  submitDisabledMessage,
+}: AskChatProps) {
   const [question, setQuestion] = useState("");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
+  const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, pendingMessageId]);
 
   function submitQuestion() {
-    if (!trimmedQuestion || isPending) {
+    if (isSendDisabled) {
       return;
     }
 
@@ -110,7 +121,7 @@ export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLab
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100vh-5.75rem)] max-w-3xl flex-col gap-4" aria-labelledby="ask-title">
+    <section className="flex h-full min-h-0 w-full flex-col gap-4" aria-labelledby="ask-title">
       <header className="flex shrink-0 flex-col gap-1.5 border-b border-border pb-4">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
@@ -121,7 +132,7 @@ export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLab
           </h2>
         </div>
         <p className="text-[12px] leading-relaxed text-text-muted">
-          Each question is answered from saved notes in the selected scope, not from previous chat turns.
+          Recent chat turns can clarify follow-ups, but answers still cite saved notes in the selected scope.
         </p>
         <p className="text-[11px] text-text-muted">Scope: {scopeLabel}</p>
       </header>
@@ -157,13 +168,13 @@ export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLab
           rows={3}
           value={question}
         />
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] text-text-muted">
-            Enter to send · Shift+Enter for newline · {APP_SHORTCUTS.ask.label} to focus
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 flex-1 text-[11px] leading-relaxed text-text-muted">
+            {submitDisabledMessage ?? `Enter to send · Shift+Enter for newline · ${APP_SHORTCUTS.ask.label} to focus`}
           </span>
           <button
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!trimmedQuestion || isPending}
+            disabled={isSendDisabled}
             type="submit"
           >
             <Send size={13} strokeWidth={2} />

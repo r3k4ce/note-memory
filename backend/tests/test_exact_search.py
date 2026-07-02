@@ -3,7 +3,7 @@ from pathlib import Path
 
 from mapping_memory.db import init_db
 from mapping_memory.fts import rebuild_notes_fts
-from mapping_memory.notes import create_note, search_notes_exact
+from mapping_memory.notes import create_note, search_notes_exact, search_notes_exact_matches
 
 
 def test_exact_search_finds_ticket_ids(tmp_path: Path) -> None:
@@ -51,6 +51,72 @@ def test_exact_search_finds_tags(tmp_path: Path) -> None:
     results = search_notes_exact(sqlite_path, "competition-id")
 
     assert [result.id for result in results] == [note.id]
+
+
+def test_exact_search_match_includes_body_snippet(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "notes.sqlite"
+    init_db(sqlite_path)
+    note = create_note(
+        sqlite_path,
+        (
+            "Opening context that should not dominate the snippet. "
+            "Investigate ticket CD-30954 before publishing the map. "
+            "Trailing context explains the follow-up."
+        ),
+        ai_title="Competition import issue",
+        short_summary="Ticket CD-30954 needs source reconciliation.",
+    )
+
+    results = search_notes_exact_matches(sqlite_path, "CD-30954")
+
+    assert [result.note.id for result in results] == [note.id]
+    assert results[0].matched_snippet is not None
+    assert "Investigate ticket CD-30954 before publishing" in results[0].matched_snippet
+
+
+def test_exact_search_match_includes_metadata_snippet_when_body_does_not_match(
+    tmp_path: Path,
+) -> None:
+    sqlite_path = tmp_path / "notes.sqlite"
+    init_db(sqlite_path)
+    note = create_note(
+        sqlite_path,
+        "Body text only mentions general mapping work.",
+        ai_title="Competition import issue",
+        short_summary="Ticket CD-30954 needs source reconciliation.",
+        tags=["tickets"],
+    )
+
+    results = search_notes_exact_matches(sqlite_path, "CD-30954")
+
+    assert [result.note.id for result in results] == [note.id]
+    assert results[0].matched_snippet == "Ticket CD-30954 needs source reconciliation."
+
+
+def test_exact_search_match_snippet_is_short(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "notes.sqlite"
+    init_db(sqlite_path)
+    create_note(
+        sqlite_path,
+        (f"{'before ' * 80}CD-30954{' after' * 80}"),
+    )
+
+    results = search_notes_exact_matches(sqlite_path, "CD-30954")
+
+    assert results[0].matched_snippet is not None
+    assert len(results[0].matched_snippet) <= 240
+    assert results[0].matched_snippet.startswith("...")
+    assert results[0].matched_snippet.endswith("...")
+
+
+def test_exact_search_match_has_null_snippet_without_literal_match(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "notes.sqlite"
+    init_db(sqlite_path)
+    create_note(sqlite_path, "Ticket CD 30954 has a space.")
+
+    results = search_notes_exact_matches(sqlite_path, "CD-30954")
+
+    assert results == []
 
 
 def test_exact_search_requires_literal_punctuation_match(tmp_path: Path) -> None:

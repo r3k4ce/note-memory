@@ -1,5 +1,7 @@
 import { useEffect, type RefObject } from "react";
 
+import type { MarkdownPaneHandle } from "../components/MarkdownPane";
+
 export type AppMode = "capture" | "search" | "ask";
 
 export const APP_SHORTCUTS: Record<
@@ -12,7 +14,7 @@ export const APP_SHORTCUTS: Record<
 };
 
 type Refs = {
-  captureRef: RefObject<HTMLTextAreaElement | null>;
+  captureRef: RefObject<MarkdownPaneHandle | null>;
   searchRef: RefObject<HTMLInputElement | null>;
   askRef: RefObject<HTMLTextAreaElement | null>;
 };

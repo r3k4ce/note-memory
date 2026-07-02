@@ -279,12 +279,17 @@ def test_patch_note_updates_metadata_and_get_returns_updated_note(
     assert fetched_response.json() == response.json()
 
 
-def test_patch_note_rejects_original_text_update(
+def test_patch_note_updates_original_text_and_get_returns_updated_body(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
         "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -294,12 +299,113 @@ def test_patch_note_rejects_original_text_update(
         created_response = client.post("/notes", json={"original_text": "Original body"})
         response = client.patch(
             f"/notes/{created_response.json()['id']}",
-            json={"original_text": "Changed body"},
+            json={"original_text": "Updated body\nwith exact text"},
         )
         fetched_response = client.get(f"/notes/{created_response.json()['id']}")
 
-    assert response.status_code == 422
-    assert fetched_response.json()["original_text"] == "Original body"
+    assert response.status_code == 200
+    assert response.json()["original_text"] == "Updated body\nwith exact text"
+    assert response.json()["ai_title"] == created_response.json()["ai_title"]
+    assert response.json()["short_summary"] == created_response.json()["short_summary"]
+    assert response.json()["tags"] == created_response.json()["tags"]
+    assert response.json()["date_added"] == created_response.json()["date_added"]
+    assert response.json()["updated_at"] >= created_response.json()["updated_at"]
+    assert fetched_response.status_code == 200
+    assert fetched_response.json() == response.json()
+
+
+def test_patch_note_calls_reindex_with_updated_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    reindexed_notes: list[Any] = []
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+
+    def reindex_note_for_retrieval(note: Any, *, settings: Settings) -> None:
+        reindexed_notes.append(note)
+
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        reindex_note_for_retrieval,
+        raising=False,
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        created_response = client.post("/notes", json={"original_text": "Original body"})
+        response = client.patch(
+            f"/notes/{created_response.json()['id']}",
+            json={"original_text": "Updated body for retrieval chunks"},
+        )
+
+    assert response.status_code == 200
+    assert len(reindexed_notes) == 1
+    assert reindexed_notes[0].id == created_response.json()["id"]
+    assert reindexed_notes[0].original_text == "Updated body for retrieval chunks"
+
+
+def test_patch_note_refreshes_exact_search_for_updated_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def update_chunk_metadata(self, chunks: list[Any]) -> None:
+            pass
+
+        def query_by_embedding(
+            self,
+            embedding: list[float],
+            *,
+            limit: int = 5,
+            where: dict[str, Any] | None = None,
+        ) -> list[Any]:
+            return []
+
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        return [[0.1, 0.2, 0.3] for _ in texts]
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.search.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.search.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    original_text = f"Stable title\n{'padding ' * 40}oldbodyonly."
+
+    with TestClient(app) as client:
+        created_response = client.post(
+            "/notes",
+            json={"original_text": original_text},
+        )
+        note_id = created_response.json()["id"]
+        response = client.patch(
+            f"/notes/{note_id}",
+            json={"original_text": "Updated body with newbodyonly."},
+        )
+        new_search_response = client.get("/search", params={"q": "newbodyonly"})
+        old_search_response = client.get("/search", params={"q": "oldbodyonly"})
+
+    assert response.status_code == 200
+    assert new_search_response.status_code == 200
+    assert [result["id"] for result in new_search_response.json()] == [note_id]
+    assert old_search_response.status_code == 200
+    assert old_search_response.json() == []
 
 
 def test_patch_note_rejects_empty_or_invalid_metadata(
@@ -319,6 +425,7 @@ def test_patch_note_rejects_empty_or_invalid_metadata(
 
         responses = [
             client.patch(note_url, json={}),
+            client.patch(note_url, json={"original_text": " \n\t "}),
             client.patch(note_url, json={"ai_title": "  "}),
             client.patch(note_url, json={"short_summary": "\t"}),
             client.patch(note_url, json={"tags": ["valid", 1]}),
@@ -326,7 +433,7 @@ def test_patch_note_rejects_empty_or_invalid_metadata(
             client.patch(note_url, json={"tags": [str(index) for index in range(11)]}),
         ]
 
-    assert [response.status_code for response in responses] == [422, 422, 422, 422, 422, 422]
+    assert [response.status_code for response in responses] == [422, 422, 422, 422, 422, 422, 422]
 
 
 def test_patch_note_reindexes_chroma_chunks(
@@ -367,6 +474,7 @@ def test_patch_note_reindexes_chroma_chunks(
         response = client.patch(
             f"/notes/{created_response.json()['id']}",
             json={
+                "original_text": "Updated body for fresh Chroma chunks",
                 "ai_title": "Reindexed title",
                 "short_summary": "Reindexed summary.",
                 "tags": ["reindexed"],
@@ -384,6 +492,8 @@ def test_patch_note_reindexes_chroma_chunks(
     assert chunks[0].title == "Reindexed title"
     assert chunks[0].tags == ("reindexed",)
     assert "Summary: Reindexed summary." in chunks[0].text
+    assert "Chunk: Updated body for fresh Chroma chunks" in chunks[0].text
+    assert "Original body" not in chunks[0].text
     assert embedding_calls == [{"texts": [chunks[0].text], "settings": store_instances[0].settings}]
     assert add_call["embeddings"] == [[0.4, 0.5, 0.6]]
 

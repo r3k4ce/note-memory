@@ -1,9 +1,11 @@
 import json
+import re
 import sqlite3
 from collections.abc import Sequence
 from sqlite3 import Row
 
 FTS_TABLE = "notes_fts"
+SNIPPET_MAX_CHARS = 240
 
 
 def init_notes_fts(connection: sqlite3.Connection) -> None:
@@ -85,6 +87,63 @@ def row_matches_literal(row: Row, query: str) -> bool:
         row["original_text"],
     ]
     return any(needle in haystack.casefold() for haystack in haystacks)
+
+
+def literal_matched_snippet(
+    row: Row,
+    query: str,
+    *,
+    max_chars: int = SNIPPET_MAX_CHARS,
+) -> str | None:
+    fields = [
+        row["original_text"],
+        row["ai_title"],
+        row["short_summary"],
+        tags_to_text(tags_from_json(row["tags_json"])),
+    ]
+    for field in fields:
+        snippet = text_literal_snippet(field, query, max_chars=max_chars)
+        if snippet is not None:
+            return snippet
+
+    return None
+
+
+def text_literal_snippet(
+    text: str,
+    query: str,
+    *,
+    max_chars: int = SNIPPET_MAX_CHARS,
+) -> str | None:
+    if max_chars <= 0:
+        return None
+
+    match_start = text.casefold().find(query.casefold())
+    if match_start < 0:
+        return None
+
+    match_end = match_start + len(query)
+    if len(text) <= max_chars:
+        return collapse_whitespace(text)
+
+    marker_width = len("...") * 2
+    window_chars = max(1, max_chars - marker_width)
+    context_chars = max(0, window_chars - len(query))
+    start = max(0, match_start - context_chars // 2)
+    end = min(len(text), start + window_chars)
+    if end < match_end:
+        end = min(len(text), match_end)
+        start = max(0, end - window_chars)
+
+    snippet = f"{'...' if start > 0 else ''}{collapse_whitespace(text[start:end])}"
+    if end < len(text):
+        snippet = f"{snippet}..."
+
+    return snippet[:max_chars]
+
+
+def collapse_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def note_is_indexed(connection: sqlite3.Connection, note_id: int) -> bool:

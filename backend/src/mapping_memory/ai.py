@@ -3,15 +3,18 @@ from typing import Any
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 
 ANSWER_FALLBACK = "I do not have this in the saved notes."
-ANSWER_SYSTEM_PROMPT = f"""Answer questions using only the saved-note context provided.
+ANSWER_HISTORY_LIMIT = 6
+ANSWER_SYSTEM_PROMPT = f"""Use chat history only to understand the user's current question.
+Use saved-note context as the only factual source.
 Do not use outside knowledge.
-If the answer is not present in the saved-note context, say exactly: {ANSWER_FALLBACK}
+If the saved-note context does not contain the answer, say exactly: {ANSWER_FALLBACK}
 Be concise and operational.
 Do not invent policies, rules, or decisions.
-When answering, include supporting card titles and dates from the context."""
+When answering, include supporting card titles and dates from the saved-note context."""
 
 ORGANIZER_SYSTEM_PROMPT = """Organize messy notes into clean reference cards.
 Return only valid JSON.
@@ -114,6 +117,7 @@ def generate_grounded_answer(
     question: str,
     *,
     context: str,
+    history: list[AskHistoryMessage] | None = None,
     settings: Settings | None = None,
     client: Any | None = None,
 ) -> str:
@@ -131,7 +135,11 @@ def generate_grounded_answer(
                 {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
                 {
                     "role": "user",
-                    "content": f"Saved-note context:\n\n{context}\n\nQuestion:\n{question.strip()}",
+                    "content": _answer_user_prompt(
+                        context=context,
+                        history=history or [],
+                        question=question.strip(),
+                    ),
                 },
             ],
         )
@@ -143,6 +151,28 @@ def generate_grounded_answer(
         raise AnswerResponseError("OpenAI did not return a grounded answer")
 
     return answer.strip()
+
+
+def _answer_user_prompt(
+    *,
+    context: str,
+    history: list[AskHistoryMessage],
+    question: str,
+) -> str:
+    return (
+        f"Saved-note context:\n\n{context}\n\n"
+        "Recent chat history (for question interpretation only):\n\n"
+        f"{_format_answer_history(history)}\n\n"
+        f"Current question:\n{question}"
+    )
+
+
+def _format_answer_history(history: list[AskHistoryMessage]) -> str:
+    recent_history = history[-ANSWER_HISTORY_LIMIT:]
+    if not recent_history:
+        return "No recent chat history."
+
+    return "\n".join(f"{message.role}: {message.content}" for message in recent_history)
 
 
 def _openai_client(settings: Settings) -> OpenAI:
