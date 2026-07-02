@@ -38,3 +38,6 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Agentic tooling
+.opencode/
