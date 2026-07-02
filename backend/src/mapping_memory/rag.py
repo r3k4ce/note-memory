@@ -6,6 +6,7 @@ from mapping_memory.category_scope import CategoryScope
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
 from mapping_memory.notes import get_note, list_notes
+from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
 
@@ -44,6 +45,7 @@ def prepare_retrieval_context(
     settings: Settings,
     category_scope: CategoryScope | None = None,
     note_ids: Sequence[int] | None = None,
+    history: list[AskHistoryMessage] | None = None,
 ) -> RagRetrievalContext:
     query = question.strip()
     if not query:
@@ -53,7 +55,8 @@ def prepare_retrieval_context(
 
     scope = category_scope or CategoryScope()
     selected_note_ids = set(note_ids) if note_ids is not None else None
-    embedding = embed_texts([query], settings=settings)[0]
+    retrieval_query = build_retrieval_query(query, history or [])
+    embedding = embed_texts([retrieval_query], settings=settings)[0]
     vector_store = ChromaVectorStore(settings=settings)
     _sync_scope_category_metadata(vector_store, settings=settings, category_scope=scope)
     where = _combined_chroma_where(category_scope=scope, note_ids=note_ids)
@@ -113,6 +116,13 @@ def prepare_retrieval_context(
         for source in sources_by_note_id.values()
     )
     return RagRetrievalContext(sources=sources, formatted_context=_format_context(sources))
+
+
+def build_retrieval_query(question: str, history: list[AskHistoryMessage]) -> str:
+    recent = history[-6:]
+    parts = [f"{message.role}: {message.content}" for message in recent]
+    parts.append(f"user: {question}")
+    return "\n".join(parts)[-4000:]
 
 
 def _query_hits(

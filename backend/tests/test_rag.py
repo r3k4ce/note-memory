@@ -6,6 +6,7 @@ import pytest
 from mapping_memory.category_scope import make_category_scope
 from mapping_memory.db import init_db
 from mapping_memory.notes import create_category, create_note
+from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import VectorSearchResult
 
@@ -77,6 +78,86 @@ def test_prepare_retrieval_context_groups_chunks_by_note(
     assert f"Date added: {first_note.date_added}" in context.formatted_context
     assert "Tags: alpha, routing" in context.formatted_context
     assert "Relevant text:\nfirst chunk" in context.formatted_context
+
+
+def test_build_retrieval_query_includes_current_question() -> None:
+    from mapping_memory.rag import build_retrieval_query
+
+    query = build_retrieval_query("What happened next?", [])
+
+    assert query == "user: What happened next?"
+
+
+def test_build_retrieval_query_includes_recent_history() -> None:
+    from mapping_memory.rag import build_retrieval_query
+
+    query = build_retrieval_query(
+        "What about that?",
+        [
+            AskHistoryMessage(role="user", content="What did we save?"),
+            AskHistoryMessage(role="assistant", content="A routing decision."),
+        ],
+    )
+
+    assert query == (
+        "user: What did we save?\nassistant: A routing decision.\nuser: What about that?"
+    )
+
+
+def test_build_retrieval_query_is_capped() -> None:
+    from mapping_memory.rag import build_retrieval_query
+
+    query = build_retrieval_query(
+        "current question",
+        [AskHistoryMessage(role="user", content="x" * 4000)],
+    )
+
+    assert len(query) == 4000
+    assert query.endswith("user: current question")
+
+
+def test_build_retrieval_query_uses_only_recent_history() -> None:
+    from mapping_memory.rag import build_retrieval_query
+
+    history = [AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)]
+
+    query = build_retrieval_query("current question", history)
+
+    assert "message 0" not in query
+    assert "message 1" not in query
+    for index in range(2, 8):
+        assert f"user: message {index}" in query
+    assert query.endswith("user: current question")
+
+
+def test_prepare_retrieval_context_embeds_recent_history_query(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    note = create_note(sqlite_path, "Included note body", ai_title="Included")
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(
+        monkeypatch,
+        [_hit(note.id, 0, "included chunk")],
+        expected_query=(
+            "user: What did we discuss?\n"
+            "assistant: We discussed source recreation.\n"
+            "user: source question"
+        ),
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context(
+        "source question",
+        settings=settings,
+        history=[
+            AskHistoryMessage(role="user", content="What did we discuss?"),
+            AskHistoryMessage(role="assistant", content="We discussed source recreation."),
+        ],
+    )
+
+    assert [source.note_id for source in context.sources] == [note.id]
 
 
 def test_prepare_retrieval_context_limits_chunks_per_note_and_final_chunk_count(
@@ -210,6 +291,9 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
             _hit(excluded.id, 0, "excluded chunk"),
             _hit(included.id, 0, "included chunk"),
         ],
+        expected_query=(
+            "user: Which note is selected?\nassistant: The included note.\nuser: source question"
+        ),
     )
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -217,6 +301,10 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
     context = prepare_retrieval_context(
         "source question",
         settings=settings,
+        history=[
+            AskHistoryMessage(role="user", content="Which note is selected?"),
+            AskHistoryMessage(role="assistant", content="The included note."),
+        ],
         note_ids=[included.id],
     )
 
@@ -356,9 +444,10 @@ def _install_fakes(
     results: list[VectorSearchResult],
     *,
     query_errors: list[Exception] | None = None,
+    expected_query: str = "user: source question",
 ) -> None:
     def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        assert texts == ["source question"]
+        assert texts == [expected_query]
         assert settings.sqlite_path
         return [[0.1, 0.2, 0.3]]
 

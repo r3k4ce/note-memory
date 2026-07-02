@@ -106,6 +106,35 @@ def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
     assert captured["note_ids"] == [1, 2, 3]
 
 
+def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+        capture=captured,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={
+                "question": "What happened next?",
+                "history": [
+                    {"role": "user", "content": "What did we discuss?"},
+                    {"role": "assistant", "content": "Source recreation."},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    assert [message.model_dump() for message in captured["history"]] == [
+        {"role": "user", "content": "What did we discuss?"},
+        {"role": "assistant", "content": "Source recreation."},
+    ]
+
+
 def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatch) -> None:
     answer_calls: list[dict[str, Any]] = []
     app = _ask_app_with_real_retrieval(
@@ -475,12 +504,14 @@ def _ask_app(
         settings: Settings,
         category_scope=None,
         note_ids=None,
+        history=None,
     ) -> RagRetrievalContext:
         assert question.strip()
         assert settings.sqlite_path
         if capture is not None:
             capture["category_scope"] = category_scope
             capture["note_ids"] = note_ids
+            capture["history"] = history
         return retrieval_context
 
     monkeypatch.setattr(
@@ -515,7 +546,7 @@ def _ask_app_with_real_retrieval(
         init_db(sqlite_path)
 
     def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        assert texts == ["What is scoped?"]
+        assert texts == ["user: What is scoped?"]
         assert settings.sqlite_path == sqlite_path
         return [[0.1, 0.2, 0.3]]
 

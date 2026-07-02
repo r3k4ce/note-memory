@@ -24,6 +24,7 @@ def create_ask_router(settings: Settings) -> APIRouter:
                 settings=settings,
                 category_scope=category_scope,
                 note_ids=request.note_ids,
+                history=request.history,
             )
         except Exception:
             logger.warning("Ask retrieval unavailable")

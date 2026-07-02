@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T17:26:53Z"
+    time_local: "2026-07-02T14:26:53-03:00"
+    summary: "Used recent Ask history for backend retrieval queries."
+    changed:
+      - "Added a RAG retrieval query builder that formats the last 6 Ask history messages plus the current question and caps the query to 4000 characters."
+      - "Passed AskRequest.history into retrieval so embeddings and vector search use the history-aware query while answer generation still receives only the current question and saved-note context."
+      - "Preserved category, uncategorized, and selected note filters; documented that history is not answer source material."
+    verification:
+      - "Ran uv run python -m pytest tests/test_rag.py tests/test_ask_api.py --no-cov from backend/: 34 passed with 2 existing Starlette deprecation warnings."
+      - "Ran backend format check, Ruff lint, Pyright, and full pytest from backend/: all passed; pytest reported 156 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T17:11:31Z"
     time_local: "2026-07-02T14:11:31-03:00"
     summary: "Added backend Ask history schema validation."
