@@ -48,6 +48,10 @@ export type CategoryScopeRequest = {
   uncategorized?: boolean;
 };
 
+export type AskNoteScope =
+  | { mode: "all" }
+  | { mode: "custom"; noteIds: number[] };
+
 export type AskRequest = CategoryScopeRequest & {
   question: string;
 };

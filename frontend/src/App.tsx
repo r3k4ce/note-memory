@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   createCategory,
@@ -11,6 +11,7 @@ import {
   askQuestion,
   updateNote,
 } from "./api";
+import { areAskNoteScopesEqual, DEFAULT_ASK_NOTE_SCOPE, normalizeAskNoteScope } from "./askScope";
 import { AskChat } from "./components/AskChat";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
 import { NoteCard } from "./components/NoteCard";
@@ -105,6 +106,7 @@ export default function App() {
   const [isSelectedNoteEditDirty, setIsSelectedNoteEditDirty] = useState(false);
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
+  const [askNoteScope, setAskNoteScope] = useState(DEFAULT_ASK_NOTE_SCOPE);
 
   const searchRequestId = useRef(0);
   const askRequestId = useRef(0);
@@ -120,6 +122,7 @@ export default function App() {
   const categoryFilteredNotes = filterNotesByCategory(notes, selectedCategoryFilter);
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
   const hasUnsavedSelectedNoteEdit = workspaceMode === "edit-selected" && isSelectedNoteEditDirty;
+  const askAvailableNoteIds = useMemo(() => notes.map((note) => note.id), [notes]);
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
     if (!hasUnsavedSelectedNoteEdit) {
@@ -241,6 +244,14 @@ export default function App() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    const normalizedAskNoteScope = normalizeAskNoteScope(askNoteScope, askAvailableNoteIds);
+
+    if (!areAskNoteScopesEqual(askNoteScope, normalizedAskNoteScope)) {
+      setAskNoteScope(normalizedAskNoteScope);
+    }
+  }, [askAvailableNoteIds, askNoteScope]);
 
   useEffect(() => {
     if (selectedNoteId === null) {

@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T15:43:35Z"
+    time_local: "2026-07-02T12:43:35-03:00"
+    summary: "Added frontend-only Ask note scope state."
+    changed:
+      - "Added AskNoteScope typing, a pure askScope helper module for selection/toggle/select-all/clear/count/normalization behavior, and default all-notes scope."
+      - "Added App-owned Ask note scope state and normalized custom selections against loaded notes without rendering controls or changing Ask request payloads."
+      - "Kept backend, api.ts askQuestion, AskChat UI, search behavior, and list behavior unchanged."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with EPERM/native Tailwind dependency loading, then passed outside sandbox."
   - time_utc: "2026-07-02T15:33:11Z"
     time_local: "2026-07-02T12:33:11-03:00"
     summary: "Moved Ask chat into a persistent desktop right sidebar."
