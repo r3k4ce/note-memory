@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T18:53:14Z"
+    time_local: "2026-07-02T15:53:14-03:00"
+    summary: "Added compact semantic search snippets."
+    changed:
+      - "Carried the best matching Chroma retrieval chunk through backend search merging so semantic-only results can return matched_snippet."
+      - "Cleaned retrieval chunk metadata prefixes by preferring text after Chunk: and capped semantic snippets at the existing 240-character snippet limit."
+      - "Kept hybrid match_type behavior unchanged while preferring exact snippets over semantic snippets when both are available."
+    verification:
+      - "Ran uv run python -m pytest tests/test_search_api.py --no-cov from backend/: 14 passed with 2 existing Starlette deprecation warnings."
+      - "Ran backend format check, Ruff lint, Pyright, and full pytest from backend/: all passed; pytest reported 178 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T18:39:36Z"
     time_local: "2026-07-02T15:39:36-03:00"
     summary: "Added compact exact-match search snippets."

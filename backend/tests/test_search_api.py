@@ -74,7 +74,7 @@ def test_search_returns_semantic_only_card_result(tmp_path: Path, monkeypatch) -
         semantic_results=[
             VectorSearchResult(
                 id="note:1:chunk:0",
-                text="chunk text must not leak",
+                text="Tocantinense source recreation snippet from Chroma.",
                 metadata={"note_id": semantic_note.id},
                 distance=0.12,
             )
@@ -90,9 +90,52 @@ def test_search_returns_semantic_only_card_result(tmp_path: Path, monkeypatch) -
     assert body[0]["id"] == semantic_note.id
     assert body[0]["ai_title"] == "Tocantinense source rebuild"
     assert body[0]["score"] == 1.0
-    assert body[0]["matched_snippet"] is None
+    assert body[0]["matched_snippet"] == "Tocantinense source recreation snippet from Chroma."
     assert body[0]["match_type"] == "semantic"
-    assert "chunk text must not leak" not in response.text
+
+
+def test_search_returns_cleaned_semantic_snippet_from_metadata_heavy_chunk(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    semantic_note = create_note(
+        _init_path(tmp_path),
+        "Regional mapping details.",
+        ai_title="Regional routing",
+        short_summary="Routing source behavior.",
+        tags=["semantic"],
+    )
+    app = _search_app(
+        tmp_path,
+        monkeypatch,
+        semantic_results=[
+            VectorSearchResult(
+                id="note:1:chunk:0",
+                text=(
+                    "Title: Regional routing\n"
+                    "Tags: semantic\n"
+                    "Date added: 2026-07-02T12:00:00+00:00\n"
+                    "Summary: Routing source behavior.\n"
+                    f"Chunk: {'body detail ' * 80}"
+                ),
+                metadata={"note_id": semantic_note.id},
+                distance=0.12,
+            )
+        ],
+        init_db_first=False,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "chroma-only phrase"})
+
+    assert response.status_code == 200
+    snippet = response.json()[0]["matched_snippet"]
+    assert snippet is not None
+    assert snippet.startswith("body detail body detail")
+    assert not snippet.startswith("Title:")
+    assert "Summary:" not in snippet
+    assert len(snippet) <= 240
+    assert snippet.endswith("...")
 
 
 def test_search_ranks_merged_result_above_single_source_results(
@@ -140,7 +183,7 @@ def test_search_ranks_merged_result_above_single_source_results(
     snippets = {item["id"]: item["matched_snippet"] for item in body}
     assert snippets[merged.id] == "CD-30954 appears in both indexes."
     assert snippets[exact_only.id] == "CD-30954 exact only."
-    assert snippets[semantic_only.id] is None
+    assert snippets[semantic_only.id] == "semantic only chunk"
 
 
 def test_search_returns_exact_metadata_snippet(tmp_path: Path, monkeypatch) -> None:

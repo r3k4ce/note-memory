@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -7,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
+from mapping_memory.fts import SNIPPET_MAX_CHARS, collapse_whitespace
 from mapping_memory.notes import (
     ExactSearchMatch,
     get_category,
@@ -22,6 +24,12 @@ SEARCH_LIMIT = 20
 OVERLAP_BONUS = 1.0
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SemanticSearchMatch:
+    note: NoteRead
+    matched_snippet: str | None
 
 
 def create_search_router(settings: Settings) -> APIRouter:
@@ -64,7 +72,7 @@ def _search_semantic_notes(
     *,
     settings: Settings,
     category_scope: CategoryScope,
-) -> list[NoteRead]:
+) -> list[SemanticSearchMatch]:
     embedding = embed_texts([query], settings=settings)[0]
     vector_store = ChromaVectorStore(settings=settings)
     _sync_scope_category_metadata(vector_store, settings=settings, category_scope=category_scope)
@@ -72,27 +80,35 @@ def _search_semantic_notes(
         embedding, limit=SEARCH_LIMIT, where=category_scope.chroma_where
     )
     note_ids = _ranked_note_ids(hits)
+    snippets_by_note_id = _semantic_snippets_by_note_id(hits)
 
-    notes: list[NoteRead] = []
+    matches: list[SemanticSearchMatch] = []
     for note_id in note_ids:
         note = get_note(settings.sqlite_path, note_id)
         if note is not None and _note_matches_scope(note, category_scope):
-            notes.append(note)
+            matches.append(
+                SemanticSearchMatch(
+                    note=note,
+                    matched_snippet=snippets_by_note_id.get(note_id),
+                )
+            )
 
-    return notes
+    return matches
 
 
 def _merge_search_results(
     exact_matches: list[ExactSearchMatch],
-    semantic_notes: list[NoteRead],
+    semantic_matches: list[SemanticSearchMatch],
     *,
     limit: int,
 ) -> list[SearchResult]:
     exact_notes = [match.note for match in exact_matches]
+    semantic_notes = [match.note for match in semantic_matches]
     notes_by_id = {note.id: note for note in exact_notes}
     notes_by_id.update({note.id: note for note in semantic_notes})
     exact_ranks = {note.id: rank for rank, note in enumerate(exact_notes, start=1)}
     exact_snippets = {match.note.id: match.matched_snippet for match in exact_matches}
+    semantic_snippets = {match.note.id: match.matched_snippet for match in semantic_matches}
     semantic_ranks = {note.id: rank for rank, note in enumerate(semantic_notes, start=1)}
 
     results = [
@@ -100,7 +116,7 @@ def _merge_search_results(
             note,
             exact_rank=exact_ranks.get(note.id),
             semantic_rank=semantic_ranks.get(note.id),
-            matched_snippet=exact_snippets.get(note.id),
+            matched_snippet=exact_snippets.get(note.id) or semantic_snippets.get(note.id),
         )
         for note in notes_by_id.values()
     ]
@@ -128,7 +144,7 @@ def _to_search_result(
         date_added=note.date_added,
         score=score,
         category=note.category,
-        matched_snippet=matched_snippet if exact_rank is not None else None,
+        matched_snippet=matched_snippet,
         match_type=_match_type(exact_rank=exact_rank, semantic_rank=semantic_rank),
     )
 
@@ -166,6 +182,43 @@ def _ranked_note_ids(hits: Iterable[VectorSearchResult]) -> list[int]:
         note_ids.append(note_id)
 
     return note_ids
+
+
+def _semantic_snippets_by_note_id(hits: Iterable[VectorSearchResult]) -> dict[int, str]:
+    snippets: dict[int, str] = {}
+    for hit in hits:
+        note_id = _metadata_note_id(hit.metadata.get("note_id"))
+        if note_id is None or note_id in snippets:
+            continue
+        snippet = _semantic_snippet(hit.text)
+        if snippet is not None:
+            snippets[note_id] = snippet
+
+    return snippets
+
+
+def _semantic_snippet(text: str, *, max_chars: int = SNIPPET_MAX_CHARS) -> str | None:
+    if max_chars <= 0:
+        return None
+
+    snippet_source = _chunk_body_text(text)
+    snippet = collapse_whitespace(snippet_source)
+    if not snippet:
+        return None
+
+    if len(snippet) <= max_chars:
+        return snippet
+
+    return f"{snippet[: max_chars - len('...')].rstrip()}..."
+
+
+def _chunk_body_text(text: str) -> str:
+    marker = "Chunk:"
+    marker_index = text.find(marker)
+    if marker_index < 0:
+        return text
+
+    return text[marker_index + len(marker) :]
 
 
 def _metadata_note_id(value: object) -> int | None:

@@ -103,8 +103,9 @@ Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&category_id=1"
 ```
 
 Search results include `match_type` (`exact`, `semantic`, or `hybrid`) and
-`matched_snippet`. Exact and hybrid matches include a compact plain-text snippet from
-the matched note body or metadata; semantic-only matches return `null`.
+`matched_snippet`. Exact matches include a compact plain-text snippet from the matched
+note body or metadata. Semantic matches include a compact cleaned snippet from the best
+matching retrieval chunk, and hybrid matches prefer the exact snippet when available.
 
 Ask a grounded question across all notes, only Uncategorized, or one category:
 
