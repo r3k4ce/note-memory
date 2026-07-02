@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T20:06:37Z"
+    time_local: "2026-07-02T17:06:37-03:00"
+    summary: "Removed obsolete frontend mode components."
+    changed:
+      - "Deleted unused CommandCenter and SegmentedControl components after confirming no frontend imports remained."
+      - "Kept the active NoteWorkspace AddNote flow, MarkdownPane components, keyboard shortcuts, and three-pane layout unchanged."
+    verification:
+      - "Ran rg -n 'SegmentedControl|CommandCenter|MarkdownEditor' frontend/src: no matches."
+      - "Ran rg -n 'AddNote' frontend/src: AddNote remains used by NoteWorkspace."
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with the known Tailwind oxide/native dependency EPERM, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T20:00:35Z"
     time_local: "2026-07-02T17:00:35-03:00"
     summary: "Polished CodeMirror Markdown editing usability."
