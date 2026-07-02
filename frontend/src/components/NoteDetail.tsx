@@ -21,6 +21,7 @@ type NoteDetailProps = {
   onEditDirtyChange: (isDirty: boolean) => void;
   onNewNote: () => void;
   onSaveEdit: (body: {
+    original_text: string;
     ai_title: string;
     short_summary: string;
     tags: string[];
@@ -31,6 +32,7 @@ type NoteDetailProps = {
 type SourceView = "preview" | "raw";
 
 type EditDraft = {
+  bodyText: string;
   title: string;
   summary: string;
   tagsText: string;
@@ -39,6 +41,7 @@ type EditDraft = {
 
 function noteToDraft(note: Note): EditDraft {
   return {
+    bodyText: note.original_text,
     title: note.ai_title,
     summary: note.short_summary,
     tagsText: note.tags.join(", "),
@@ -67,6 +70,7 @@ function draftsMatchNote(draft: EditDraft, note: Note): boolean {
   const draftTags = parseTags(draft.tagsText);
 
   return (
+    draft.bodyText === note.original_text &&
     draft.title === note.ai_title &&
     draft.summary === note.short_summary &&
     draft.categoryId === (note.category?.id ?? null) &&
@@ -102,6 +106,7 @@ export function NoteDetail({
     note
       ? noteToDraft(note)
       : {
+          bodyText: "",
           title: "",
           summary: "",
           tagsText: "",
@@ -166,6 +171,7 @@ export function NoteDetail({
     const title = editDraft.title.trim();
     const summary = editDraft.summary.trim();
     const tags = parseTags(editDraft.tagsText);
+    const bodyText = editDraft.bodyText;
 
     if (!title) {
       setValidationError("Title cannot be blank.");
@@ -177,6 +183,11 @@ export function NoteDetail({
       return;
     }
 
+    if (!bodyText.trim()) {
+      setValidationError("Body cannot be blank.");
+      return;
+    }
+
     if (tags.length > 10) {
       setValidationError("Use 10 tags or fewer.");
       return;
@@ -184,6 +195,7 @@ export function NoteDetail({
 
     setValidationError(null);
     await onSaveEdit({
+      original_text: bodyText,
       ai_title: title,
       short_summary: summary,
       tags,
@@ -308,39 +320,59 @@ export function NoteDetail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
-          <div className="flex rounded-md border border-border bg-surface p-0.5" role="tablist" aria-label="Original text view">
-            {(["preview", "raw"] as const).map((view) => {
-              const isActive = sourceView === view;
-              return (
-                <button
-                  aria-selected={isActive}
-                  className={`rounded px-2.5 py-1 text-[12px] font-medium capitalize transition-colors ${
-                    isActive
-                      ? "bg-surface-raised text-text-primary"
-                      : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                  }`}
-                  key={view}
-                  onClick={() => setSourceViewSelection({ noteId: note.id, view })}
-                  role="tab"
-                  type="button"
-                >
-                  {view}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
-          {sourceView === "preview" ? (
-            <MarkdownPreview source={note.original_text} />
-          ) : (
-            <div className="font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
-              {note.original_text}
+        {isEditing ? (
+          <>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
+              Original text
+            </label>
+            <textarea
+              className="min-h-72 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-[13px] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+              disabled={isSavingEdit}
+              id="edit-note-body"
+              onChange={(event) => {
+                setEditDraft({ ...editDraft, bodyText: event.target.value });
+                setValidationError(null);
+              }}
+              value={editDraft.bodyText}
+            />
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
+              <div className="flex rounded-md border border-border bg-surface p-0.5" role="tablist" aria-label="Original text view">
+                {(["preview", "raw"] as const).map((view) => {
+                  const isActive = sourceView === view;
+                  return (
+                    <button
+                      aria-selected={isActive}
+                      className={`rounded px-2.5 py-1 text-[12px] font-medium capitalize transition-colors ${
+                        isActive
+                          ? "bg-surface-raised text-text-primary"
+                          : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                      }`}
+                      key={view}
+                      onClick={() => setSourceViewSelection({ noteId: note.id, view })}
+                      role="tab"
+                      type="button"
+                    >
+                      {view}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
-        </div>
+            <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
+              {sourceView === "preview" ? (
+                <MarkdownPreview source={note.original_text} />
+              ) : (
+                <div className="font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
+                  {note.original_text}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">

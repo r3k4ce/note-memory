@@ -29,6 +29,7 @@ type NoteWorkspaceProps = {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: (body: {
+    original_text: string;
     ai_title: string;
     short_summary: string;
     tags: string[];

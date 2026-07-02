@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T15:24:39Z"
+    time_local: "2026-07-02T12:24:39-03:00"
+    summary: "Added selected-note body editing in workspace edit mode."
+    changed:
+      - "Extended selected-note edit drafts to include original_text, with a single body textarea in edit mode and existing preview/raw rendering preserved in read-only mode."
+      - "Saved original_text with title, summary, tags, and category through the existing updateNote PATCH helper, then refreshed selected note, sidebar notes, active search result cards, and category filter state from the response."
+      - "Updated dirty tracking, cancel reset behavior, blank body validation, discard confirmation copy, and save error copy for full note edits."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with EPERM/native Tailwind dependency loading, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T15:14:10Z"
     time_local: "2026-07-02T12:14:10-03:00"
     summary: "Moved selected-note metadata editing into workspace edit mode."

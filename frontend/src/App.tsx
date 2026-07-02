@@ -127,7 +127,7 @@ export default function App() {
       return true;
     }
 
-    return window.confirm("Discard unsaved metadata changes?");
+    return window.confirm("Discard unsaved note changes?");
   }, [hasUnsavedSelectedNoteEdit]);
 
   const handleModeChange = useCallback((nextMode: AppMode) => {
@@ -466,7 +466,8 @@ export default function App() {
     setWorkspaceMode("read-selected");
   }, []);
 
-  async function handleSaveSelectedNoteMetadata(body: {
+  async function handleSaveSelectedNoteEdit(body: {
+    original_text: string;
     ai_title: string;
     short_summary: string;
     tags: string[];
@@ -495,7 +496,7 @@ export default function App() {
       setIsSelectedNoteEditDirty(false);
       setWorkspaceMode("read-selected");
     } catch (error) {
-      setEditError(getErrorMessage(error, "Could not save note metadata."));
+      setEditError(getErrorMessage(error, "Could not save note changes."));
     } finally {
       setIsSavingEdit(false);
     }
@@ -750,7 +751,7 @@ export default function App() {
               onEditDirtyChange={setIsSelectedNoteEditDirty}
               onNewNote={handleNewNote}
               onSave={handleSaveNote}
-              onSaveEdit={handleSaveSelectedNoteMetadata}
+              onSaveEdit={handleSaveSelectedNoteEdit}
               saveError={saveError}
             />
           )}
