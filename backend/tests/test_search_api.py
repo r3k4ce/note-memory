@@ -52,6 +52,8 @@ def test_search_returns_exact_only_card_result(tmp_path: Path, monkeypatch) -> N
             "date_added": body[0]["date_added"],
             "score": 1.0,
             "category": None,
+            "matched_snippet": None,
+            "match_type": "exact",
         }
     ]
     assert "original_text" not in body[0]
@@ -88,6 +90,8 @@ def test_search_returns_semantic_only_card_result(tmp_path: Path, monkeypatch) -
     assert body[0]["id"] == semantic_note.id
     assert body[0]["ai_title"] == "Tocantinense source rebuild"
     assert body[0]["score"] == 1.0
+    assert body[0]["matched_snippet"] is None
+    assert body[0]["match_type"] == "semantic"
     assert "chunk text must not leak" not in response.text
 
 
@@ -123,9 +127,17 @@ def test_search_ranks_merged_result_above_single_source_results(
         response = client.get("/search", params={"q": "CD-30954"})
 
     assert response.status_code == 200
-    result_ids = [item["id"] for item in response.json()]
+    body = response.json()
+    result_ids = [item["id"] for item in body]
     assert result_ids[0] == merged.id
     assert set(result_ids[1:]) == {exact_only.id, semantic_only.id}
+    match_types = {item["id"]: item["match_type"] for item in body}
+    assert match_types == {
+        merged.id: "hybrid",
+        exact_only.id: "exact",
+        semantic_only.id: "semantic",
+    }
+    assert all(item["matched_snippet"] is None for item in body)
 
 
 def test_search_filters_exact_results_to_uncategorized_scope(

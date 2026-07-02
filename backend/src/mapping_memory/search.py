@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterable
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -117,7 +118,24 @@ def _to_search_result(
         date_added=note.date_added,
         score=score,
         category=note.category,
+        matched_snippet=None,
+        match_type=_match_type(exact_rank=exact_rank, semantic_rank=semantic_rank),
     )
+
+
+def _match_type(
+    *,
+    exact_rank: int | None,
+    semantic_rank: int | None,
+) -> Literal["exact", "semantic", "hybrid"]:
+    if exact_rank is not None and semantic_rank is not None:
+        return "hybrid"
+    if exact_rank is not None:
+        return "exact"
+    if semantic_rank is not None:
+        return "semantic"
+
+    raise ValueError("search result must have an exact or semantic rank")
 
 
 def _rank_score(rank: int | None) -> float:

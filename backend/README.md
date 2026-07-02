@@ -102,6 +102,9 @@ Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&uncategorized=true"
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&category_id=1"
 ```
 
+Search results include `match_type` (`exact`, `semantic`, or `hybrid`) and
+`matched_snippet`, which is currently `null`.
+
 Ask a grounded question across all notes, only Uncategorized, or one category:
 
 ```powershell

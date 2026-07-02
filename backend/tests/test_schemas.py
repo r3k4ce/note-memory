@@ -1,13 +1,46 @@
 import pytest
 from pydantic import ValidationError
 
-from mapping_memory.schemas import AskRequest, NoteUpdate
+from mapping_memory.schemas import AskRequest, NoteUpdate, SearchResult
 
 
 def test_ask_request_accepts_note_ids() -> None:
     ask_request = AskRequest.model_validate({"question": "What changed?", "note_ids": [1, 2, 3]})
 
     assert ask_request.note_ids == [1, 2, 3]
+
+
+@pytest.mark.parametrize("match_type", ["exact", "semantic", "hybrid"])
+def test_search_result_accepts_match_metadata(match_type: str) -> None:
+    search_result = SearchResult.model_validate(
+        {
+            "id": 1,
+            "ai_title": "Saved note",
+            "short_summary": "Saved note summary.",
+            "tags": ["memory"],
+            "date_added": "2026-07-02T12:00:00Z",
+            "score": 1.0,
+            "match_type": match_type,
+        }
+    )
+
+    assert search_result.matched_snippet is None
+    assert search_result.match_type == match_type
+
+
+def test_search_result_rejects_invalid_match_type() -> None:
+    with pytest.raises(ValidationError):
+        SearchResult.model_validate(
+            {
+                "id": 1,
+                "ai_title": "Saved note",
+                "short_summary": "Saved note summary.",
+                "tags": ["memory"],
+                "date_added": "2026-07-02T12:00:00Z",
+                "score": 1.0,
+                "match_type": "vector",
+            }
+        )
 
 
 def test_ask_request_accepts_empty_note_ids() -> None:

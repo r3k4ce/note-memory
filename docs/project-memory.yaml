@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T18:26:49Z"
+    time_local: "2026-07-02T15:26:49-03:00"
+    summary: "Added backend search match metadata fields."
+    changed:
+      - "Extended SearchResult with match_type values exact, semantic, and hybrid plus matched_snippet defaulting to null."
+      - "Classified search results from existing exact and semantic rank presence without changing ranking or exposing Chroma hit text."
+      - "Documented the new search response fields and added API/schema coverage for exact-only, semantic-only, and hybrid results."
+    verification:
+      - "Ran uv run python -m pytest tests/test_search_api.py tests/test_schemas.py --no-cov from backend/: 38 passed with 2 existing Starlette deprecation warnings."
+      - "Ran backend format check, Ruff lint, Pyright, and full pytest from backend/: all passed; pytest reported 171 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T18:09:27Z"
     time_local: "2026-07-02T15:09:27-03:00"
     summary: "Added a manual Chroma reindex command."
