@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T15:33:11Z"
+    time_local: "2026-07-02T12:33:11-03:00"
+    summary: "Moved Ask chat into a persistent desktop right sidebar."
+    changed:
+      - "Rendered NoteWorkspace unconditionally in the center pane and mounted the existing AskChat in a desktop right sidebar with border-left, fixed 20rem/24rem responsive width, and full height below the header."
+      - "Kept App-owned Ask message state, pending state, category-scoped submit behavior, and backend POST /ask contract unchanged while Alt+3 now focuses the sidebar Ask textarea."
+      - "Adjusted AskChat sizing for sidebar use so the transcript scrolls independently and the input remains pinned at the bottom."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with EPERM/native Tailwind dependency loading, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T15:24:39Z"
     time_local: "2026-07-02T12:24:39-03:00"
     summary: "Added selected-note body editing in workspace edit mode."

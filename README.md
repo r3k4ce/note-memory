@@ -112,7 +112,7 @@ controls normally; shortcuts use `Alt`, not `Ctrl`.
 | --- | --- | --- |
 | `Alt+1` | Open Capture | Note capture Markdown textarea |
 | `Alt+2` | Open Search | Search input |
-| `Alt+3` | Open Ask | Ask textarea |
+| `Alt+3` | Focus Ask | Ask textarea |
 | `Escape` | Leave the current field | Blurs the active control |
 
 ## Verify the install
@@ -218,6 +218,5 @@ docs/            Project memory and slice history
 
 - `backend/README.md` &mdash; full API curl reference, env var defaults, and test instructions.
 - `docs/project-memory.yaml` &mdash; chronological slice history and verification notes.
-
 
 

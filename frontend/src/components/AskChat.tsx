@@ -110,7 +110,7 @@ export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLab
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100vh-5.75rem)] max-w-3xl flex-col gap-4" aria-labelledby="ask-title">
+    <section className="flex h-full min-h-0 w-full flex-col gap-4" aria-labelledby="ask-title">
       <header className="flex shrink-0 flex-col gap-1.5 border-b border-border pb-4">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
@@ -157,8 +157,8 @@ export function AskChat({ askRef, messages, onSubmit, pendingMessageId, scopeLab
           rows={3}
           value={question}
         />
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] text-text-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 flex-1 text-[11px] leading-relaxed text-text-muted">
             Enter to send · Shift+Enter for newline · {APP_SHORTCUTS.ask.label} to focus
           </span>
           <button

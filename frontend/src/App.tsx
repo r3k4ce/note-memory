@@ -11,7 +11,7 @@ import {
   askQuestion,
   updateNote,
 } from "./api";
-import { CommandCenter } from "./components/CommandCenter";
+import { AskChat } from "./components/AskChat";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
 import { NoteCard } from "./components/NoteCard";
 import { SearchBar } from "./components/SearchBar";
@@ -101,7 +101,6 @@ export default function App() {
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<AppMode>("capture");
   const [workspaceMode, setWorkspaceMode] = useState<NoteWorkspaceMode>("new");
   const [isSelectedNoteEditDirty, setIsSelectedNoteEditDirty] = useState(false);
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
@@ -131,8 +130,6 @@ export default function App() {
   }, [hasUnsavedSelectedNoteEdit]);
 
   const handleModeChange = useCallback((nextMode: AppMode) => {
-    setMode(nextMode);
-
     if (nextMode === "capture") {
       setWorkspaceMode("new");
     } else if (nextMode === "search") {
@@ -428,7 +425,6 @@ export default function App() {
       setSelectedNote(savedNote);
       setSelectedNoteId(savedNote.id);
       setWorkspaceMode("read-selected");
-      setMode("search");
     } catch (error) {
       setSaveError(getErrorMessage(error, "Could not save note."));
     } finally {
@@ -448,7 +444,6 @@ export default function App() {
     setDeleteError(null);
     setEditError(null);
     setWorkspaceMode("new");
-    setMode("capture");
   }, [confirmDiscardSelectedNoteEdit]);
 
   const handleEditSelectedNote = useCallback(() => {
@@ -522,7 +517,6 @@ export default function App() {
       setEditError(null);
       setIsSelectedNoteEditDirty(false);
       setWorkspaceMode("new");
-      setMode("capture");
     } catch (error) {
       setDeleteError(getErrorMessage(error, "Could not delete note."));
     } finally {
@@ -698,64 +692,47 @@ export default function App() {
         </aside>
 
         <main className="min-h-0 flex-1 overflow-y-auto bg-bg">
-          {mode === "ask" ? (
-            <div className="mx-auto max-w-3xl px-6 py-6">
-              <CommandCenter
-                askRef={askRef}
-                askMessages={askMessages}
-                askPendingMessageId={askPendingMessageId}
-                askScopeLabel={categoryScopeLabel}
-                onAskSubmit={handleAskSubmit}
-                captureRef={captureRef}
-                categories={categories}
-                draftCategoryId={draftCategoryId}
-                draftText={draftText}
-                isSaving={isSaving}
-                mode={mode}
-                saveError={saveError}
-                onDraftCategoryChange={setDraftCategoryId}
-                onDraftTextChange={(value) => {
-                  setDraftText(value);
-                  if (saveError) {
-                    setSaveError(null);
-                  }
-                }}
-                onSave={handleSaveNote}
-              />
-            </div>
-          ) : (
-            <NoteWorkspace
-              captureRef={captureRef}
-              categories={categories}
-              deleteError={deleteError}
-              draftCategoryId={draftCategoryId}
-              draftText={draftText}
-              error={detailError}
-              isDeleting={isDeleting}
-              isLoading={isLoadingDetail}
-              isSavingEdit={isSavingEdit}
-              isSaving={isSaving}
-              mode={workspaceMode}
-              note={selectedNote}
-              editError={editError}
-              onCancelEdit={handleCancelEditSelectedNote}
-              onDelete={handleDeleteNote}
-              onDraftCategoryChange={setDraftCategoryId}
-              onDraftTextChange={(value) => {
-                setDraftText(value);
-                if (saveError) {
-                  setSaveError(null);
-                }
-              }}
-              onEdit={handleEditSelectedNote}
-              onEditDirtyChange={setIsSelectedNoteEditDirty}
-              onNewNote={handleNewNote}
-              onSave={handleSaveNote}
-              onSaveEdit={handleSaveSelectedNoteEdit}
-              saveError={saveError}
-            />
-          )}
+          <NoteWorkspace
+            captureRef={captureRef}
+            categories={categories}
+            deleteError={deleteError}
+            draftCategoryId={draftCategoryId}
+            draftText={draftText}
+            error={detailError}
+            isDeleting={isDeleting}
+            isLoading={isLoadingDetail}
+            isSavingEdit={isSavingEdit}
+            isSaving={isSaving}
+            mode={workspaceMode}
+            note={selectedNote}
+            editError={editError}
+            onCancelEdit={handleCancelEditSelectedNote}
+            onDelete={handleDeleteNote}
+            onDraftCategoryChange={setDraftCategoryId}
+            onDraftTextChange={(value) => {
+              setDraftText(value);
+              if (saveError) {
+                setSaveError(null);
+              }
+            }}
+            onEdit={handleEditSelectedNote}
+            onEditDirtyChange={setIsSelectedNoteEditDirty}
+            onNewNote={handleNewNote}
+            onSave={handleSaveNote}
+            onSaveEdit={handleSaveSelectedNoteEdit}
+            saveError={saveError}
+          />
         </main>
+
+        <aside className="hidden min-h-0 w-80 shrink-0 border-l border-border bg-bg p-4 lg:flex xl:w-96">
+          <AskChat
+            askRef={askRef}
+            messages={askMessages}
+            onSubmit={handleAskSubmit}
+            pendingMessageId={askPendingMessageId}
+            scopeLabel={categoryScopeLabel}
+          />
+        </aside>
       </div>
     </div>
   );
