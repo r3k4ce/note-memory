@@ -1,4 +1,22 @@
 entries:
+  - time_utc: "2026-07-02T01:20:26Z"
+    time_local: "2026-07-01T22:20:26-03:00"
+    summary: "Made center workspace default to new note capture."
+    changed:
+      - "Completed NoteWorkspace new-note flow so startup has no preselected note, saving selects the created note, switches the sidebar filter to its category or Uncategorized, and opens read-only selected-note mode."
+      - "Hid the new-note category selector when no categories exist while preserving the existing create-note API and MarkdownEditor capture surface."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend: passed."
+      - "Ran npm.cmd run build from frontend: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 122 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
+  - time_utc: "2026-07-02T00:38:40Z"
+    time_local: "2026-07-01T21:38:42-03:00"
+    summary: "Added NoteWorkspace frontend skeleton."
+    changed:
+      - "Added a note-only NoteWorkspace component with new/read-selected/edit-selected mode typing, App-owned workspace mode state, AddNote reuse for new notes, and ResultPanel reuse for selected note display while keeping Ask outside the workspace."
+      - "Removed the initial auto-switch to search mode so the app starts in new note mode, while note selection and successful creation switch the workspace to read-selected."
+    verification:
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 122 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-01T23:47:11Z"
     time_local: "2026-07-01T20:47:09-03:00"
     summary: "Removed visible mode selector from the frontend shell."

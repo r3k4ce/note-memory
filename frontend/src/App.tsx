@@ -12,8 +12,8 @@ import {
   updateNote,
 } from "./api";
 import { CommandCenter } from "./components/CommandCenter";
+import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
 import { NoteCard } from "./components/NoteCard";
-import { ResultPanel } from "./components/ResultPanel";
 import { SearchBar } from "./components/SearchBar";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type {
@@ -103,6 +103,7 @@ export default function App() {
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<AppMode>("capture");
+  const [workspaceMode, setWorkspaceMode] = useState<NoteWorkspaceMode>("new");
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
 
@@ -120,19 +121,21 @@ export default function App() {
   const categoryFilteredNotes = filterNotesByCategory(notes, selectedCategoryFilter);
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
 
-  const hasSetInitialMode = useRef(false);
+  const handleModeChange = useCallback((nextMode: AppMode) => {
+    setMode(nextMode);
 
-  useKeyboardShortcuts(setMode, { captureRef, searchRef, askRef });
-
-  useEffect(() => {
-    if (!hasSetInitialMode.current && !isLoadingNotes && notes.length > 0) {
-      hasSetInitialMode.current = true;
-      setMode("search");
+    if (nextMode === "capture") {
+      setWorkspaceMode("new");
+    } else if (nextMode === "search") {
+      setWorkspaceMode("read-selected");
     }
-  }, [isLoadingNotes, notes.length]);
+  }, []);
+
+  useKeyboardShortcuts(handleModeChange, { captureRef, searchRef, askRef });
 
   const selectNote = useCallback((noteId: number) => {
     setSelectedNoteId(noteId);
+    setWorkspaceMode("read-selected");
   }, []);
 
   const clearSearch = useCallback(() => {
@@ -192,7 +195,8 @@ export default function App() {
 
         setNotes(loadedNotes);
         setCategories(loadedCategories);
-        setSelectedNoteId(loadedNotes[0]?.id ?? null);
+        setSelectedNoteId(null);
+        setSelectedNote(null);
       } catch (error) {
         if (ignore) {
           return;
@@ -396,9 +400,11 @@ export default function App() {
       const savedNote = await createNote(draftText, draftCategoryId);
       clearSearch();
       setNotes((currentNotes) => [savedNote, ...currentNotes.filter((note) => note.id !== savedNote.id)]);
+      setSelectedCategoryFilter(savedNote.category?.id ?? "uncategorized");
       setDraftText("");
       setSelectedNote(savedNote);
       setSelectedNoteId(savedNote.id);
+      setWorkspaceMode("read-selected");
       setMode("search");
     } catch (error) {
       setSaveError(getErrorMessage(error, "Could not save note."));
@@ -632,32 +638,7 @@ export default function App() {
         </aside>
 
         <main className="min-h-0 flex-1 overflow-y-auto bg-bg">
-          {mode === "capture" ? (
-            <div className="mx-auto max-w-3xl px-6 py-6">
-              <CommandCenter
-                askRef={askRef}
-                askMessages={askMessages}
-                askPendingMessageId={askPendingMessageId}
-                askScopeLabel={categoryScopeLabel}
-                onAskSubmit={handleAskSubmit}
-                captureRef={captureRef}
-                categories={categories}
-                draftCategoryId={draftCategoryId}
-                draftText={draftText}
-                isSaving={isSaving}
-                mode={mode}
-                onDraftCategoryChange={setDraftCategoryId}
-                onDraftTextChange={(value) => {
-                  setDraftText(value);
-                  if (saveError) {
-                    setSaveError(null);
-                  }
-                }}
-                onSave={handleSaveNote}
-                saveError={saveError}
-              />
-            </div>
-          ) : mode === "ask" ? (
+          {mode === "ask" ? (
             <div className="mx-auto max-w-3xl px-6 py-6">
               <CommandCenter
                 askRef={askRef}
@@ -683,20 +664,32 @@ export default function App() {
               />
             </div>
           ) : (
-            <div className="px-6 py-6">
-              <ResultPanel
-                categories={categories}
-                deleteError={deleteError}
-                error={detailError}
-                isDeleting={isDeleting}
-                isLoading={isLoadingDetail}
-                isSavingMetadata={isSavingMetadata}
-                note={selectedNote}
-                onDelete={handleDeleteNote}
-                onSaveMetadata={handleUpdateNoteMetadata}
-                saveError={metadataSaveError}
-              />
-            </div>
+            <NoteWorkspace
+              captureRef={captureRef}
+              categories={categories}
+              deleteError={deleteError}
+              draftCategoryId={draftCategoryId}
+              draftText={draftText}
+              error={detailError}
+              isDeleting={isDeleting}
+              isLoading={isLoadingDetail}
+              isSaving={isSaving}
+              isSavingMetadata={isSavingMetadata}
+              metadataSaveError={metadataSaveError}
+              mode={workspaceMode}
+              note={selectedNote}
+              onDelete={handleDeleteNote}
+              onDraftCategoryChange={setDraftCategoryId}
+              onDraftTextChange={(value) => {
+                setDraftText(value);
+                if (saveError) {
+                  setSaveError(null);
+                }
+              }}
+              onSave={handleSaveNote}
+              onSaveMetadata={handleUpdateNoteMetadata}
+              saveError={saveError}
+            />
           )}
         </main>
       </div>
