@@ -150,6 +150,7 @@ class AskRequest(BaseModel):
     question: str
     category_id: int | None = None
     uncategorized: bool = False
+    note_ids: list[int] | None = None
 
     @field_validator("question")
     @classmethod
@@ -159,6 +160,29 @@ class AskRequest(BaseModel):
             raise ValueError("question must not be empty")
 
         return stripped_value
+
+    @field_validator("note_ids", mode="before")
+    @classmethod
+    def note_ids_must_be_positive_integers(cls, value: Any) -> list[int] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("note_ids must be a list")
+        if len(value) > 500:
+            raise ValueError("note_ids must contain at most 500 values")
+
+        normalized_note_ids: list[int] = []
+        seen_note_ids: set[int] = set()
+        for note_id in value:
+            if type(note_id) is not int or note_id < 1:
+                raise ValueError("note_ids must contain positive integers")
+            if note_id in seen_note_ids:
+                continue
+
+            normalized_note_ids.append(note_id)
+            seen_note_ids.add(note_id)
+
+        return normalized_note_ids
 
     @field_validator("category_id")
     @classmethod

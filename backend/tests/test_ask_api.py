@@ -82,6 +82,57 @@ def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
     assert captured["category_scope"].uncategorized is False
 
 
+def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": [1, 2, 3]},
+        )
+
+    assert response.status_code == 200
+
+
+def test_ask_rejects_invalid_note_ids(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": [0]},
+        )
+
+    assert response.status_code == 422
+
+
+def test_ask_rejects_more_than_500_note_ids(tmp_path, monkeypatch) -> None:
+    app = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: "unexpected",
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/ask",
+            json={"question": "What is scoped?", "note_ids": list(range(1, 502))},
+        )
+
+    assert response.status_code == 422
+
+
 def test_ask_rejects_missing_category_scope(tmp_path, monkeypatch) -> None:
     app = _ask_app(
         tmp_path,

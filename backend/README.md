@@ -87,6 +87,7 @@ Ask a grounded question across all notes, only Uncategorized, or one category:
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?"}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","uncategorized":true}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","category_id":1}'
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","note_ids":[1,2,3]}'
 ```
 
 ## Test
@@ -94,4 +95,3 @@ Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "applicati
 ```powershell
 uv run python -m pytest
 ```
-

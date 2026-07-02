@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T16:09:41Z"
+    time_local: "2026-07-02T13:09:41-03:00"
+    summary: "Allowed backend Ask requests to accept selected note IDs."
+    changed:
+      - "Added optional AskRequest.note_ids with strict positive-integer validation, first-seen deduplication, explicit empty-list support, and a 500 submitted-ID limit."
+      - "Kept Ask retrieval, Chroma filtering, prompt construction, frontend behavior, and existing no-note_ids requests unchanged."
+      - "Documented an accepted POST /ask note_ids payload in backend/README.md."
+    verification:
+      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_ask_api.py from backend/: tests passed, command failed only because partial-suite coverage was below the global threshold."
+      - "Ran uv run python -m pytest tests/test_schemas.py tests/test_ask_api.py --no-cov from backend/: 29 passed with 2 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 135 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-02T15:53:11Z"
     time_local: "2026-07-02T12:53:11-03:00"
     summary: "Added visible Ask scope controls to the left sidebar."
