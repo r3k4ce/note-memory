@@ -7,12 +7,14 @@ export type MarkdownPaneProps = {
   value: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  id?: string;
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
   placeholder?: string;
 };
 
 export function MarkdownPane({
   disabled = false,
+  id,
   mode,
   onChange,
   placeholder,
@@ -32,6 +34,7 @@ export function MarkdownPane({
       aria-label="Markdown source"
       className="min-h-72 w-full resize-y rounded-md border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60 md:min-h-[28rem]"
       disabled={disabled}
+      id={id}
       onChange={(event) => onChange?.(event.target.value)}
       placeholder={placeholder}
       readOnly={!onChange}

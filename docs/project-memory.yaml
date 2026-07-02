@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T19:25:19Z"
+    time_local: "2026-07-02T16:25:20-03:00"
+    summary: "Used the single-pane Markdown component throughout the note workspace."
+    changed:
+      - "Replaced the selected-note edit body textarea with MarkdownPane edit mode while preserving existing draft, dirty, validation, save, and cancel behavior."
+      - "Removed the selected-note read Preview/Raw toggle so read mode always renders the MarkdownPane read preview."
+      - "Added an optional MarkdownPane id prop for label association."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with Tailwind oxide/native dependency EPERM, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T19:17:31Z"
     time_local: "2026-07-02T16:17:31-03:00"
     summary: "Added a single-pane Markdown component API."

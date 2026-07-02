@@ -29,8 +29,6 @@ type NoteDetailProps = {
   }) => Promise<void>;
 };
 
-type SourceView = "preview" | "raw";
-
 type EditDraft = {
   bodyText: string;
   title: string;
@@ -96,12 +94,6 @@ export function NoteDetail({
   onNewNote,
   onSaveEdit,
 }: NoteDetailProps) {
-  const [sourceViewSelection, setSourceViewSelection] = useState<{ noteId: number | null; view: SourceView }>(
-    {
-      noteId: null,
-      view: "preview",
-    },
-  );
   const [editDraft, setEditDraft] = useState<EditDraft>(() =>
     note
       ? noteToDraft(note)
@@ -159,7 +151,6 @@ export function NoteDetail({
     );
   }
 
-  const sourceView = sourceViewSelection.noteId === note.id ? sourceViewSelection.view : "preview";
   const isEditing = mode === "edit-selected";
   const actionsDisabled = isDeleting || isSavingEdit;
 
@@ -325,12 +316,12 @@ export function NoteDetail({
             <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
               Original text
             </label>
-            <textarea
-              className="min-h-72 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-[13px] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+            <MarkdownPane
               disabled={isSavingEdit}
               id="edit-note-body"
-              onChange={(event) => {
-                setEditDraft({ ...editDraft, bodyText: event.target.value });
+              mode="edit"
+              onChange={(value) => {
+                setEditDraft({ ...editDraft, bodyText: value });
                 setValidationError(null);
               }}
               value={editDraft.bodyText}
@@ -338,39 +329,8 @@ export function NoteDetail({
           </>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
-              <div className="flex rounded-md border border-border bg-surface p-0.5" role="tablist" aria-label="Original text view">
-                {(["preview", "raw"] as const).map((view) => {
-                  const isActive = sourceView === view;
-                  return (
-                    <button
-                      aria-selected={isActive}
-                      className={`rounded px-2.5 py-1 text-[12px] font-medium capitalize transition-colors ${
-                        isActive
-                          ? "bg-surface-raised text-text-primary"
-                          : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                      }`}
-                      key={view}
-                      onClick={() => setSourceViewSelection({ noteId: note.id, view })}
-                      role="tab"
-                      type="button"
-                    >
-                      {view}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {sourceView === "preview" ? (
-              <MarkdownPane mode="read" value={note.original_text} />
-            ) : (
-              <div className="rounded-md border border-border bg-surface-raised px-4 py-3">
-                <div className="font-mono text-[13px] leading-relaxed text-text-secondary whitespace-pre-wrap">
-                  {note.original_text}
-                </div>
-              </div>
-            )}
+            <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
+            <MarkdownPane mode="read" value={note.original_text} />
           </>
         )}
       </div>
