@@ -1,11 +1,19 @@
-import type { NoteCardData } from "../types";
+import type { NoteCardData, SearchResult } from "../types";
+
+type NoteCardSearchMetadata = Partial<Pick<SearchResult, "match_type" | "matched_snippet">>;
 
 type NoteCardProps = {
   askScopeSelected: boolean;
-  note: NoteCardData;
+  note: NoteCardData & NoteCardSearchMetadata;
   onAskScopeToggle: (noteId: number) => void;
   selected?: boolean;
   onSelect: (noteId: number) => void;
+};
+
+const MATCH_TYPE_LABELS: Record<NonNullable<NoteCardSearchMetadata["match_type"]>, string> = {
+  exact: "Exact",
+  semantic: "Semantic",
+  hybrid: "Hybrid",
 };
 
 export function NoteCard({
@@ -15,6 +23,9 @@ export function NoteCard({
   selected = false,
   onSelect,
 }: NoteCardProps) {
+  const matchedSnippet = note.matched_snippet?.trim();
+  const matchTypeLabel = note.match_type ? MATCH_TYPE_LABELS[note.match_type] : null;
+
   return (
     <div className="relative">
       <button
@@ -44,7 +55,17 @@ export function NoteCard({
         <p className="mb-1.5 line-clamp-2 text-xs leading-relaxed text-text-secondary">
           {note.short_summary}
         </p>
+        {matchedSnippet ? (
+          <p className="mb-1.5 line-clamp-1 text-[11px] leading-snug text-text-muted">
+            Matched: &quot;{matchedSnippet}&quot;
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-1" aria-label="Metadata">
+          {matchTypeLabel ? (
+            <span className="rounded border border-border bg-accent-muted px-1.5 py-0.5 text-[10px] font-medium text-accent">
+              {matchTypeLabel}
+            </span>
+          ) : null}
           {note.category ? (
             <span className="rounded border border-border bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
               {note.category.name}

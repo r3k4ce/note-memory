@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T19:02:35Z"
+    time_local: "2026-07-02T16:02:34-03:00"
+    summary: "Displayed search match snippets in frontend note cards."
+    changed:
+      - "Extended the frontend SearchResult type with match_type and matched_snippet from the backend search response."
+      - "Rendered one-line Matched snippets and compact Exact, Semantic, or Hybrid chips only when note cards receive search metadata."
+      - "Kept recent-note cards unchanged because regular note data does not include search metadata."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with Tailwind oxide/native dependency EPERM, then passed outside sandbox."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T18:53:14Z"
     time_local: "2026-07-02T15:53:14-03:00"
     summary: "Added compact semantic search snippets."
