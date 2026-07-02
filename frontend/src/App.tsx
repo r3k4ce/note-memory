@@ -9,6 +9,7 @@ import {
   listNotes,
   searchNotes,
   askQuestion,
+  updateNote,
 } from "./api";
 import { CommandCenter } from "./components/CommandCenter";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
@@ -91,15 +92,18 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<AppMode>("capture");
   const [workspaceMode, setWorkspaceMode] = useState<NoteWorkspaceMode>("new");
+  const [isSelectedNoteEditDirty, setIsSelectedNoteEditDirty] = useState(false);
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
 
@@ -116,6 +120,15 @@ export default function App() {
   const isSearchActive = activeSearchQuery !== null;
   const categoryFilteredNotes = filterNotesByCategory(notes, selectedCategoryFilter);
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
+  const hasUnsavedSelectedNoteEdit = workspaceMode === "edit-selected" && isSelectedNoteEditDirty;
+
+  const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
+    if (!hasUnsavedSelectedNoteEdit) {
+      return true;
+    }
+
+    return window.confirm("Discard unsaved metadata changes?");
+  }, [hasUnsavedSelectedNoteEdit]);
 
   const handleModeChange = useCallback((nextMode: AppMode) => {
     setMode(nextMode);
@@ -129,10 +142,19 @@ export default function App() {
 
   useKeyboardShortcuts(handleModeChange, { captureRef, searchRef, askRef });
 
-  const selectNote = useCallback((noteId: number) => {
-    setSelectedNoteId(noteId);
-    setWorkspaceMode("read-selected");
-  }, []);
+  const selectNote = useCallback(
+    (noteId: number) => {
+      if (!confirmDiscardSelectedNoteEdit()) {
+        return;
+      }
+
+      setIsSelectedNoteEditDirty(false);
+      setEditError(null);
+      setSelectedNoteId(noteId);
+      setWorkspaceMode("read-selected");
+    },
+    [confirmDiscardSelectedNoteEdit],
+  );
 
   const clearSearch = useCallback(() => {
     searchRequestId.current += 1;
@@ -145,9 +167,15 @@ export default function App() {
 
   const handleCategoryFilterChange = useCallback(
     (filter: CategoryFilter) => {
+      if (!confirmDiscardSelectedNoteEdit()) {
+        return;
+      }
+
       clearSearch();
       setSelectedCategoryFilter(filter);
       setCategoryError(null);
+      setEditError(null);
+      setIsSelectedNoteEditDirty(false);
       if (typeof filter === "number") {
         setDraftCategoryId(filter);
       } else if (filter === "uncategorized") {
@@ -160,7 +188,7 @@ export default function App() {
         setSelectedNote(null);
       }
     },
-    [clearSearch, notes],
+    [clearSearch, confirmDiscardSelectedNoteEdit, notes],
   );
 
   const handleSearchTextChange = useCallback((value: string) => {
@@ -409,13 +437,69 @@ export default function App() {
   }
 
   const handleNewNote = useCallback(() => {
+    if (!confirmDiscardSelectedNoteEdit()) {
+      return;
+    }
+
+    setIsSelectedNoteEditDirty(false);
     setSelectedNoteId(null);
     setSelectedNote(null);
     setDetailError(null);
     setDeleteError(null);
+    setEditError(null);
     setWorkspaceMode("new");
     setMode("capture");
+  }, [confirmDiscardSelectedNoteEdit]);
+
+  const handleEditSelectedNote = useCallback(() => {
+    if (!selectedNote) {
+      return;
+    }
+
+    setEditError(null);
+    setWorkspaceMode("edit-selected");
+  }, [selectedNote]);
+
+  const handleCancelEditSelectedNote = useCallback(() => {
+    setIsSelectedNoteEditDirty(false);
+    setEditError(null);
+    setWorkspaceMode("read-selected");
   }, []);
+
+  async function handleSaveSelectedNoteMetadata(body: {
+    ai_title: string;
+    short_summary: string;
+    tags: string[];
+    category_id: number | null;
+  }) {
+    if (!selectedNote) {
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditError(null);
+
+    try {
+      const savedNote = await updateNote(selectedNote.id, body);
+      const savedCategoryFilter = savedNote.category?.id ?? "uncategorized";
+
+      setSelectedNote(savedNote);
+      setNotes((currentNotes) =>
+        currentNotes.map((note) => (note.id === savedNote.id ? savedNote : note)),
+      );
+      setSearchResults((currentResults) =>
+        currentResults.map((result) => (result.id === savedNote.id ? { ...result, ...savedNote } : result)),
+      );
+      setSelectedCategoryFilter(savedCategoryFilter);
+      setDraftCategoryId(savedNote.category?.id ?? null);
+      setIsSelectedNoteEditDirty(false);
+      setWorkspaceMode("read-selected");
+    } catch (error) {
+      setEditError(getErrorMessage(error, "Could not save note metadata."));
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
 
   async function handleDeleteNote(noteId: number) {
     const title = selectedNote?.id === noteId ? selectedNote.ai_title : "this note";
@@ -434,6 +518,8 @@ export default function App() {
       setSelectedNoteId(null);
       setSelectedNote(null);
       setDetailError(null);
+      setEditError(null);
+      setIsSelectedNoteEditDirty(false);
       setWorkspaceMode("new");
       setMode("capture");
     } catch (error) {
@@ -646,9 +732,12 @@ export default function App() {
               error={detailError}
               isDeleting={isDeleting}
               isLoading={isLoadingDetail}
+              isSavingEdit={isSavingEdit}
               isSaving={isSaving}
               mode={workspaceMode}
               note={selectedNote}
+              editError={editError}
+              onCancelEdit={handleCancelEditSelectedNote}
               onDelete={handleDeleteNote}
               onDraftCategoryChange={setDraftCategoryId}
               onDraftTextChange={(value) => {
@@ -657,8 +746,11 @@ export default function App() {
                   setSaveError(null);
                 }
               }}
+              onEdit={handleEditSelectedNote}
+              onEditDirtyChange={setIsSelectedNoteEditDirty}
               onNewNote={handleNewNote}
               onSave={handleSaveNote}
+              onSaveEdit={handleSaveSelectedNoteMetadata}
               saveError={saveError}
             />
           )}

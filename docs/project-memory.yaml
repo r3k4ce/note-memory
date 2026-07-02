@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-02T15:14:10Z"
+    time_local: "2026-07-02T12:14:10-03:00"
+    summary: "Moved selected-note metadata editing into workspace edit mode."
+    changed:
+      - "Enabled the selected-note Edit action to open workspace edit-selected mode for title, summary, comma-separated tags, and category while keeping original note text read-only."
+      - "Saved metadata through the existing PATCH updateNote API, then refreshed selected note detail, canonical sidebar notes, active search result cards, and the sidebar category filter from the returned note."
+      - "Added Save changes, Cancel, client validation for blank title/summary and tag count, and discard confirmation for dirty edits before selecting another note, changing category filters, or opening a new note."
+    verification:
+      - "Ran npm.cmd run typecheck from frontend/: passed."
+      - "Ran npm.cmd run lint from frontend/: passed."
+      - "Ran npm.cmd run build from frontend/: failed inside sandbox with EPERM/native Tailwind dependency loading, then passed outside sandbox."
+      - "Ran .\\scripts\\check.ps1 from the repository root: failed inside sandbox on uv cache access, then passed outside sandbox with backend format/lint/typecheck/pytest and frontend lint/build."
   - time_utc: "2026-07-02T14:51:51Z"
     time_local: "2026-07-02T11:51:51-03:00"
     summary: "Added selected-note read-only center view."

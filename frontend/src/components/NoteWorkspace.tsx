@@ -26,6 +26,17 @@ type NoteWorkspaceProps = {
   onDelete: (noteId: number) => Promise<void>;
   isDeleting: boolean;
   deleteError: string | null;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (body: {
+    ai_title: string;
+    short_summary: string;
+    tags: string[];
+    category_id: number | null;
+  }) => Promise<void>;
+  isSavingEdit: boolean;
+  editError: string | null;
+  onEditDirtyChange: (isDirty: boolean) => void;
 };
 
 export function NoteWorkspace({
@@ -46,6 +57,12 @@ export function NoteWorkspace({
   onDelete,
   isDeleting,
   deleteError,
+  onEdit,
+  onCancelEdit,
+  onSaveEdit,
+  isSavingEdit,
+  editError,
+  onEditDirtyChange,
 }: NoteWorkspaceProps) {
   if (mode === "new") {
     return (
@@ -68,13 +85,21 @@ export function NoteWorkspace({
   return (
     <div className="px-6 py-6">
       <ResultPanel
+        categories={categories}
         deleteError={deleteError}
+        editError={editError}
         error={error}
         isDeleting={isDeleting}
         isLoading={isLoading}
+        isSavingEdit={isSavingEdit}
+        mode={mode}
         note={note}
+        onCancelEdit={onCancelEdit}
         onDelete={onDelete}
+        onEdit={onEdit}
+        onEditDirtyChange={onEditDirtyChange}
         onNewNote={onNewNote}
+        onSaveEdit={onSaveEdit}
       />
     </div>
   );
