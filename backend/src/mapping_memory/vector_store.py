@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, cast
 
 import chromadb
+from chromadb.errors import NotFoundError
 
 from mapping_memory.chunking import RetrievalChunk
 from mapping_memory.settings import Settings
@@ -66,7 +68,15 @@ class ChromaVectorStore:
     ) -> None:
         app_settings = settings or Settings()
         chroma_client = client or chromadb.PersistentClient(path=str(app_settings.chroma_path))
+        self._client = chroma_client
+        self._collection_name = collection_name
         self.collection = chroma_client.get_or_create_collection(name=collection_name)
+
+    def recreate_collection(self) -> None:
+        with suppress(NotFoundError):
+            self._client.delete_collection(self._collection_name)
+
+        self.collection = self._client.get_or_create_collection(name=self._collection_name)
 
     def add_chunks(
         self,

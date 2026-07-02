@@ -73,6 +73,17 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Delete
 
 Delete removes the SQLite note, refreshes SQLite FTS, and attempts Chroma chunk cleanup. Chroma cleanup failures are logged and returned in `vector_cleanup` without restoring the deleted note.
 
+Rebuild the derived Chroma cache from SQLite:
+
+```powershell
+uv run python -m mapping_memory.reindex
+```
+
+The reindex command requires `OPENAI_API_KEY` because it recreates embeddings. It embeds
+all SQLite notes, recreates the Chroma collection, writes fresh chunks, and prints the
+notes indexed, chunks indexed, and Chroma path. It does not delete SQLite data and is
+safe to run multiple times.
+
 Search notes across all notes, only Uncategorized, or one category:
 
 ```powershell

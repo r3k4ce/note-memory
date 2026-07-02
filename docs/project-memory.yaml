@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-02T18:09:27Z"
+    time_local: "2026-07-02T15:09:27-03:00"
+    summary: "Added a manual Chroma reindex command."
+    changed:
+      - "Added backend/src/mapping_memory/reindex.py for uv-run module execution that rebuilds Chroma chunks from SQLite notes."
+      - "Added Chroma collection recreation to the vector store using delete_collection followed by get_or_create_collection."
+      - "Documented the reindex command and added backend tests for rerun safety, missing API key behavior, empty indexes, and collection recreation."
+    verification:
+      - "Ran uv run python -m pytest tests/test_reindex.py tests/test_vector_store.py --no-cov from backend/: 18 passed."
+      - "Ran backend format check, Ruff lint, Pyright, and full pytest from backend/: all passed; pytest reported 167 passed with 6 existing Starlette deprecation warnings."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed; frontend lint/build passed."
   - time_utc: "2026-07-02T17:53:04Z"
     time_local: "2026-07-02T14:53:04-03:00"
     summary: "Sent recent Ask chat history from the frontend."
