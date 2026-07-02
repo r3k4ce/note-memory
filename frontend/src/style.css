@@ -107,44 +107,15 @@ body {
 
 .markdown-codemirror .cm-editor {
   background: transparent;
-  color: var(--color-text-primary);
-  font-size: 0.875rem;
-  line-height: 1.625;
-}
-
-.markdown-codemirror .cm-content {
-  min-height: 18rem;
-  padding: 0.75rem 0.875rem;
-  caret-color: var(--color-text-primary);
-}
-
-.markdown-codemirror .cm-line {
-  padding: 0;
+  min-height: 20rem;
 }
 
 .markdown-codemirror .cm-scroller {
-  font-family: inherit;
-}
-
-.markdown-codemirror .cm-gutters {
-  display: none;
-}
-
-.markdown-codemirror .cm-focused {
-  outline: none;
-}
-
-.markdown-codemirror .cm-selectionBackground,
-.markdown-codemirror .cm-content ::selection {
-  background-color: var(--color-accent-soft);
-}
-
-.markdown-codemirror .cm-placeholder {
-  color: var(--color-text-muted);
+  scrollbar-gutter: stable;
 }
 
 @media (min-width: 48rem) {
-  .markdown-codemirror .cm-content {
-    min-height: 28rem;
+  .markdown-codemirror .cm-editor {
+    min-height: 24rem;
   }
 }
