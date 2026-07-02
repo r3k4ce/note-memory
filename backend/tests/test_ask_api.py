@@ -83,11 +83,13 @@ def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
 
 
 def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
+    captured: dict[str, Any] = {}
     app = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: "unexpected",
+        capture=captured,
     )
 
     with TestClient(app) as client:
@@ -97,6 +99,7 @@ def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
         )
 
     assert response.status_code == 200
+    assert captured["note_ids"] == [1, 2, 3]
 
 
 def test_ask_rejects_invalid_note_ids(tmp_path, monkeypatch) -> None:
@@ -295,11 +298,13 @@ def _ask_app(
         *,
         settings: Settings,
         category_scope=None,
+        note_ids=None,
     ) -> RagRetrievalContext:
         assert question.strip()
         assert settings.sqlite_path
         if capture is not None:
             capture["category_scope"] = category_scope
+            capture["note_ids"] = note_ids
         return retrieval_context
 
     monkeypatch.setattr(

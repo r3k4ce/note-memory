@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-02T16:47:15Z"
+    time_local: "2026-07-02T13:47:15-03:00"
+    summary: "Filtered backend RAG retrieval by selected note IDs."
+    changed:
+      - "Forwarded AskRequest.note_ids from POST /ask into prepare_retrieval_context while preserving category scope behavior."
+      - "Added note_id Chroma metadata filtering with category AND composition, empty-list no-context handling, selected-ID post-filtering, and a bounded fallback query when note_id filters fail."
+      - "Added RAG and Ask API tests for selected-note retrieval, empty selection, category plus note IDs, fallback filtering, and existing unrestricted retrieval."
+    verification:
+      - "Ran uv run pytest tests/test_rag.py tests/test_ask_api.py from backend/: 24 tests passed; command failed only because partial-suite coverage was below the global threshold."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend format/lint/typecheck/pytest passed with 139 tests and 6 existing Starlette deprecation warnings; frontend lint/build passed."
   - time_utc: "2026-07-02T16:09:41Z"
     time_local: "2026-07-02T13:09:41-03:00"
     summary: "Allowed backend Ask requests to accept selected note IDs."

@@ -20,7 +20,10 @@ def create_ask_router(settings: Settings) -> APIRouter:
         category_scope = _validated_category_scope(request, settings=settings)
         try:
             retrieval_context = prepare_retrieval_context(
-                request.question, settings=settings, category_scope=category_scope
+                request.question,
+                settings=settings,
+                category_scope=category_scope,
+                note_ids=request.note_ids,
             )
         except Exception:
             logger.warning("Ask retrieval unavailable")
