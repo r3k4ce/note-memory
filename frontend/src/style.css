@@ -101,6 +101,7 @@ body {
   background-color: var(--color-surface-hover);
 }
 
+
 .markdown-codemirror-disabled {
   opacity: 0.6;
 }
@@ -118,4 +119,30 @@ body {
   .markdown-codemirror .cm-editor {
     min-height: 24rem;
   }
+}
+.markdown-codemirror-workspace {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.markdown-codemirror-workspace:focus-within {
+  background: transparent;
+}
+
+.markdown-codemirror-workspace .cm-editor,
+.markdown-codemirror-workspace .cm-scroller {
+  height: 100%;
+  min-height: 0;
+}
+
+.markdown-codemirror-workspace .cm-scroller {
+  max-height: none;
+}
+
+.markdown-codemirror-workspace .cm-content {
+  min-height: 100%;
+  padding: 1.5rem clamp(1.25rem, 4vw, 4rem);
 }

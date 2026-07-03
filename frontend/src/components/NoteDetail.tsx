@@ -195,7 +195,7 @@ export function NoteDetail({
   }
 
   return (
-    <article className="mx-auto flex h-full max-w-3xl flex-col gap-6 py-2">
+    <article className={isEditing ? "mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4" : "mx-auto flex h-full max-w-3xl flex-col gap-6 py-2"}>
       <header className="flex flex-col gap-3">
         {isEditing ? (
           <div className="flex flex-col gap-1.5">
@@ -310,7 +310,7 @@ export function NoteDetail({
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className={isEditing ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-2"}>
         {isEditing ? (
           <>
             <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
@@ -325,6 +325,7 @@ export function NoteDetail({
                 setValidationError(null);
               }}
               value={editDraft.bodyText}
+              variant="workspace"
             />
           </>
         ) : (

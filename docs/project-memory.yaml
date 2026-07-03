@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-03T03:51:54Z"
+    time_local: "2026-07-03T00:51:54-03:00"
+    summary: "Made the Markdown editor fill the workspace pane."
+    changed:
+      - "Added a contained-default MarkdownPane workspace variant using the existing CodeMirror editor and workspace-only scroller height overrides."
+      - "Changed capture mode into a full-height editor shell with toolbar controls, and moved main-pane scrolling to mode-specific inner containers."
+      - "Applied the workspace editor variant to selected-note body editing while keeping read/detail content scrollable."
+    verification:
+      - "Ran npm run typecheck and npm run build from frontend/."
+      - "Ran .\\scripts\\check.ps1 from the repository root: backend checks/tests and frontend lint/build passed."
   - time_utc: "2026-07-02T20:13:55Z"
     time_local: "2026-07-02T17:13:55-03:00"
     summary: "Cleaned final docs for the current Note Memory workspace."

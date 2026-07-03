@@ -782,7 +782,7 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="min-h-0 flex-1 overflow-y-auto bg-bg">
+        <main className="min-h-0 flex-1 overflow-hidden bg-bg">
           <NoteWorkspace
             captureRef={captureRef}
             categories={categories}

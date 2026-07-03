@@ -19,6 +19,7 @@ export type MarkdownPaneProps = {
   id?: string;
   editorHandleRef?: RefObject<MarkdownPaneHandle | null>;
   placeholder?: string;
+  variant?: "contained" | "workspace";
 };
 
 const codeFont = "ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace";
@@ -76,6 +77,26 @@ const markdownHighlightStyle = HighlightStyle.define([
 
 const markdownEditorExtensions = [markdown(), markdownEditorTheme, syntaxHighlighting(markdownHighlightStyle)];
 
+const workspaceMarkdownEditorTheme = EditorView.theme({
+  "&": {
+    height: "100%",
+    minHeight: "0",
+  },
+  ".cm-editor": {
+    height: "100%",
+    minHeight: "0",
+  },
+  ".cm-scroller": {
+    height: "100%",
+    minHeight: "0",
+    maxHeight: "none",
+    overflow: "auto",
+  },
+  ".cm-content": {
+    minHeight: "100%",
+  },
+});
+
 export function MarkdownPane({
   disabled = false,
   id,
@@ -83,6 +104,7 @@ export function MarkdownPane({
   onChange,
   placeholder,
   editorHandleRef,
+  variant = "contained",
   value,
 }: MarkdownPaneProps) {
   if (mode === "read") {
@@ -94,6 +116,10 @@ export function MarkdownPane({
   }
 
   const editable = !disabled && Boolean(onChange);
+  const isWorkspace = variant === "workspace";
+  const extensions = isWorkspace
+    ? [...markdownEditorExtensions, workspaceMarkdownEditorTheme]
+    : markdownEditorExtensions;
 
   return (
     <CodeMirror
@@ -110,13 +136,15 @@ export function MarkdownPane({
         lineNumbers: false,
         lintKeymap: false,
       }}
-      className={`markdown-codemirror${disabled ? " markdown-codemirror-disabled" : ""}`}
+      className={`markdown-codemirror${isWorkspace ? " markdown-codemirror-workspace" : ""}${
+        disabled ? " markdown-codemirror-disabled" : ""
+      }`}
       editable={editable}
-      extensions={markdownEditorExtensions}
-      height="auto"
+      extensions={extensions}
+      height={isWorkspace ? "100%" : "auto"}
       id={id}
       indentWithTab={false}
-      minHeight="20rem"
+      minHeight={isWorkspace ? "0" : "20rem"}
       onChange={(nextValue) => onChange?.(nextValue)}
       onCreateEditor={(view) => {
         if (editorHandleRef) {

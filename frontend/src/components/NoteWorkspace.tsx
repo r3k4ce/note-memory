@@ -68,7 +68,7 @@ export function NoteWorkspace({
 }: NoteWorkspaceProps) {
   if (mode === "new") {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-6">
+      <div className="flex h-full min-h-0 flex-col">
         <AddNote
           captureRef={captureRef}
           categories={categories}
@@ -85,7 +85,7 @@ export function NoteWorkspace({
   }
 
   return (
-    <div className="px-6 py-6">
+    <div className={mode === "edit-selected" ? "h-full min-h-0 overflow-hidden px-6 py-6" : "h-full min-h-0 overflow-y-auto px-6 py-6"}>
       <ResultPanel
         categories={categories}
         deleteError={deleteError}
