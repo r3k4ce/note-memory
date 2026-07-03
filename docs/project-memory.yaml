@@ -1,4 +1,35 @@
 entries:
+  - time_utc: "2026-07-03T23:52:00Z"
+    time_local: "2026-07-03T20:52:02-03:00"
+    summary: "Updated AGENTS.md to prefer the Bash workflow."
+    changed:
+      - "Changed the primary shell guidance from Windows PowerShell to Bash."
+      - "Updated the default command examples to scripts/check.sh, scripts/fix.sh, and scripts/run.sh."
+      - "Kept PowerShell scripts documented as the Windows-specific fallback."
+    verification:
+      - "Ran git diff -- AGENTS.md docs/project-memory.yaml to review the scoped documentation changes."
+      - "Ran bash -n scripts/check.sh scripts/fix.sh scripts/run.sh."
+  - time_utc: "2026-07-03T22:05:48Z"
+    time_local: "2026-07-03T19:05:48-03:00"
+    summary: "Added a Bash dev runner matching the PowerShell run workflow."
+    changed:
+      - "Added scripts/run.sh with script-relative root detection, uv and npm PATH checks, backend uvicorn reload startup, and frontend npm dev startup."
+      - "Used Bash process-group cleanup so exiting one dev process or pressing Ctrl+C terminates both backend and frontend process trees."
+      - "Documented the Bash runner in README.md alongside scripts/run.ps1."
+    verification:
+      - "Ran /tmp/test_run_sh.sh: passed missing dependency checks, backend/frontend command invocation checks, output message checks, and cleanup behavior with stubs."
+      - "Ran bash -n scripts/run.sh: passed."
+  - time_utc: "2026-07-03T21:54:22Z"
+    time_local: "2026-07-03T18:54:22-03:00"
+    summary: "Ported Linux check and fix scripts to match the PowerShell workflows."
+    changed:
+      - "Added script-relative repository root detection to scripts/check.sh and scripts/fix.sh so backend and frontend commands run from the intended directories."
+      - "Preserved the PowerShell command order for backend Ruff, Pyright, pytest, and frontend npm lint/build flows, with fix.sh retaining Ruff --fix and format before checks."
+      - "Kept npm as the Linux frontend command while leaving the existing PowerShell scripts unchanged."
+    verification:
+      - "Ran bash -n scripts/check.sh and bash -n scripts/fix.sh from scripts/: both passed."
+      - "Ran bash scripts/check.sh from the repository root outside the sandbox: backend format/lint/typecheck/pytest passed with 177 passed, 1 skipped, and frontend lint/build passed."
+      - "Ran bash scripts/fix.sh from the repository root outside the sandbox: Ruff reported all checks passed and 31 files left unchanged; backend typecheck/pytest and frontend lint/build passed."
   - time_utc: "2026-07-02T20:13:55Z"
     time_local: "2026-07-02T17:13:55-03:00"
     summary: "Cleaned final docs for the current Note Memory workspace."
