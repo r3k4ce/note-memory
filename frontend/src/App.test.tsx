@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { searchNotes } from "./api";
@@ -38,7 +38,7 @@ vi.mock("./api", () => ({
   createCategory: vi.fn(),
   createNote: vi.fn(),
   deleteNote: vi.fn(),
-  getNote: vi.fn(),
+  getNote: vi.fn().mockResolvedValue(notes[0]),
   listCategories: vi.fn().mockResolvedValue(categories),
   listNotes: vi.fn().mockResolvedValue(notes),
   searchNotes: vi.fn().mockResolvedValue([]),
@@ -52,8 +52,29 @@ vi.mock("./components/AskChat", () => ({
 }));
 
 vi.mock("./components/NoteWorkspace", () => ({
-  NoteWorkspace() {
-    return <section aria-label="Note workspace" />;
+  NoteWorkspace({
+    mode,
+    note,
+    onEditDirtyChange,
+    onEdit,
+  }: {
+    mode: string;
+    note: Note | null;
+    onEditDirtyChange: (isDirty: boolean) => void;
+    onEdit: () => void;
+  }) {
+    return (
+      <section aria-label="Note workspace" data-mode={mode}>
+        <span>Workspace mode: {mode}</span>
+        {note ? <span>Loaded note: {note.ai_title}</span> : null}
+        <button onClick={onEdit} type="button">
+          Mock edit
+        </button>
+        <button onClick={() => onEditDirtyChange(true)} type="button">
+          Mock dirty
+        </button>
+      </section>
+    );
   },
 }));
 
@@ -70,12 +91,19 @@ function expectListHeading(label: string) {
   ).toBe(true);
 }
 
+function getSidebarNewNoteButton() {
+  return within(screen.getByRole("complementary", { name: "Notes sidebar" })).getByRole("button", {
+    name: "New note",
+  });
+}
+
 describe("App sidebar navigation", () => {
   test("organizes the sidebar as app header, search, note navigation, category navigation, Ask scope, and note list", async () => {
     render(<App />);
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
     const title = screen.getByText("Note Memory");
+    const newNote = within(sidebar).getByRole("button", { name: "New note" });
     const search = screen.getByRole("search");
     const notesHeading = screen.getByText("Notes");
     const allNotes = screen.getByRole("button", { name: "All notes" });
@@ -91,6 +119,9 @@ describe("App sidebar navigation", () => {
     const listHeading = screen.getByText("All notes", { selector: "span" });
 
     expect(sidebar).toContainElement(title);
+    expect(sidebar).toContainElement(newNote);
+    expect(title.compareDocumentPosition(newNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(newNote.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(title.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(search.compareDocumentPosition(notesHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(notesHeading.compareDocumentPosition(allNotes)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -136,5 +167,45 @@ describe("App sidebar navigation", () => {
 
     expect(searchbox).toHaveValue("");
     expectListHeading("Work");
+  });
+
+  test("opens the existing new-note workspace from the sidebar action", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
+    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+
+    fireEvent.click(getSidebarNewNoteButton());
+
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
+  });
+
+  test("confirms before leaving an unsaved selected-note edit from the sidebar action", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Loaded note: Work note")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mock edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mock dirty" }));
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+
+    fireEvent.click(getSidebarNewNoteButton());
+    expect(confirm).toHaveBeenCalledWith("Discard unsaved note changes?");
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+
+    fireEvent.click(getSidebarNewNoteButton());
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
   });
 });

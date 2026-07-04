@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Plus } from "lucide-react";
 
 import {
   createCategory,
@@ -630,6 +631,18 @@ export default function App() {
             <span className="h-2 w-2 rounded-full bg-accent" />
             <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
           </div>
+        </div>
+
+        <div className="shrink-0 border-b border-border p-2.5">
+          <button
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={isSaving || isSavingEdit || isDeleting}
+            onClick={handleNewNote}
+            type="button"
+          >
+            <Plus size={14} strokeWidth={2} />
+            New note
+          </button>
         </div>
 
         <div className="shrink-0 p-2.5">
