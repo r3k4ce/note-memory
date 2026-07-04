@@ -23,10 +23,12 @@ import {
   areAskNoteScopesEqual,
   clearAskNotes,
   DEFAULT_ASK_NOTE_SCOPE,
+  formatAskNoteScopeSelectedCount,
   getAskNoteScopeSelectedCount,
   isNoteSelectedForAsk,
   normalizeAskNoteScope,
   selectAllAskNotes,
+  setAskNoteScopeSelected,
   toggleAskNoteScope,
 } from "./askScope";
 import { AskChat } from "./components/AskChat";
@@ -117,17 +119,17 @@ function getBrowseFolderKeys(categories: Category[]): string[] {
   return ["uncategorized", ...categories.map((category) => categoryFilterKey(category.id))];
 }
 
-function formatCompactAskScopeLabel(scope: AskNoteScope, totalNotes: number): string {
+function formatAskChatScopeLabel(scope: AskNoteScope, totalNotes: number): string {
   if (scope.mode === "all") {
-    return "Ask scope: All notes";
+    return "All notes";
   }
 
   const selectedCount = getAskNoteScopeSelectedCount(scope, totalNotes);
   if (selectedCount === 0) {
-    return "Ask scope: None selected";
+    return "No notes selected";
   }
 
-  return selectedCount === 1 ? "Ask scope: 1 selected" : `Ask scope: ${selectedCount} selected`;
+  return selectedCount === 1 ? "1 note selected" : `${selectedCount} notes selected`;
 }
 
 export default function App() {
@@ -163,7 +165,6 @@ export default function App() {
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
   const [askNoteScope, setAskNoteScope] = useState(DEFAULT_ASK_NOTE_SCOPE);
-  const [isAskNoteSelectionMode, setIsAskNoteSelectionMode] = useState(false);
   const [expandedFolderKeys, setExpandedFolderKeys] = useState<Set<string>>(
     () => new Set(["uncategorized"]),
   );
@@ -204,7 +205,8 @@ export default function App() {
   const visibleNotes: NoteCardData[] = searchResults;
   const hasUnsavedSelectedNoteEdit = workspaceMode === "edit-selected" && isSelectedNoteEditDirty;
   const askAvailableNoteIds = useMemo(() => notes.map((note) => note.id), [notes]);
-  const askScopeLabel = formatCompactAskScopeLabel(askNoteScope, notes.length);
+  const askScopeSummary = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
+  const askChatScopeLabel = formatAskChatScopeLabel(askNoteScope, notes.length);
   const isAskNoteScopeEmpty = askNoteScope.mode === "custom" && askNoteScope.noteIds.length === 0;
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
@@ -261,13 +263,20 @@ export default function App() {
     [askAvailableNoteIds],
   );
 
-  const handleSelectAllAskNotes = useCallback(() => {
-    setAskNoteScope(selectAllAskNotes());
+  const handleToggleAllAskNotes = useCallback(() => {
+    setAskNoteScope((currentScope) =>
+      currentScope.mode === "all" ? clearAskNotes() : selectAllAskNotes(),
+    );
   }, []);
 
-  const handleClearAskNotes = useCallback(() => {
-    setAskNoteScope(clearAskNotes());
-  }, []);
+  const handleSetAskSourceNotesSelected = useCallback(
+    (noteIds: number[], selected: boolean) => {
+      setAskNoteScope((currentScope) =>
+        setAskNoteScopeSelected(currentScope, noteIds, selected, askAvailableNoteIds),
+      );
+    },
+    [askAvailableNoteIds],
+  );
 
   const handleAskSourceSelect = useCallback(
     (noteId: number) => {
@@ -513,7 +522,6 @@ export default function App() {
       const result = await askQuestion({
         question: trimmedQuestion,
         history,
-        ...categoryScope,
         ...(askNoteScope.mode === "custom" ? { note_ids: askNoteScope.noteIds } : {}),
       });
       if (askRequestId.current === requestId && askPendingMessageIdRef.current === pendingMessageId) {
@@ -768,41 +776,24 @@ export default function App() {
               </button>
             ) : null}
           </div>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="min-w-0 truncate text-[11px] text-text-muted">
-              {askScopeLabel}
-            </span>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                aria-label={
-                  isAskNoteSelectionMode ? "Done selecting notes for Ask" : "Select notes for Ask"
-                }
-                aria-pressed={isAskNoteSelectionMode}
-                className={`rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
-                  isAskNoteSelectionMode
-                    ? "bg-accent-muted text-accent hover:bg-surface-hover"
-                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                }`}
-                onClick={() => setIsAskNoteSelectionMode((current) => !current)}
-                type="button"
-              >
-                {isAskNoteSelectionMode ? "Done" : "Select"}
-              </button>
-              <button
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                onClick={handleSelectAllAskNotes}
-                type="button"
-              >
-                All
-              </button>
-              <button
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                onClick={handleClearAskNotes}
-                type="button"
-              >
-                Clear
-              </button>
+          <div className="mt-2 rounded-md border border-border bg-surface-raised px-2 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                Ask sources
+              </span>
+              <span className="min-w-0 truncate text-[11px] text-text-muted">{askScopeSummary}</span>
             </div>
+            <label className="mt-1.5 flex items-center gap-2 rounded px-1 py-1 text-[12px] text-text-secondary transition-colors hover:bg-surface-hover">
+              <input
+                aria-label="Use all notes for Ask"
+                checked={askNoteScope.mode === "all"}
+                className="h-3.5 w-3.5 rounded border-border bg-surface accent-accent"
+                onChange={handleToggleAllAskNotes}
+                type="checkbox"
+              />
+              <span className="min-w-0 flex-1 truncate">All notes</span>
+              <span className="shrink-0 text-[10px] tabular-nums text-text-muted">{notes.length}</span>
+            </label>
           </div>
           {!isSearchActive && isCreatingCategory ? (
             <form className="mt-2 flex gap-1.5" onSubmit={handleCreateCategory}>
@@ -876,7 +867,7 @@ export default function App() {
                   onAskScopeToggle={handleToggleAskNoteScope}
                   onSelect={selectNote}
                   selected={note.id === selectedNoteId}
-                  showAskScopeCheckbox={isAskNoteSelectionMode}
+                  showAskScopeCheckbox
                 />
               ))}
             </div>
@@ -905,52 +896,109 @@ export default function App() {
                 const isExpanded = expandedFolderKeys.has(folder.key);
                 const isSelected = selectedCategoryFilter === folder.filter;
                 const FolderIcon = isExpanded ? FolderOpen : Folder;
+                const folderNoteIds = folder.notes.map((note) => note.id);
+                const selectedFolderNoteCount = folderNoteIds.filter((noteId) =>
+                  isNoteSelectedForAsk(askNoteScope, noteId),
+                ).length;
+                const isFolderAskSelected =
+                  folderNoteIds.length > 0 && selectedFolderNoteCount === folderNoteIds.length;
+                const isFolderAskPartiallySelected =
+                  selectedFolderNoteCount > 0 && selectedFolderNoteCount < folderNoteIds.length;
 
                 return (
                   <div className="flex flex-col gap-0.5" key={folder.key}>
-                    <button
-                      aria-expanded={isExpanded}
-                      aria-selected={isSelected}
-                      className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                        isSelected
-                          ? "bg-surface-raised text-text-primary"
-                          : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                      }`}
-                      onClick={() => handleFolderClick(folder)}
-                      title={folder.label}
-                      type="button"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown
-                          aria-hidden="true"
-                          className="shrink-0"
-                          size={14}
-                          strokeWidth={2}
-                        />
-                      ) : (
-                        <ChevronRight
-                          aria-hidden="true"
-                          className="shrink-0"
-                          size={14}
-                          strokeWidth={2}
-                        />
-                      )}
-                      <FolderIcon aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
-                      <span className="min-w-0 flex-1 truncate">{folder.label}</span>
-                      <span aria-hidden="true" className="shrink-0 text-[10px] tabular-nums text-text-muted">
-                        {folder.notes.length}
-                      </span>
-                    </button>
+                    <div className="flex items-center gap-1 rounded-md pr-1">
+                      <input
+                        aria-label={`Use ${folder.label} category for Ask`}
+                        checked={isFolderAskSelected}
+                        className="ml-2 h-3.5 w-3.5 shrink-0 rounded border-border bg-surface-raised accent-accent disabled:opacity-40"
+                        disabled={folderNoteIds.length === 0}
+                        onChange={() =>
+                          handleSetAskSourceNotesSelected(folderNoteIds, !isFolderAskSelected)
+                        }
+                        ref={(input) => {
+                          if (input) {
+                            input.indeterminate = isFolderAskPartiallySelected;
+                          }
+                        }}
+                        type="checkbox"
+                      />
+                      <button
+                        aria-expanded={isExpanded}
+                        aria-selected={isSelected}
+                        className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                          isSelected
+                            ? "bg-surface-raised text-text-primary"
+                            : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                        }`}
+                        onClick={() => handleFolderClick(folder)}
+                        title={folder.label}
+                        type="button"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown
+                            aria-hidden="true"
+                            className="shrink-0"
+                            size={14}
+                            strokeWidth={2}
+                          />
+                        ) : (
+                          <ChevronRight
+                            aria-hidden="true"
+                            className="shrink-0"
+                            size={14}
+                            strokeWidth={2}
+                          />
+                        )}
+                        <FolderIcon aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
+                        <span className="min-w-0 flex-1 truncate">{folder.label}</span>
+                        <span aria-hidden="true" className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                          {folder.notes.length}
+                        </span>
+                      </button>
+                    </div>
 
                     {isExpanded ? (
                       <div className="ml-4 flex flex-col gap-0.5 border-l border-border pl-1.5" role="group">
                         {folder.notes.length > 0 ? (
-                          folder.notes.map((note) => {
-                            const askScopeCheckbox = isAskNoteSelectionMode ? (
+                          folder.notes.map((note) => (
+                            <div className="relative" key={note.id}>
+                              <button
+                                aria-selected={note.id === selectedNoteId}
+                                className={`group flex w-full items-center gap-1.5 rounded-md border px-2 py-1.5 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                                  note.id === selectedNoteId
+                                    ? "border-border-strong bg-surface-hover"
+                                    : "border-transparent hover:bg-surface-hover"
+                                }`}
+                                onClick={() => selectNote(note.id)}
+                                type="button"
+                              >
+                                <FileText
+                                  aria-hidden="true"
+                                  className={`shrink-0 ${
+                                    note.id === selectedNoteId ? "text-accent" : "text-text-muted"
+                                  }`}
+                                  size={13}
+                                  strokeWidth={2}
+                                />
+                                <span
+                                  className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
+                                    note.id === selectedNoteId ? "text-accent" : "text-text-primary"
+                                  }`}
+                                >
+                                  {note.ai_title}
+                                </span>
+                                <time
+                                  className="shrink-0 text-[10px] tabular-nums text-text-muted"
+                                  dateTime={note.date_added}
+                                >
+                                  {note.date_added.slice(5, 10)}
+                                </time>
+                              </button>
                               <input
-                                aria-label={`Include ${note.ai_title} in Ask scope`}
+                                aria-label={`Use ${note.ai_title} for Ask`}
                                 checked={isNoteSelectedForAsk(askNoteScope, note.id)}
-                                className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
+                                className="absolute right-2.5 top-2 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
                                 onChange={(event) => {
                                   event.stopPropagation();
                                   handleToggleAskNoteScope(note.id);
@@ -958,46 +1006,8 @@ export default function App() {
                                 onClick={(event) => event.stopPropagation()}
                                 type="checkbox"
                               />
-                            ) : null;
-
-                            return (
-                              <div className="relative" key={note.id}>
-                                <button
-                                  aria-selected={note.id === selectedNoteId}
-                                  className={`group flex w-full items-center gap-1.5 rounded-md border px-2 py-1.5 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                                    note.id === selectedNoteId
-                                      ? "border-border-strong bg-surface-hover"
-                                      : "border-transparent hover:bg-surface-hover"
-                                  }`}
-                                  onClick={() => selectNote(note.id)}
-                                  type="button"
-                                >
-                                  <FileText
-                                    aria-hidden="true"
-                                    className={`shrink-0 ${
-                                      note.id === selectedNoteId ? "text-accent" : "text-text-muted"
-                                    }`}
-                                    size={13}
-                                    strokeWidth={2}
-                                  />
-                                  <span
-                                    className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
-                                      note.id === selectedNoteId ? "text-accent" : "text-text-primary"
-                                    }`}
-                                  >
-                                    {note.ai_title}
-                                  </span>
-                                  <time
-                                    className="shrink-0 text-[10px] tabular-nums text-text-muted"
-                                    dateTime={note.date_added}
-                                  >
-                                    {note.date_added.slice(5, 10)}
-                                  </time>
-                                </button>
-                                {askScopeCheckbox}
-                              </div>
-                            );
-                          })
+                            </div>
+                          ))
                         ) : (
                           <p className="px-2 py-1.5 text-[11px] text-text-muted">No notes</p>
                         )}
@@ -1052,8 +1062,8 @@ export default function App() {
           onSubmit={handleAskSubmit}
           pendingMessageId={askPendingMessageId}
           isSubmitDisabled={isAskNoteScopeEmpty}
-          scopeLabel={categoryScopeLabel}
-          submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one note for Ask" : undefined}
+          scopeLabel={askChatScopeLabel}
+          submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one source for Ask." : undefined}
         />
       </aside>
     </div>

@@ -154,15 +154,15 @@ describe("App sidebar navigation", () => {
     const personalNote = within(tree).getByRole("button", { name: /Personal note/ });
     const workCategory = within(tree).getByRole("button", { name: "Work" });
     const workNote = within(tree).getByRole("button", { name: /Work note/ });
-    const askScope = screen.getByText("Ask scope: All notes");
+    const askSources = screen.getByText("Ask sources");
 
     expect(sidebar).toContainElement(title);
     expect(sidebar).toContainElement(newNote);
     expect(title.compareDocumentPosition(newNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(newNote.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(title.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(search.compareDocumentPosition(askScope)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(askScope.compareDocumentPosition(tree)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(search.compareDocumentPosition(askSources)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(askSources.compareDocumentPosition(tree)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(allNotes.compareDocumentPosition(uncategorized)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(uncategorized.compareDocumentPosition(personalCategory)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
@@ -232,36 +232,21 @@ describe("App sidebar navigation", () => {
     expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
   });
 
-  test("keeps Ask checkboxes hidden until note-selection mode is active", async () => {
+  test("shows Ask source checkboxes without a selection mode", async () => {
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
     });
 
-    expect(
-      screen.queryByRole("checkbox", { name: "Include Work note in Ask scope" }),
-    ).not.toBeInTheDocument();
-
-    const selectionToggle = screen.getByRole("button", { name: "Select notes for Ask" });
-    expect(selectionToggle).toHaveAttribute("aria-pressed", "false");
-
-    fireEvent.click(selectionToggle);
-
-    expect(screen.getByRole("button", { name: "Done selecting notes for Ask" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Done selecting notes for Ask" }));
-
-    expect(
-      screen.queryByRole("checkbox", { name: "Include Work note in Ask scope" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Select notes for Ask" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Done selecting notes for Ask" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use all notes for Ask" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Use Work category for Ask" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeChecked();
   });
 
-  test("keeps compact Ask note scope controls and selected-note payload behavior unchanged", async () => {
+  test("uses visible Ask source selections for payloads without browse category scope", async () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: "Saved notes mention work.",
       sources: [],
@@ -273,27 +258,32 @@ describe("App sidebar navigation", () => {
       expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Ask scope: All notes")).toBeInTheDocument();
+    expect(screen.getByText("Ask sources")).toBeInTheDocument();
     expect(screen.getByText("Mock Ask scope: All notes")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
     fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
 
     await waitFor(() => {
       expect(askQuestion).toHaveBeenCalledWith(
-        expect.not.objectContaining({ note_ids: expect.anything() }),
+        expect.not.objectContaining({
+          category_id: expect.anything(),
+          note_ids: expect.anything(),
+          uncategorized: expect.anything(),
+        }),
       );
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
 
-    expect(screen.getByText("Ask scope: None selected")).toBeInTheDocument();
-    expect(screen.getByText("Select at least one note for Ask")).toBeInTheDocument();
+    expect(screen.getByText("No sources selected")).toBeInTheDocument();
+    expect(screen.getByText("Select at least one source for Ask.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mock ask" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Select notes for Ask" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" }));
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use Work note for Ask" }));
 
-    expect(screen.getByText("Ask scope: 1 selected")).toBeInTheDocument();
+    expect(screen.getByText("1 note selected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mock ask" })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
@@ -302,9 +292,9 @@ describe("App sidebar navigation", () => {
       expect(askQuestion).toHaveBeenLastCalledWith(expect.objectContaining({ note_ids: [10] }));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
 
-    expect(screen.getByText("Ask scope: All notes")).toBeInTheDocument();
+    expect(screen.getByText("All notes selected")).toBeInTheDocument();
   });
 
   test("opens the existing new-note workspace from the sidebar action", async () => {
@@ -335,9 +325,7 @@ describe("App sidebar navigation", () => {
     expect(noteRow).toHaveTextContent("07-03");
     expect(noteRow).not.toHaveTextContent("A note about work.");
     expect(noteRow).not.toHaveTextContent("work");
-    expect(
-      screen.queryByRole("checkbox", { name: "Include Work note in Ask scope" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
 
     fireEvent.click(noteRow);
 
@@ -352,11 +340,10 @@ describe("App sidebar navigation", () => {
       expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    fireEvent.click(screen.getByRole("button", { name: "Select notes for Ask" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use Work note for Ask" }));
 
-    expect(screen.getByText("Ask scope: 1 selected")).toBeInTheDocument();
+    expect(screen.getByText("1 note selected")).toBeInTheDocument();
     expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
@@ -434,12 +421,10 @@ describe("App sidebar navigation", () => {
     expect(resultCard).toHaveTextContent('Matched: "Matched work detail"');
     expect(resultCard).toHaveTextContent("Hybrid");
     expect(resultCard).toHaveTextContent("work");
-    expect(
-      screen.queryByRole("checkbox", { name: "Include Work note in Ask scope" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
   });
 
-  test("keeps Ask note-selection mode active across search and category changes", async () => {
+  test("keeps visible Ask source checkboxes across search and category changes", async () => {
     vi.mocked(searchNotes).mockResolvedValueOnce([
       {
         ...notes[0],
@@ -455,8 +440,7 @@ describe("App sidebar navigation", () => {
       expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Select notes for Ask" }));
-    expect(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
 
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "work" } });
@@ -465,13 +449,33 @@ describe("App sidebar navigation", () => {
     await waitFor(() => {
       expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
     });
-    expect(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     fireEvent.click(screen.getByRole("button", { name: "Personal" }));
     fireEvent.click(screen.getByRole("button", { name: "Personal" }));
 
-    expect(screen.getByRole("checkbox", { name: "Include Personal note in Ask scope" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Personal note for Ask" })).toBeInTheDocument();
+  });
+
+  test("category Ask source checkbox bulk-selects category notes", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Use Work category for Ask" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
+
+    expect(screen.getByText("1 note selected")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Use Personal note for Ask" })).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
+
+    expect(screen.getByText("No sources selected")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).not.toBeChecked();
   });
 
   test("shows zero-result status and body copy for active search", async () => {

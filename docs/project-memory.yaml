@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-04T04:57:53Z"
+    time_local: "2026-07-04T01:57:53-03:00"
+    summary: "Simplified left-sidebar Ask source selection."
+    changed:
+      - "Replaced the hidden Select/Done Ask scope mode with a visible Ask sources checklist for all notes, category bulk selection, and individual notes."
+      - "Kept category and note clicks focused on browsing/opening notes while checkbox clicks only update Ask source selection."
+      - "Stopped frontend Ask submissions from inheriting the active browse category; all-notes scope omits note_ids and custom scope sends explicit note_ids."
+      - "Updated README sidebar and verification checklist language for explicit Ask sources."
+    verification:
+      - "Ran npm run test -- src/App.test.tsx from frontend/: first failed on the old hidden Ask scope controls, then passed with 16 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: passed with 22 tests."
+      - "Ran ./scripts/check.sh from the repository root outside the sandbox after uv cache writes were blocked in the sandbox: passed with backend checks/tests and frontend tests/lint/build."
   - time_utc: "2026-07-04T04:41:50Z"
     time_local: "2026-07-04T01:41:50-03:00"
     summary: "Reworked the left sidebar into an expandable category tree."

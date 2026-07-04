@@ -45,15 +45,31 @@ export function toggleAskNoteScope(
   noteId: number,
   availableNoteIds: number[],
 ): AskNoteScope {
+  return setAskNoteScopeSelected(scope, [noteId], !isNoteSelectedForAsk(scope, noteId), availableNoteIds);
+}
+
+export function setAskNoteScopeSelected(
+  scope: AskNoteScope,
+  noteIds: number[],
+  selected: boolean,
+  availableNoteIds: number[],
+): AskNoteScope {
   const selectedNoteIds =
     scope.mode === "all"
       ? new Set(availableNoteIds)
       : new Set(availableNoteIds.filter((availableNoteId) => scope.noteIds.includes(availableNoteId)));
 
-  if (selectedNoteIds.has(noteId)) {
-    selectedNoteIds.delete(noteId);
-  } else if (availableNoteIds.includes(noteId)) {
-    selectedNoteIds.add(noteId);
+  const availableNoteIdSet = new Set(availableNoteIds);
+  for (const noteId of noteIds) {
+    if (!availableNoteIdSet.has(noteId)) {
+      continue;
+    }
+
+    if (selected) {
+      selectedNoteIds.add(noteId);
+    } else {
+      selectedNoteIds.delete(noteId);
+    }
   }
 
   if (selectedNoteIds.size === availableNoteIds.length) {
@@ -84,15 +100,13 @@ export function getAskNoteScopeSelectedCount(scope: AskNoteScope, totalNotes: nu
 
 export function formatAskNoteScopeSelectedCount(scope: AskNoteScope, totalNotes: number): string {
   if (scope.mode === "all") {
-    return "Ask scope · All notes";
+    return "All notes selected";
   }
 
   const selectedCount = getAskNoteScopeSelectedCount(scope, totalNotes);
   if (selectedCount === 0) {
-    return "Ask scope · None selected";
+    return "No sources selected";
   }
 
-  return selectedCount === 1
-    ? "Ask scope · 1 selected"
-    : `Ask scope · ${selectedCount} selected`;
+  return selectedCount === 1 ? "1 note selected" : `${selectedCount} notes selected`;
 }

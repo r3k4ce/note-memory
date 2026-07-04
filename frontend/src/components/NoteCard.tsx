@@ -31,7 +31,7 @@ export function NoteCard({
   const matchTypeLabel = note.match_type ? MATCH_TYPE_LABELS[note.match_type] : null;
   const askScopeCheckbox = showAskScopeCheckbox ? (
     <input
-      aria-label={`Include ${note.ai_title} in Ask scope`}
+      aria-label={`Use ${note.ai_title} for Ask`}
       checked={askScopeSelected}
       className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
       onChange={(event) => {
