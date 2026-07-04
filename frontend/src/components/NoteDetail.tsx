@@ -346,8 +346,35 @@ export function NoteDetail({
       </header>
 
       {!isEditing ? (
+        <details className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-secondary">
+          <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            Summary
+          </summary>
+          <p className="mt-2 whitespace-pre-wrap leading-relaxed">{note.short_summary}</p>
+        </details>
+      ) : null}
+
+      {!isEditing ? (
         <div className="flex flex-col gap-2">
           <MarkdownPane mode="read" value={note.original_text} />
+        </div>
+      ) : null}
+
+      {isEditing ? (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-summary">
+            Summary
+          </label>
+          <textarea
+            className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+            disabled={isSavingEdit}
+            id="edit-note-summary"
+            onChange={(event) => {
+              setEditDraft({ ...editDraft, summary: event.target.value });
+              setValidationError(null);
+            }}
+            value={editDraft.summary}
+          />
         </div>
       ) : null}
 
@@ -366,33 +393,6 @@ export function NoteDetail({
             }}
             value={editDraft.bodyText}
             variant="workspace"
-          />
-        </div>
-      ) : null}
-
-      {!isEditing ? (
-        <details className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-secondary">
-          <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
-            Summary
-          </summary>
-          <p className="mt-2 whitespace-pre-wrap leading-relaxed">{note.short_summary}</p>
-        </details>
-      ) : null}
-
-      {isEditing ? (
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-summary">
-            Summary
-          </label>
-          <textarea
-            className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-            disabled={isSavingEdit}
-            id="edit-note-summary"
-            onChange={(event) => {
-              setEditDraft({ ...editDraft, summary: event.target.value });
-              setValidationError(null);
-            }}
-            value={editDraft.summary}
           />
         </div>
       ) : null}

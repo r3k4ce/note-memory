@@ -76,7 +76,7 @@ describe("NoteDetail selected-note editing", () => {
 
     expect(title.compareDocumentPosition(category)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(category.compareDocumentPosition(body)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(body.compareDocumentPosition(summary)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(summary.compareDocumentPosition(body)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
     expect(screen.getByLabelText("Save changes")).toBeInTheDocument();
     expect(screen.getByLabelText("Cancel edit")).toBeInTheDocument();
