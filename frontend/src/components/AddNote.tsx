@@ -30,7 +30,7 @@ export function AddNote({
   return (
     <div className="flex h-full min-h-0 flex-col" aria-labelledby="add-note-title">
       <h2 className="sr-only" id="add-note-title">
-        Capture a note
+        New note
       </h2>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
         <div className="flex min-w-0 items-center gap-3">
@@ -67,7 +67,7 @@ export function AddNote({
             onClick={onSave}
             type="button"
           >
-            {isSaving ? "Organizing..." : "Organize & save"}
+            {isSaving ? "Saving..." : "Save note"}
           </button>
         </div>
       </div>
@@ -76,7 +76,7 @@ export function AddNote({
         editorHandleRef={captureRef}
         mode="edit"
         onChange={onDraftTextChange}
-        placeholder="Paste a note in Markdown - the AI will organize it."
+        placeholder="Write in Markdown... AI will organize it with a title, summary, and tags after save."
         value={draftText}
         variant="workspace"
       />

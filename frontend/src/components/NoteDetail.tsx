@@ -146,7 +146,7 @@ export function NoteDetail({
           <Pencil size={18} strokeWidth={1.5} className="text-text-muted" />
         </div>
         <p className="text-sm font-medium text-text-secondary">No note selected</p>
-        <p className="text-xs text-text-muted">Select a note from the list, or capture a new one.</p>
+        <p className="text-xs text-text-muted">Select a note from the list, or start a new note.</p>
       </div>
     );
   }

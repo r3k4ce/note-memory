@@ -756,7 +756,7 @@ export default function App() {
               <div className="px-2 py-6 text-center">
                 <p className="text-xs text-text-muted">No notes yet</p>
                 <p className="mt-1 text-[11px] text-text-muted">
-                  Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> to capture
+                  Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
                 </p>
               </div>
             ) : null}

@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-04T02:01:56Z"
+    time_local: "2026-07-03T23:01:56-03:00"
+    summary: "Reframed the new-note flow copy."
+    changed:
+      - "Renamed the AddNote heading, save button, saving state, and Markdown placeholder toward new-note/save wording while keeping the selected AI organizer hint."
+      - "Updated adjacent empty-state and no-selection hints from capture language to new-note language."
+      - "Added an AddNote copy regression test and updated README center-workspace wording."
+    verification:
+      - "Ran npm run test from frontend/: passed with 3 tests."
+      - "Ran npm run typecheck, npm run lint, and npm run build from frontend/: passed."
+      - "Ran ./scripts/check.sh from the repository root outside the sandbox: backend checks/tests and frontend test/lint/build passed."
+      - "Searched frontend and README copy for remaining Capture/Organize language and confirmed only intentional internal capture identifiers plus the approved AI hint remain."
   - time_utc: "2026-07-04T01:53:21Z"
     time_local: "2026-07-03T22:53:21-03:00"
     summary: "Added frontend test dependencies to the check workflow."

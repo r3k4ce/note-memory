@@ -26,7 +26,7 @@ and grounded Ask/chat over your saved notes.
 
 - **Left sidebar:** search, category filters, note list, search match snippets,
   and Ask scope controls for choosing all notes or selected notes.
-- **Center workspace:** capture new Markdown notes, read selected notes, and edit
+- **Center workspace:** write new Markdown notes, read selected notes, and edit
   the note body, title, summary, tags, and category in one workspace.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, selected
   note/category scope, and cited answers from saved notes.
