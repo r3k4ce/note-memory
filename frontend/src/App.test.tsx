@@ -159,6 +159,88 @@ function deferred<T>() {
 }
 
 describe("App sidebar navigation", () => {
+  test("renders resizable pane separators and workspace layout controls", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize notes assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show all panes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Focus text area" })).toBeInTheDocument();
+  });
+
+  test("focuses the text area while keeping resize handles available, then restores panes", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+    const assistant = screen.getByRole("complementary", { name: "Notes assistant pane" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Focus text area" }));
+
+    expect(sidebar).toHaveStyle({ width: "0px" });
+    expect(assistant).toHaveStyle({ width: "0px" });
+    expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize notes assistant" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all panes" }));
+
+    expect(sidebar).toHaveStyle({ width: "288px" });
+    expect(assistant).toHaveStyle({ width: "384px" });
+  });
+
+  test("collapses and restores the notes sidebar by dragging its separator", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+    const separator = screen.getByRole("separator", { name: "Resize notes sidebar" });
+
+    fireEvent.pointerDown(separator, { clientX: 288, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 20, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(sidebar).toHaveStyle({ width: "0px" });
+
+    fireEvent.pointerDown(separator, { clientX: 0, pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 240, pointerId: 2 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    expect(sidebar).toHaveStyle({ width: "240px" });
+  });
+
+  test("collapses and restores the notes assistant by dragging its separator", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const assistant = screen.getByRole("complementary", { name: "Notes assistant pane" });
+    const separator = screen.getByRole("separator", { name: "Resize notes assistant" });
+
+    fireEvent.pointerDown(separator, { clientX: 600, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 940, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(assistant).toHaveStyle({ width: "0px" });
+
+    fireEvent.pointerDown(separator, { clientX: 940, pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 620, pointerId: 2 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    expect(assistant).toHaveStyle({ width: "320px" });
+  });
+
   test("separates browse and search into sidebar tabs", async () => {
     render(<App />);
 

@@ -6,14 +6,18 @@ import {
   useState,
   type DragEvent,
   type FormEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
   Check,
   ChevronDown,
   ChevronRight,
+  Columns3,
   FileText,
   Folder,
   FolderOpen,
+  GripVertical,
+  Maximize2,
   Pencil,
   Plus,
   Trash2,
@@ -75,8 +79,58 @@ type NoteDropTarget = {
   categoryId: number | null;
   key: string;
 };
+type PaneSide = "left" | "right";
+type PaneResizeHandleProps = {
+  className?: string;
+  label: string;
+  maxWidth: number;
+  onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  width: number;
+};
 
 const ASK_HISTORY_MESSAGE_LIMIT = 6;
+const LEFT_PANE_DEFAULT_WIDTH = 288;
+const LEFT_PANE_MIN_WIDTH = 192;
+const LEFT_PANE_MAX_WIDTH = 448;
+const RIGHT_PANE_DEFAULT_WIDTH = 384;
+const RIGHT_PANE_MIN_WIDTH = 256;
+const RIGHT_PANE_MAX_WIDTH = 512;
+const PANE_COLLAPSE_THRESHOLD = 96;
+
+function clampPaneWidth(width: number, minWidth: number, maxWidth: number): number {
+  if (width < PANE_COLLAPSE_THRESHOLD) {
+    return 0;
+  }
+
+  return Math.min(Math.max(width, minWidth), maxWidth);
+}
+
+function PaneResizeHandle({
+  className = "flex",
+  label,
+  maxWidth,
+  onResizeStart,
+  width,
+}: PaneResizeHandleProps) {
+  return (
+    <div
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemax={maxWidth}
+      aria-valuemin={0}
+      aria-valuenow={width}
+      className={`group relative w-2 shrink-0 cursor-col-resize items-center justify-center bg-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${className}`}
+      onPointerDown={onResizeStart}
+      role="separator"
+      tabIndex={0}
+    >
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-border-strong" />
+      <div className="relative flex h-7 w-3 items-center justify-center rounded-md border border-border bg-bg text-text-muted shadow-sm transition-colors group-hover:border-border-strong group-hover:text-text-secondary">
+        <GripVertical aria-hidden="true" size={10} strokeWidth={2} />
+      </div>
+    </div>
+  );
+}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -164,12 +218,16 @@ export default function App() {
   const [expandedFolderKeys, setExpandedFolderKeys] = useState<Set<string>>(() => new Set());
   const [draggedNoteId, setDraggedNoteId] = useState<number | null>(null);
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+  const [leftPaneWidth, setLeftPaneWidth] = useState(LEFT_PANE_DEFAULT_WIDTH);
+  const [rightPaneWidth, setRightPaneWidth] = useState(RIGHT_PANE_DEFAULT_WIDTH);
 
   const searchRequestId = useRef(0);
   const askRequestId = useRef(0);
   const askMessageId = useRef(0);
   const askPendingMessageIdRef = useRef<string | null>(null);
   const draggedNoteIdRef = useRef<number | null>(null);
+  const lastLeftPaneWidthRef = useRef(LEFT_PANE_DEFAULT_WIDTH);
+  const lastRightPaneWidthRef = useRef(RIGHT_PANE_DEFAULT_WIDTH);
   const captureRef = useRef<MarkdownPaneHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
@@ -205,6 +263,71 @@ export default function App() {
   const askScopeSummary = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
   const askChatScopeLabel = formatAskChatScopeLabel(askNoteScope, notes.length);
   const isAskNoteScopeEmpty = askNoteScope.mode === "custom" && askNoteScope.noteIds.length === 0;
+
+  const updateLeftPaneWidth = useCallback((width: number) => {
+    const nextWidth = clampPaneWidth(width, LEFT_PANE_MIN_WIDTH, LEFT_PANE_MAX_WIDTH);
+    if (nextWidth > 0) {
+      lastLeftPaneWidthRef.current = nextWidth;
+    }
+    setLeftPaneWidth(nextWidth);
+  }, []);
+
+  const updateRightPaneWidth = useCallback((width: number) => {
+    const nextWidth = clampPaneWidth(width, RIGHT_PANE_MIN_WIDTH, RIGHT_PANE_MAX_WIDTH);
+    if (nextWidth > 0) {
+      lastRightPaneWidthRef.current = nextWidth;
+    }
+    setRightPaneWidth(nextWidth);
+  }, []);
+
+  const startPaneResize = useCallback(
+    (side: PaneSide, event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+
+      const startX = event.clientX;
+      const startWidth = side === "left" ? leftPaneWidth : rightPaneWidth;
+
+      function handlePointerMove(moveEvent: PointerEvent) {
+        const deltaX = moveEvent.clientX - startX;
+        const nextWidth = side === "left" ? startWidth + deltaX : startWidth - deltaX;
+
+        if (side === "left") {
+          updateLeftPaneWidth(nextWidth);
+        } else {
+          updateRightPaneWidth(nextWidth);
+        }
+      }
+
+      function stopResize() {
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", stopResize);
+        window.removeEventListener("pointercancel", stopResize);
+      }
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", stopResize);
+      window.addEventListener("pointercancel", stopResize);
+    },
+    [leftPaneWidth, rightPaneWidth, updateLeftPaneWidth, updateRightPaneWidth],
+  );
+
+  const focusTextAreaPane = useCallback(() => {
+    if (leftPaneWidth > 0) {
+      lastLeftPaneWidthRef.current = leftPaneWidth;
+    }
+    if (rightPaneWidth > 0) {
+      lastRightPaneWidthRef.current = rightPaneWidth;
+    }
+
+    setLeftPaneWidth(0);
+    setRightPaneWidth(0);
+  }, [leftPaneWidth, rightPaneWidth]);
+
+  const showAllPanes = useCallback(() => {
+    setLeftPaneWidth(lastLeftPaneWidthRef.current || LEFT_PANE_DEFAULT_WIDTH);
+    setRightPaneWidth(lastRightPaneWidthRef.current || RIGHT_PANE_DEFAULT_WIDTH);
+  }, []);
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
     if (!hasUnsavedSelectedNoteEdit) {
@@ -907,7 +1030,8 @@ export default function App() {
     <div className="flex h-screen bg-bg text-text-primary">
       <aside
         aria-label="Notes sidebar"
-        className="flex w-64 shrink-0 flex-col bg-bg sm:w-72"
+        className="flex shrink-0 flex-col overflow-hidden bg-bg transition-[width] duration-150 ease-out"
+        style={{ width: leftPaneWidth }}
       >
         <div className="shrink-0 px-3 py-3">
           <div className="flex items-center gap-2">
@@ -1349,40 +1473,83 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="min-h-0 flex-1 overflow-hidden bg-bg">
-        <NoteWorkspace
-          captureRef={captureRef}
-          categories={categories}
-          deleteError={deleteError}
-          draftCategoryId={draftCategoryId}
-          draftText={draftText}
-          error={detailError}
-          isDeleting={isDeleting}
-          isLoading={isLoadingDetail}
-          isSavingEdit={isSavingEdit}
-          isSaving={isSaving}
-          mode={workspaceMode}
-          note={selectedNote}
-          editError={editError}
-          onCancelEdit={handleCancelEditSelectedNote}
-          onDelete={handleDeleteNote}
-          onDraftCategoryChange={setDraftCategoryId}
-          onDraftTextChange={(value) => {
-            setDraftText(value);
-            if (saveError) {
-              setSaveError(null);
-            }
-          }}
-          onEdit={handleEditSelectedNote}
-          onEditDirtyChange={setIsSelectedNoteEditDirty}
-          onNewNote={handleNewNote}
-          onSave={handleSaveNote}
-          onSaveEdit={handleSaveSelectedNoteEdit}
-          saveError={saveError}
-        />
+      <PaneResizeHandle
+        label="Resize notes sidebar"
+        maxWidth={LEFT_PANE_MAX_WIDTH}
+        onResizeStart={(event) => startPaneResize("left", event)}
+        width={leftPaneWidth}
+      />
+
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg">
+        <div className="flex h-8 shrink-0 items-center justify-end gap-1 px-3 py-1">
+          <button
+            aria-label="Show all panes"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            onClick={showAllPanes}
+            title="Show all panes"
+            type="button"
+          >
+            <Columns3 aria-hidden="true" size={13} strokeWidth={2} />
+          </button>
+          <button
+            aria-label="Focus text area"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            onClick={focusTextAreaPane}
+            title="Focus text area"
+            type="button"
+          >
+            <Maximize2 aria-hidden="true" size={13} strokeWidth={2} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <NoteWorkspace
+            captureRef={captureRef}
+            categories={categories}
+            deleteError={deleteError}
+            draftCategoryId={draftCategoryId}
+            draftText={draftText}
+            error={detailError}
+            isDeleting={isDeleting}
+            isLoading={isLoadingDetail}
+            isSavingEdit={isSavingEdit}
+            isSaving={isSaving}
+            mode={workspaceMode}
+            note={selectedNote}
+            editError={editError}
+            onCancelEdit={handleCancelEditSelectedNote}
+            onDelete={handleDeleteNote}
+            onDraftCategoryChange={setDraftCategoryId}
+            onDraftTextChange={(value) => {
+              setDraftText(value);
+              if (saveError) {
+                setSaveError(null);
+              }
+            }}
+            onEdit={handleEditSelectedNote}
+            onEditDirtyChange={setIsSelectedNoteEditDirty}
+            onNewNote={handleNewNote}
+            onSave={handleSaveNote}
+            onSaveEdit={handleSaveSelectedNoteEdit}
+            saveError={saveError}
+          />
+        </div>
       </main>
 
-      <aside className="hidden min-h-0 w-80 shrink-0 bg-bg px-4 py-3 lg:flex xl:w-96">
+      <PaneResizeHandle
+        className="hidden lg:flex"
+        label="Resize notes assistant"
+        maxWidth={RIGHT_PANE_MAX_WIDTH}
+        onResizeStart={(event) => startPaneResize("right", event)}
+        width={rightPaneWidth}
+      />
+
+      <aside
+        aria-label="Notes assistant pane"
+        className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-3 transition-[width,padding] duration-150 ease-out lg:flex ${
+          rightPaneWidth === 0 ? "px-0" : "px-4"
+        }`}
+        style={{ width: rightPaneWidth }}
+      >
         <AskChat
           askRef={askRef}
           messages={askMessages}

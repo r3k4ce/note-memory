@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T20:30:17Z"
+    time_local: "2026-07-04T17:30:17-03:00"
+    summary: "Added subtle resizable separators for the three-pane frontend workspace."
+    changed:
+      - "Replaced fixed sidebar widths with state-driven left and right pane widths, including drag handles on subtle vertical separators and collapse-to-zero behavior."
+      - "Added center workspace controls for showing all panes or focusing the text area by collapsing both side panes."
+      - "Kept the notes assistant desktop-only while preserving mounted pane state and existing note/search/Ask behavior."
+    verification:
+      - "Added App tests first; npm run test -- App.test.tsx failed on missing separators, pane labels, controls, and resize behavior, then passed with 28 tests after implementation."
+      - "Ran npm run typecheck in frontend/."
+      - "Ran ./scripts/check.sh from the repository root: first blocked by sandbox uv cache writes, then passed with escalation; backend format/ruff/pyright/184 tests and frontend 55 tests/lint/build passed."
   - time_utc: "2026-07-04T19:38:08Z"
     time_local: "2026-07-04T16:38:08-03:00"
     summary: "Made the frontend presentation more cohesive, minimal, and borderless across the three-pane workspace."
