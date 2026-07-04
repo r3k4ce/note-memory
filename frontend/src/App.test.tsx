@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { searchNotes } from "./api";
+import { askQuestion, searchNotes } from "./api";
 import App from "./App";
 import type { Category, Note, SearchResult } from "./types";
 
@@ -28,6 +28,16 @@ const { categories, notes } = vi.hoisted(() => {
       updated_at: "2026-07-03T00:00:00Z",
       category: mockCategories[0],
     },
+    {
+      id: 11,
+      original_text: "Personal note body",
+      ai_title: "Personal note",
+      short_summary: "A note about personal plans.",
+      tags: ["personal"],
+      date_added: "2026-07-04T00:00:00Z",
+      updated_at: "2026-07-04T00:00:00Z",
+      category: mockCategories[1],
+    },
   ];
 
   return { categories: mockCategories, notes: mockNotes };
@@ -46,8 +56,26 @@ vi.mock("./api", () => ({
 }));
 
 vi.mock("./components/AskChat", () => ({
-  AskChat() {
-    return <section aria-label="Ask chat" />;
+  AskChat({
+    isSubmitDisabled,
+    onSubmit,
+    scopeLabel,
+    submitDisabledMessage,
+  }: {
+    isSubmitDisabled?: boolean;
+    onSubmit: (question: string) => void;
+    scopeLabel: string;
+    submitDisabledMessage?: string;
+  }) {
+    return (
+      <section aria-label="Ask chat">
+        <span>Mock Ask scope: {scopeLabel}</span>
+        {submitDisabledMessage ? <span>{submitDisabledMessage}</span> : null}
+        <button disabled={isSubmitDisabled} onClick={() => onSubmit("What did I save?")} type="button">
+          Mock ask
+        </button>
+      </section>
+    );
   },
 }));
 
@@ -109,7 +137,7 @@ function deferred<T>() {
 }
 
 describe("App sidebar navigation", () => {
-  test("organizes the sidebar as app header, search, note navigation, category navigation, Ask scope, and note list", async () => {
+  test("organizes the sidebar as navigation first with compact Ask scope in the note-list header", async () => {
     render(<App />);
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
@@ -126,7 +154,7 @@ describe("App sidebar navigation", () => {
     });
 
     const workCategory = screen.getByRole("button", { name: "Work" });
-    const askScope = screen.getByText("Ask scope · All notes");
+    const askScope = screen.getByText("Ask scope: All notes");
     const listHeading = screen.getByText("All notes", { selector: "span" });
 
     expect(sidebar).toContainElement(title);
@@ -143,8 +171,8 @@ describe("App sidebar navigation", () => {
     expect(categoriesHeading.compareDocumentPosition(workCategory)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(workCategory.compareDocumentPosition(askScope)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(askScope.compareDocumentPosition(listHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(workCategory.compareDocumentPosition(listHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(listHeading.compareDocumentPosition(askScope)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   test("keeps category navigation and scoped search behavior unchanged", async () => {
@@ -178,6 +206,51 @@ describe("App sidebar navigation", () => {
 
     expect(searchbox).toHaveValue("");
     expectListHeading("Work");
+  });
+
+  test("keeps compact Ask note scope controls and selected-note payload behavior unchanged", async () => {
+    vi.mocked(askQuestion).mockResolvedValue({
+      answer: "Saved notes mention work.",
+      sources: [],
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Ask scope: All notes")).toBeInTheDocument();
+    expect(screen.getByText("Mock Ask scope: All notes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
+
+    await waitFor(() => {
+      expect(askQuestion).toHaveBeenCalledWith(
+        expect.not.objectContaining({ note_ids: expect.anything() }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect(screen.getByText("Ask scope: None selected")).toBeInTheDocument();
+    expect(screen.getByText("Select at least one note for Ask")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mock ask" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" }));
+
+    expect(screen.getByText("Ask scope: 1 selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mock ask" })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
+
+    await waitFor(() => {
+      expect(askQuestion).toHaveBeenLastCalledWith(expect.objectContaining({ note_ids: [10] }));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
+
+    expect(screen.getByText("Ask scope: All notes")).toBeInTheDocument();
   });
 
   test("opens the existing new-note workspace from the sidebar action", async () => {

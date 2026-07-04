@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-04T04:01:38Z"
+    time_local: "2026-07-04T01:01:38-03:00"
+    summary: "Demoted left-sidebar Ask scope controls into the note-list header."
+    changed:
+      - "Moved the existing Ask scope label and All/Clear controls below the list heading/count so categories flow directly into note browsing."
+      - "Changed the left-sidebar Ask scope summary copy to colon style while preserving per-note Ask checkboxes and Ask note scope state transitions."
+      - "Added App-level regression coverage for compact placement, Clear, custom selected-note scope, All reset, right-sidebar scope label, disabled Ask state, and all/custom Ask payloads."
+    verification:
+      - "Ran npm run test -- src/App.test.tsx from frontend/: first failed on the old Ask scope dot copy/placement, then passed with 11 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: passed with 17 tests."
   - time_utc: "2026-07-04T03:46:26Z"
     time_local: "2026-07-04T00:46:27-03:00"
     summary: "Separated browse and active search sidebar presentation."

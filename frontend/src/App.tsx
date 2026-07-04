@@ -16,7 +16,7 @@ import {
   areAskNoteScopesEqual,
   clearAskNotes,
   DEFAULT_ASK_NOTE_SCOPE,
-  formatAskNoteScopeSelectedCount,
+  getAskNoteScopeSelectedCount,
   isNoteSelectedForAsk,
   normalizeAskNoteScope,
   selectAllAskNotes,
@@ -30,6 +30,7 @@ import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKe
 import type { MarkdownPaneHandle } from "./components/MarkdownPane";
 import type {
   AskHistoryMessage,
+  AskNoteScope,
   Category,
   CategoryScopeRequest,
   ChatMessage,
@@ -107,6 +108,19 @@ function categoryFilterLabel(filter: CategoryFilter, categories: Category[]): st
   return categories.find((category) => category.id === filter)?.name ?? "Category";
 }
 
+function formatCompactAskScopeLabel(scope: AskNoteScope, totalNotes: number): string {
+  if (scope.mode === "all") {
+    return "Ask scope: All notes";
+  }
+
+  const selectedCount = getAskNoteScopeSelectedCount(scope, totalNotes);
+  if (selectedCount === 0) {
+    return "Ask scope: None selected";
+  }
+
+  return selectedCount === 1 ? "Ask scope: 1 selected" : `Ask scope: ${selectedCount} selected`;
+}
+
 export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -156,7 +170,7 @@ export default function App() {
   const visibleNotes: NoteCardData[] = isSearchActive ? searchResults : categoryFilteredNotes;
   const hasUnsavedSelectedNoteEdit = workspaceMode === "edit-selected" && isSelectedNoteEditDirty;
   const askAvailableNoteIds = useMemo(() => notes.map((note) => note.id), [notes]);
-  const askScopeLabel = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
+  const askScopeLabel = formatCompactAskScopeLabel(askNoteScope, notes.length);
   const isAskNoteScopeEmpty = askNoteScope.mode === "custom" && askNoteScope.noteIds.length === 0;
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
@@ -754,8 +768,18 @@ export default function App() {
         </div>
 
         <div className="shrink-0 px-3 py-1.5">
-          <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md bg-surface-raised px-2 py-1.5">
-            <span className="min-w-0 truncate text-[11px] font-medium text-text-secondary">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+              {listTitle}
+            </span>
+            {isSearchActive ? (
+              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{searchStatus}</span>
+            ) : !isLoadingNotes ? (
+              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
+            ) : null}
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-[11px] text-text-muted">
               {askScopeLabel}
             </span>
             <div className="flex shrink-0 items-center gap-1">
@@ -774,16 +798,6 @@ export default function App() {
                 Clear
               </button>
             </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-              {listTitle}
-            </span>
-            {isSearchActive ? (
-              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{searchStatus}</span>
-            ) : !isLoadingNotes ? (
-              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
-            ) : null}
           </div>
         </div>
 
