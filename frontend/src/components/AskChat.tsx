@@ -8,6 +8,7 @@ import type { AskSource, ChatMessage } from "../types";
 type AskChatProps = {
   askRef: RefObject<HTMLTextAreaElement | null>;
   messages: ChatMessage[];
+  onSourceSelect: (noteId: number) => void;
   onSubmit: (question: string) => void;
   pendingMessageId: string | null;
   isSubmitDisabled?: boolean;
@@ -17,10 +18,17 @@ type AskChatProps = {
 
 type AssistantBubbleProps = {
   content: string;
+  onSourceSelect: (noteId: number) => void;
   sources: AskSource[];
 };
 
-function SourceList({ sources }: { sources: AskSource[] }) {
+function SourceList({
+  onSourceSelect,
+  sources,
+}: {
+  onSourceSelect: (noteId: number) => void;
+  sources: AskSource[];
+}) {
   if (sources.length === 0) {
     return null;
   }
@@ -32,27 +40,30 @@ function SourceList({ sources }: { sources: AskSource[] }) {
       </p>
       <div className="mt-2 flex flex-col gap-1.5">
         {sources.map((source) => (
-          <article
-            className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+          <button
+            aria-label={`Open cited note: ${source.title}`}
+            className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             key={source.note_id}
+            onClick={() => onSourceSelect(source.note_id)}
+            type="button"
           >
-            <h3 className="min-w-0 truncate text-[13px] font-medium text-text-secondary">{source.title}</h3>
+            <span className="min-w-0 truncate text-[13px] font-medium text-text-secondary">{source.title}</span>
             <time className="shrink-0 text-[10px] tabular-nums text-text-muted" dateTime={source.date_added}>
               {source.date_added.slice(0, 10)}
             </time>
-          </article>
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function AssistantBubble({ content, sources }: AssistantBubbleProps) {
+function AssistantBubble({ content, onSourceSelect, sources }: AssistantBubbleProps) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[82%] rounded-lg border border-border bg-surface px-3.5 py-3 text-sm leading-relaxed text-text-secondary">
+      <div className="max-w-[86%] rounded-md border border-border bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
         <p className="whitespace-pre-wrap">{content}</p>
-        <SourceList sources={sources} />
+        <SourceList onSourceSelect={onSourceSelect} sources={sources} />
       </div>
     </div>
   );
@@ -61,7 +72,7 @@ function AssistantBubble({ content, sources }: AssistantBubbleProps) {
 function UserBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[78%] rounded-lg bg-accent px-3.5 py-3 text-sm leading-relaxed text-black">
+      <div className="max-w-[78%] rounded-md bg-accent px-3 py-2.5 text-[13px] leading-relaxed text-black">
         <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
@@ -71,7 +82,7 @@ function UserBubble({ content }: { content: string }) {
 function ErrorBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[82%] rounded-lg border border-error/40 bg-error-muted px-3.5 py-3 text-sm leading-relaxed text-text-primary">
+      <div className="max-w-[86%] rounded-md border border-error/40 bg-error-muted px-3 py-2.5 text-[13px] leading-relaxed text-text-primary">
         <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
@@ -81,6 +92,7 @@ function ErrorBubble({ content }: { content: string }) {
 export function AskChat({
   askRef,
   messages,
+  onSourceSelect,
   onSubmit,
   pendingMessageId,
   isSubmitDisabled = false,
@@ -121,25 +133,23 @@ export function AskChat({
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col gap-4" aria-labelledby="ask-title">
-      <header className="flex shrink-0 flex-col gap-1.5 border-b border-border pb-4">
+    <section className="flex h-full min-h-0 w-full flex-col gap-3" aria-labelledby="ask-title">
+      <header className="flex shrink-0 flex-col gap-1 border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
             <Sparkles size={13} strokeWidth={2} className="text-accent" />
           </div>
-          <h2 className="text-sm font-semibold text-text-primary" id="ask-title">
-            Ask saved notes
+          <h2 className="text-[13px] font-semibold text-text-primary" id="ask-title">
+            Notes assistant
           </h2>
         </div>
-        <p className="text-[12px] leading-relaxed text-text-muted">
-          Recent chat turns can clarify follow-ups, but answers still cite saved notes in the selected scope.
-        </p>
-        <p className="text-[11px] text-text-muted">Scope: {scopeLabel}</p>
+        <p className="pl-8 text-[11px] text-text-muted">Scope · {scopeLabel}</p>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1" aria-live="polite">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
         <AssistantBubble
-          content="Ask a question about your saved notes. I will read the selected scope and cite the notes that support the answer."
+          content="Ask about notes in this scope. Answers include sources."
+          onSourceSelect={onSourceSelect}
           sources={[]}
         />
         {messages.map((message) => {
@@ -148,7 +158,14 @@ export function AskChat({
           }
 
           if (message.role === "assistant") {
-            return <AssistantBubble content={message.content} key={message.id} sources={message.sources} />;
+            return (
+              <AssistantBubble
+                content={message.content}
+                key={message.id}
+                onSourceSelect={onSourceSelect}
+                sources={message.sources}
+              />
+            );
           }
 
           return <ErrorBubble content={message.content} key={message.id} />;
@@ -156,14 +173,14 @@ export function AskChat({
         <div ref={transcriptEndRef} />
       </div>
 
-      <form className="flex shrink-0 flex-col gap-2 border-t border-border pt-4" onSubmit={handleSubmit}>
+      <form className="flex shrink-0 flex-col gap-2 border-t border-border pt-3" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="min-h-24 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="min-h-20 w-full resize-y rounded-md border border-border bg-surface-raised px-3 py-2.5 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything about your saved notes..."
+          placeholder="Ask the assistant..."
           ref={askRef}
           rows={3}
           value={question}

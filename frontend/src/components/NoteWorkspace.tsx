@@ -3,7 +3,7 @@ import type { RefObject } from "react";
 import type { Category, Note } from "../types";
 import { AddNote } from "./AddNote";
 import type { MarkdownPaneHandle } from "./MarkdownPane";
-import { ResultPanel } from "./ResultPanel";
+import { NoteDetail } from "./NoteDetail";
 
 export type NoteWorkspaceMode = "new" | "read-selected" | "edit-selected";
 
@@ -68,7 +68,7 @@ export function NoteWorkspace({
 }: NoteWorkspaceProps) {
   if (mode === "new") {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-6">
+      <div className="flex h-full min-h-0 flex-col">
         <AddNote
           captureRef={captureRef}
           categories={categories}
@@ -85,8 +85,8 @@ export function NoteWorkspace({
   }
 
   return (
-    <div className="px-6 py-6">
-      <ResultPanel
+    <div className={mode === "edit-selected" ? "h-full min-h-0 overflow-hidden px-6 py-6" : "h-full min-h-0 overflow-y-auto px-6 py-6"}>
+      <NoteDetail
         categories={categories}
         deleteError={deleteError}
         editError={editError}
@@ -94,6 +94,7 @@ export function NoteWorkspace({
         isDeleting={isDeleting}
         isLoading={isLoading}
         isSavingEdit={isSavingEdit}
+        key={`${note?.id ?? "none"}:${mode}`}
         mode={mode}
         note={note}
         onCancelEdit={onCancelEdit}

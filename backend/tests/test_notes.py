@@ -278,6 +278,54 @@ def test_create_category_persists_trimmed_name_and_slug(sqlite_path: Path) -> No
     assert list_categories(sqlite_path) == [category]
 
 
+def test_update_category_renames_category_and_refreshes_note_reads(sqlite_path: Path) -> None:
+    from mapping_memory.notes import create_category, get_note, update_category
+
+    category = create_category(sqlite_path, "Work")
+    note = create_note(sqlite_path, "Category rename note", category_id=category.id)
+
+    updated = update_category(sqlite_path, category.id, " Projects ")
+
+    assert updated is not None
+    assert updated.id == category.id
+    assert updated.name == "Projects"
+    assert updated.slug == "projects"
+    assert updated.updated_at >= category.updated_at
+    fetched_note = get_note(sqlite_path, note.id)
+    assert fetched_note is not None
+    assert fetched_note.category == updated
+
+
+def test_update_category_rejects_duplicate_name(sqlite_path: Path) -> None:
+    from mapping_memory.notes import CategoryAlreadyExistsError, create_category, update_category
+
+    category = create_category(sqlite_path, "Work")
+    create_category(sqlite_path, "Personal")
+
+    with pytest.raises(CategoryAlreadyExistsError, match="Category already exists"):
+        update_category(sqlite_path, category.id, " personal ")
+
+
+def test_delete_category_removes_category_notes_and_fts(sqlite_path: Path) -> None:
+    from mapping_memory.notes import create_category, delete_category, list_categories
+
+    category = create_category(sqlite_path, "Work")
+    deleted_note = create_note(
+        sqlite_path, "Work note with categoryonlytoken", category_id=category.id
+    )
+    kept_note = create_note(sqlite_path, "Loose categoryonlytoken note")
+
+    deleted_note_ids = delete_category(sqlite_path, category.id)
+
+    assert deleted_note_ids == [deleted_note.id]
+    assert list_categories(sqlite_path) == []
+    assert get_note(sqlite_path, deleted_note.id) is None
+    assert get_note(sqlite_path, kept_note.id) is not None
+    assert [note.id for note in search_notes_exact(sqlite_path, "categoryonlytoken")] == [
+        kept_note.id
+    ]
+
+
 def test_create_note_can_attach_category(sqlite_path: Path) -> None:
     from mapping_memory.notes import create_category
 

@@ -46,6 +46,20 @@ List categories:
 Invoke-RestMethod http://127.0.0.1:8000/categories
 ```
 
+Rename a category:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/categories/1 -Method Patch -ContentType "application/json" -Body '{"name":"Projects"}'
+```
+
+Delete a category and its notes:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/categories/1 -Method Delete
+```
+
+Category deletion removes the SQLite category and all notes in it, refreshes SQLite FTS, and attempts Chroma chunk cleanup for each deleted note. Chroma cleanup failures are logged and returned in `vector_cleanup` without restoring the deleted category or notes.
+
 Create a note:
 
 ```powershell

@@ -16,6 +16,21 @@ class CategoryCreate(BaseModel):
         return stripped_value
 
 
+class CategoryUpdate(BaseModel):
+    name: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_blank(cls, value: str) -> str:
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("name must not be blank")
+
+        return stripped_value
+
+
 class CategoryRead(BaseModel):
     id: int
     name: str
@@ -133,6 +148,13 @@ class NoteRead(BaseModel):
 class NoteDeleteResponse(BaseModel):
     id: int
     deleted: bool
+    vector_cleanup: Literal["deleted", "failed"]
+
+
+class CategoryDeleteResponse(BaseModel):
+    id: int
+    deleted: bool
+    deleted_note_ids: list[int]
     vector_cleanup: Literal["deleted", "failed"]
 
 

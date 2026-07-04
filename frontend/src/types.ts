@@ -32,6 +32,17 @@ export type CategoryCreate = {
   name: string;
 };
 
+export type CategoryUpdate = {
+  name: string;
+};
+
+export type CategoryDeleteResponse = {
+  id: number;
+  deleted: boolean;
+  deleted_note_ids: number[];
+  vector_cleanup: "deleted" | "failed";
+};
+
 export type NoteCreate = {
   original_text: string;
   category_id?: number | null;

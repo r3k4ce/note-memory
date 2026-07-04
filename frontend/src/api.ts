@@ -3,7 +3,9 @@ import type {
   AskResponse,
   Category,
   CategoryCreate,
+  CategoryDeleteResponse,
   CategoryScopeRequest,
+  CategoryUpdate,
   Note,
   NoteCreate,
   NoteUpdate,
@@ -84,6 +86,21 @@ export function createCategory(name: string): Promise<Category> {
   return requestJson<Category>("/categories", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export function updateCategory(categoryId: number, name: string): Promise<Category> {
+  const body: CategoryUpdate = { name };
+
+  return requestJson<Category>(`/categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteCategory(categoryId: number): Promise<CategoryDeleteResponse> {
+  return requestJson<CategoryDeleteResponse>(`/categories/${categoryId}`, {
+    method: "DELETE",
   });
 }
 

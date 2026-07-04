@@ -15,16 +15,20 @@ from mapping_memory.notes import (
     CategoryNotFoundError,
     create_category,
     create_note,
+    delete_category,
     delete_note,
     get_category,
     get_note,
     list_categories,
     list_notes,
+    update_category,
     update_note,
 )
 from mapping_memory.schemas import (
     CategoryCreate,
+    CategoryDeleteResponse,
     CategoryRead,
+    CategoryUpdate,
     NoteCreate,
     NoteDeleteResponse,
     NoteRead,
@@ -79,6 +83,52 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(error),
             ) from error
+
+    @app.patch("/categories/{category_id}", response_model=CategoryRead)
+    def update_category_endpoint(category_id: int, category: CategoryUpdate) -> CategoryRead:
+        try:
+            updated_category = update_category(
+                app_settings.sqlite_path,
+                category_id,
+                category.name,
+            )
+        except CategoryAlreadyExistsError as error:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(error),
+            ) from error
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
+        if updated_category is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+        return updated_category
+
+    @app.delete("/categories/{category_id}", response_model=CategoryDeleteResponse)
+    def delete_category_endpoint(category_id: int) -> CategoryDeleteResponse:
+        deleted_note_ids = delete_category(app_settings.sqlite_path, category_id)
+        if deleted_note_ids is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+        vector_cleanup = "deleted"
+        for note_id in deleted_note_ids:
+            try:
+                _delete_note_from_retrieval(note_id, settings=app_settings)
+            except Exception:
+                logger.warning(
+                    "Retrieval cleanup unavailable; deleted category without full vector cleanup"
+                )
+                vector_cleanup = "failed"
+
+        return CategoryDeleteResponse(
+            id=category_id,
+            deleted=True,
+            deleted_note_ids=deleted_note_ids,
+            vector_cleanup=vector_cleanup,
+        )
 
     @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
     def create_note_endpoint(note: NoteCreate) -> NoteRead:

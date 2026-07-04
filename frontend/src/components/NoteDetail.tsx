@@ -146,7 +146,7 @@ export function NoteDetail({
           <Pencil size={18} strokeWidth={1.5} className="text-text-muted" />
         </div>
         <p className="text-sm font-medium text-text-secondary">No note selected</p>
-        <p className="text-xs text-text-muted">Select a note from the list, or capture a new one.</p>
+        <p className="text-xs text-text-muted">Select a note from the list, or start a new note.</p>
       </div>
     );
   }
@@ -195,202 +195,207 @@ export function NoteDetail({
   }
 
   return (
-    <article className="mx-auto flex h-full max-w-3xl flex-col gap-6 py-2">
+    <article className={isEditing ? "mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4" : "mx-auto flex h-full max-w-3xl flex-col gap-6 py-2"}>
       <header className="flex flex-col gap-3">
-        {isEditing ? (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-title">
-              Title
-            </label>
-            <input
-              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-xl font-semibold leading-tight text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-              disabled={isSavingEdit}
-              id="edit-note-title"
-              onChange={(event) => {
-                setEditDraft({ ...editDraft, title: event.target.value });
-                setValidationError(null);
-              }}
-              value={editDraft.title}
-            />
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            {isEditing ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-title">
+                  Title
+                </label>
+                <input
+                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-xl font-semibold leading-tight text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                  disabled={isSavingEdit}
+                  id="edit-note-title"
+                  onChange={(event) => {
+                    setEditDraft({ ...editDraft, title: event.target.value });
+                    setValidationError(null);
+                  }}
+                  value={editDraft.title}
+                />
+              </div>
+            ) : (
+              <h2 className="text-xl font-semibold leading-tight text-text-primary">{note.ai_title}</h2>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+            {isEditing ? (
+              <>
+                <button
+                  aria-label={isSavingEdit ? "Saving changes" : "Save changes"}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-accent text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={actionsDisabled}
+                  onClick={() => void handleSaveEdit()}
+                  title={isSavingEdit ? "Saving changes" : "Save changes"}
+                  type="button"
+                >
+                  <Save size={14} strokeWidth={2} />
+                </button>
+                <button
+                  aria-label="Cancel edit"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+                  disabled={actionsDisabled}
+                  onClick={onCancelEdit}
+                  title="Cancel edit"
+                  type="button"
+                >
+                  <X size={14} strokeWidth={2} />
+                </button>
+              </>
+            ) : (
+              <button
+                aria-label="Edit note"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+                disabled={actionsDisabled}
+                onClick={onEdit}
+                title="Edit note"
+                type="button"
+              >
+                <Pencil size={14} strokeWidth={2} />
+              </button>
+            )}
+            <button
+              aria-label="New note"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+              disabled={actionsDisabled}
+              onClick={onNewNote}
+              title="New note"
+              type="button"
+            >
+              <Plus size={14} strokeWidth={2} />
+            </button>
+            <button
+              aria-label={isDeleting ? "Deleting note" : "Delete note"}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-error/20 text-error transition-colors hover:bg-error-muted disabled:opacity-40"
+              disabled={actionsDisabled}
+              onClick={() => void onDelete(note.id)}
+              title={isDeleting ? "Deleting note" : "Delete note"}
+              type="button"
+            >
+              <Trash2 size={14} strokeWidth={2} />
+            </button>
+          </div>
+        </div>
+
+        {!isEditing ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-text-muted">
+            <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
+              {note.category?.name ?? "Uncategorized"}
+            </span>
+            <time dateTime={note.date_added}>Created {note.date_added}</time>
+            <time dateTime={note.updated_at}>Updated {note.updated_at}</time>
+            {note.tags.length > 0 ? (
+              <span className="flex flex-wrap items-center gap-1.5" aria-label="Tags">
+                {note.tags.map((tag) => (
+                  <span
+                    className="rounded border border-border bg-surface-raised px-2 py-0.5 font-medium text-text-secondary"
+                    key={tag}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </span>
+            ) : null}
           </div>
         ) : (
-          <h2 className="text-xl font-semibold leading-tight text-text-primary">{note.ai_title}</h2>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-text-muted">
+            {categories.length > 0 ? (
+              <label className="flex items-center gap-1.5">
+                <span className="sr-only">Category</span>
+                <select
+                  className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                  disabled={isSavingEdit}
+                  id="edit-note-category"
+                  onChange={(event) =>
+                    setEditDraft({ ...editDraft, categoryId: event.target.value ? Number(event.target.value) : null })
+                  }
+                  value={editDraft.categoryId ?? ""}
+                >
+                  <option value="">Uncategorized</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <time dateTime={note.date_added}>Created {note.date_added}</time>
+            <time dateTime={note.updated_at}>Updated {note.updated_at}</time>
+            <label className="min-w-40 flex-1">
+              <span className="sr-only">Tags</span>
+              <input
+                className="w-full rounded border border-border bg-surface-raised px-2 py-0.5 font-medium text-text-secondary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                disabled={isSavingEdit}
+                id="edit-note-tags"
+                onChange={(event) => {
+                  setEditDraft({ ...editDraft, tagsText: event.target.value });
+                  setValidationError(null);
+                }}
+                placeholder="routing, memory, labels"
+                value={editDraft.tagsText}
+              />
+            </label>
+          </div>
         )}
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
-          <time dateTime={note.date_added}>{note.date_added}</time>
-          <span className="text-border-strong">·</span>
-          <time dateTime={note.updated_at}>updated {note.updated_at}</time>
-          {!isEditing && note.category ? (
-            <>
-              <span className="text-border-strong">·</span>
-              <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
-                {note.category.name}
-              </span>
-            </>
-          ) : null}
-        </div>
+        {validationError ? <p className="text-xs text-error">{validationError}</p> : null}
+        {editError ? <p className="text-xs text-error">{editError}</p> : null}
+        {deleteError ? <p className="text-xs text-error">{deleteError}</p> : null}
       </header>
 
-      {isEditing && categories.length > 0 ? (
-        <div className="flex flex-col gap-1.5 sm:max-w-xs">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-category">
-            Category
-          </label>
-          <select
-            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-            disabled={isSavingEdit}
-            id="edit-note-category"
-            onChange={(event) =>
-              setEditDraft({ ...editDraft, categoryId: event.target.value ? Number(event.target.value) : null })
-            }
-            value={editDraft.categoryId ?? ""}
-          >
-            <option value="">Uncategorized</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+      {!isEditing ? (
+        <details className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-secondary">
+          <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            Summary
+          </summary>
+          <p className="mt-2 whitespace-pre-wrap leading-relaxed">{note.short_summary}</p>
+        </details>
+      ) : null}
+
+      {!isEditing ? (
+        <div className="flex flex-col gap-2">
+          <MarkdownPane mode="read" value={note.original_text} />
         </div>
       ) : null}
 
       {isEditing ? (
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-tags">
-            Tags
+          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-summary">
+            Summary
           </label>
-          <input
-            className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          <textarea
+            className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
             disabled={isSavingEdit}
-            id="edit-note-tags"
+            id="edit-note-summary"
             onChange={(event) => {
-              setEditDraft({ ...editDraft, tagsText: event.target.value });
+              setEditDraft({ ...editDraft, summary: event.target.value });
               setValidationError(null);
             }}
-            placeholder="routing, memory, labels"
-            value={editDraft.tagsText}
+            value={editDraft.summary}
           />
-        </div>
-      ) : note.tags.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5" aria-label="Tags">
-          {note.tags.map((tag) => (
-            <span
-              className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
-              key={tag}
-            >
-              {tag}
-            </span>
-          ))}
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
-        {isEditing ? (
-          <>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-summary">
-              Summary
-            </label>
-            <textarea
-              className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-              disabled={isSavingEdit}
-              id="edit-note-summary"
-              onChange={(event) => {
-                setEditDraft({ ...editDraft, summary: event.target.value });
-                setValidationError(null);
-              }}
-              value={editDraft.summary}
-            />
-          </>
-        ) : (
-          <>
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Summary</h3>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{note.short_summary}</p>
-          </>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {isEditing ? (
-          <>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
-              Original text
-            </label>
-            <MarkdownPane
-              disabled={isSavingEdit}
-              id="edit-note-body"
-              mode="edit"
-              onChange={(value) => {
-                setEditDraft({ ...editDraft, bodyText: value });
-                setValidationError(null);
-              }}
-              value={editDraft.bodyText}
-            />
-          </>
-        ) : (
-          <>
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
-            <MarkdownPane mode="read" value={note.original_text} />
-          </>
-        )}
-      </div>
-
-      <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">
-        {isEditing ? (
-          <>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={() => void handleSaveEdit()}
-              type="button"
-            >
-              <Save size={13} strokeWidth={2} />
-              {isSavingEdit ? "Saving..." : "Save changes"}
-            </button>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={onCancelEdit}
-              type="button"
-            >
-              <X size={13} strokeWidth={2} />
-              Cancel
-            </button>
-          </>
-        ) : (
-          <button
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
-            disabled={actionsDisabled}
-            onClick={onEdit}
-            type="button"
-          >
-            <Pencil size={13} strokeWidth={2} />
-            Edit
-          </button>
-        )}
-        <button
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
-          disabled={actionsDisabled}
-          onClick={onNewNote}
-          type="button"
-        >
-          <Plus size={13} strokeWidth={2} />
-          New note
-        </button>
-        <button
-          className="inline-flex items-center gap-1.5 rounded-md border border-error/20 px-3 py-1.5 text-[13px] font-medium text-error transition-colors hover:bg-error-muted disabled:opacity-40"
-          disabled={actionsDisabled}
-          onClick={() => void onDelete(note.id)}
-          type="button"
-        >
-          <Trash2 size={13} strokeWidth={2} />
-          {isDeleting ? "Deleting..." : "Delete"}
-        </button>
-      </div>
-
-      {validationError ? <p className="text-xs text-error">{validationError}</p> : null}
-      {editError ? <p className="text-xs text-error">{editError}</p> : null}
-      {deleteError ? <p className="text-xs text-error">{deleteError}</p> : null}
+      {isEditing ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
+            Original text
+          </label>
+          <MarkdownPane
+            disabled={isSavingEdit}
+            id="edit-note-body"
+            mode="edit"
+            onChange={(value) => {
+              setEditDraft({ ...editDraft, bodyText: value });
+              setValidationError(null);
+            }}
+            value={editDraft.bodyText}
+            variant="workspace"
+          />
+        </div>
+      ) : null}
     </article>
   );
 }

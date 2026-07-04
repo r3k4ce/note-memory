@@ -104,6 +104,70 @@ def list_categories(sqlite_path: Path) -> list[CategoryRead]:
     return [_category_from_row(row) for row in rows]
 
 
+def update_category(sqlite_path: Path, category_id: int, name: str) -> CategoryRead | None:
+    category_name = name.strip()
+    if not category_name:
+        raise ValueError("name must not be blank")
+
+    timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            "SELECT id FROM categories WHERE id = ?",
+            (category_id,),
+        ).fetchone()
+        if row is None:
+            return None
+
+        if _category_name_exists(connection, category_name, exclude_category_id=category_id):
+            raise CategoryAlreadyExistsError("Category already exists")
+
+        slug = _unique_category_slug(
+            connection,
+            _slugify(category_name),
+            exclude_category_id=category_id,
+        )
+        connection.execute(
+            """
+            UPDATE categories
+            SET name = ?,
+                slug = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (category_name, slug, timestamp, category_id),
+        )
+        connection.commit()
+
+    return get_category(sqlite_path, category_id)
+
+
+def delete_category(sqlite_path: Path, category_id: int) -> list[int] | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            "SELECT id FROM categories WHERE id = ?",
+            (category_id,),
+        ).fetchone()
+        if row is None:
+            return None
+
+        note_rows = connection.execute(
+            """
+            SELECT id
+            FROM notes
+            WHERE category_id = ?
+            ORDER BY date_added DESC, id DESC
+            """,
+            (category_id,),
+        ).fetchall()
+        note_ids = [row["id"] for row in note_rows]
+        connection.execute("DELETE FROM notes WHERE category_id = ?", (category_id,))
+        connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        rebuild_notes_fts(connection)
+        connection.commit()
+
+    return note_ids
+
+
 def create_note(
     sqlite_path: Path,
     original_text: str,
@@ -465,26 +529,56 @@ def _ensure_category_exists(connection: sqlite3.Connection, category_id: int | N
         raise CategoryNotFoundError("Category not found")
 
 
-def _category_name_exists(connection: sqlite3.Connection, name: str) -> bool:
+def _category_name_exists(
+    connection: sqlite3.Connection,
+    name: str,
+    *,
+    exclude_category_id: int | None = None,
+) -> bool:
+    params: list[object] = [name]
+    filters = ["lower(name) = lower(?)"]
+    if exclude_category_id is not None:
+        filters.append("id != ?")
+        params.append(exclude_category_id)
+
     row = connection.execute(
-        "SELECT 1 FROM categories WHERE lower(name) = lower(?)",
-        (name,),
+        f"SELECT 1 FROM categories WHERE {' AND '.join(filters)}",
+        tuple(params),
     ).fetchone()
     return row is not None
 
 
-def _unique_category_slug(connection: sqlite3.Connection, base_slug: str) -> str:
+def _unique_category_slug(
+    connection: sqlite3.Connection,
+    base_slug: str,
+    *,
+    exclude_category_id: int | None = None,
+) -> str:
     slug = base_slug
     suffix = 2
-    while _category_slug_exists(connection, slug):
+    while _category_slug_exists(connection, slug, exclude_category_id=exclude_category_id):
         slug = f"{base_slug}-{suffix}"
         suffix += 1
 
     return slug
 
 
-def _category_slug_exists(connection: sqlite3.Connection, slug: str) -> bool:
-    row = connection.execute("SELECT 1 FROM categories WHERE slug = ?", (slug,)).fetchone()
+def _category_slug_exists(
+    connection: sqlite3.Connection,
+    slug: str,
+    *,
+    exclude_category_id: int | None = None,
+) -> bool:
+    params: list[object] = [slug]
+    filters = ["slug = ?"]
+    if exclude_category_id is not None:
+        filters.append("id != ?")
+        params.append(exclude_category_id)
+
+    row = connection.execute(
+        f"SELECT 1 FROM categories WHERE {' AND '.join(filters)}",
+        tuple(params),
+    ).fetchone()
     return row is not None
 
 

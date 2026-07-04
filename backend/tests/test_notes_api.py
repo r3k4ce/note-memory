@@ -751,6 +751,119 @@ def test_categories_api_creates_lists_and_rejects_duplicates(tmp_path: Path) -> 
     assert duplicate_response.json() == {"detail": "Category already exists"}
 
 
+def test_categories_api_renames_category_and_rejects_duplicates(tmp_path: Path) -> None:
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        work_response = client.post("/categories", json={"name": "Work"})
+        client.post("/categories", json={"name": "Personal"})
+        renamed_response = client.patch(
+            f"/categories/{work_response.json()['id']}",
+            json={"name": " Projects "},
+        )
+        list_response = client.get("/categories")
+        duplicate_response = client.patch(
+            f"/categories/{work_response.json()['id']}",
+            json={"name": "personal"},
+        )
+        missing_response = client.patch("/categories/999999", json={"name": "Missing"})
+
+    assert renamed_response.status_code == 200
+    assert renamed_response.json()["id"] == work_response.json()["id"]
+    assert renamed_response.json()["name"] == "Projects"
+    assert renamed_response.json()["slug"] == "projects"
+    assert [category["name"] for category in list_response.json()] == ["Personal", "Projects"]
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json() == {"detail": "Category already exists"}
+    assert missing_response.status_code == 404
+    assert missing_response.json() == {"detail": "Category not found"}
+
+
+def test_categories_api_deletes_category_notes_and_chroma_chunks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    deleted_chunks: list[int] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def delete_chunks_for_note(self, note_id: int) -> None:
+            deleted_chunks.append(note_id)
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        category_response = client.post("/categories", json={"name": "Work"})
+        category_id = category_response.json()["id"]
+        deleted_note_response = client.post(
+            "/notes",
+            json={"original_text": "Work note", "category_id": category_id},
+        )
+        kept_note_response = client.post("/notes", json={"original_text": "Loose note"})
+        delete_response = client.delete(f"/categories/{category_id}")
+        categories_response = client.get("/categories")
+        deleted_note_fetch = client.get(f"/notes/{deleted_note_response.json()['id']}")
+        kept_note_fetch = client.get(f"/notes/{kept_note_response.json()['id']}")
+
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {
+        "id": category_id,
+        "deleted": True,
+        "deleted_note_ids": [deleted_note_response.json()["id"]],
+        "vector_cleanup": "deleted",
+    }
+    assert deleted_chunks == [deleted_note_response.json()["id"]]
+    assert categories_response.json() == []
+    assert deleted_note_fetch.status_code == 404
+    assert kept_note_fetch.status_code == 200
+
+
+def test_categories_api_delete_reports_failed_chroma_cleanup(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def delete_chunks_for_note(self, note_id: int) -> None:
+            raise RuntimeError("provider failure with sensitive details")
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        category_response = client.post("/categories", json={"name": "Work"})
+        note_response = client.post(
+            "/notes",
+            json={"original_text": "Work note", "category_id": category_response.json()["id"]},
+        )
+        delete_response = client.delete(f"/categories/{category_response.json()['id']}")
+        deleted_note_fetch = client.get(f"/notes/{note_response.json()['id']}")
+
+    assert delete_response.status_code == 200
+    assert delete_response.json()["vector_cleanup"] == "failed"
+    assert deleted_note_fetch.status_code == 404
+    assert (
+        "Retrieval cleanup unavailable; deleted category without full vector cleanup" in caplog.text
+    )
+    assert "provider failure" not in caplog.text
+
+
 def test_notes_api_creates_updates_and_filters_by_category(
     tmp_path: Path,
     monkeypatch,
