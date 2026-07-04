@@ -24,9 +24,10 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 A local-first three-pane notes workspace with AI-assisted metadata, hybrid search,
 and grounded Ask/chat over your saved notes.
 
-- **Left sidebar:** all-notes search, an expandable browse category tree with
-  nested notes, search match snippets, and visible Ask source checkboxes for
-  all notes, categories, and individual notes.
+- **Left sidebar:** explicit Browse and Search tabs, a collapsed category manager
+  for creating/renaming/deleting categories, a browse category tree with nested
+  notes, search match snippets, and visible Ask source checkboxes for all notes,
+  categories, and individual notes.
 - **Center workspace:** write new Markdown notes, read selected notes, and edit
   the note body, title, summary, tags, and category in one workspace.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
@@ -127,7 +128,7 @@ controls normally; shortcuts use `Alt`, not `Ctrl`.
 | Shortcut | Action | Focus target |
 | --- | --- | --- |
 | `Alt+1` | Focus new-note editor | Note Markdown editor |
-| `Alt+2` | Focus search | Search input |
+| `Alt+2` | Open Search tab | Search input |
 | `Alt+3` | Focus Ask composer | Ask textarea |
 | `Escape` | Leave the current field | Blurs the active control |
 
@@ -162,7 +163,7 @@ Ask scope, chat history, PATCH, and DELETE.
 Walk through these once after a clean install:
 
 - [ ] `Invoke-RestMethod http://127.0.0.1:8000/health` returns `{ "status": "ok" }`
-- [ ] `POST /categories` creates a manual category and `GET /categories` lists it
+- [ ] `POST /categories` creates a manual category, `PATCH /categories/{id}` renames it, `GET /categories` lists it, and `DELETE /categories/{id}` deletes it with its notes
 - [ ] `POST /notes` with sample text returns 201 and a note with `ai_title`, `short_summary`, `tags`, and `category`
 - [ ] `GET /notes` lists the saved note
 - [ ] `GET /notes/{id}` returns the same note
@@ -172,8 +173,8 @@ Walk through these once after a clean install:
 - [ ] `PATCH /notes/{id}` updates body/title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`
 - [ ] Frontend at `http://localhost:5173` loads the three-pane workspace
-- [ ] Left sidebar search returns note cards with `Exact`, `Semantic`, or `Hybrid` match chips and matched snippets when available
-- [ ] Left sidebar categories expand into nested notes for browsing without limiting sidebar search
+- [ ] Left sidebar Search tab returns note cards with `Exact`, `Semantic`, or `Hybrid` match chips and matched snippets when available
+- [ ] Left sidebar Browse tab starts with collapsed category folders and has a collapsed category manager for create/rename/delete
 - [ ] Left sidebar Ask source checkboxes switch between all notes, category-selected notes, individual notes, and no selected notes
 - [ ] Center workspace creates notes, opens selected notes, and edits the saved Markdown body plus metadata
 - [ ] Saved note detail renders the note body as Markdown in single-pane read mode

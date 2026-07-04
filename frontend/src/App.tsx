@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   FileText,
   Folder,
   FolderOpen,
+  Pencil,
   Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 
 import {
   createCategory,
   createNote,
+  deleteCategory,
   deleteNote,
   getNote,
   listCategories,
   listNotes,
   searchNotes,
   askQuestion,
+  updateCategory,
   updateNote,
 } from "./api";
 import {
@@ -48,6 +54,7 @@ import type {
 } from "./types";
 
 type CategoryFilter = "all" | "uncategorized" | number;
+type SidebarTab = "browse" | "search";
 type AskHistorySourceMessage = Extract<ChatMessage, { role: "user" | "assistant" }>;
 type BrowseFolder = {
   filter: Exclude<CategoryFilter, "all">;
@@ -86,24 +93,8 @@ function sortCategories(categories: Category[]): Category[] {
   );
 }
 
-function categoryFilterLabel(filter: CategoryFilter, categories: Category[]): string {
-  if (filter === "all") {
-    return "All notes";
-  }
-
-  if (filter === "uncategorized") {
-    return "Uncategorized";
-  }
-
-  return categories.find((category) => category.id === filter)?.name ?? "Category";
-}
-
 function categoryFilterKey(filter: Exclude<CategoryFilter, "all">): string {
   return filter === "uncategorized" ? "uncategorized" : `category:${filter}`;
-}
-
-function getBrowseFolderKeys(categories: Category[]): string[] {
-  return ["uncategorized", ...categories.map((category) => categoryFilterKey(category.id))];
 }
 
 function formatAskChatScopeLabel(scope: AskNoteScope, totalNotes: number): string {
@@ -125,19 +116,24 @@ export default function App() {
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<CategoryFilter>("all");
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("browse");
   const [draftText, setDraftText] = useState("");
   const [draftCategoryId, setDraftCategoryId] = useState<number | null>(null);
   const [categoryDraft, setCategoryDraft] = useState("");
+  const [categoryEditDraft, setCategoryEditDraft] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
   const [activeSearchQuery, setActiveSearchQuery] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -152,9 +148,7 @@ export default function App() {
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
   const [askNoteScope, setAskNoteScope] = useState(DEFAULT_ASK_NOTE_SCOPE);
-  const [expandedFolderKeys, setExpandedFolderKeys] = useState<Set<string>>(
-    () => new Set(["uncategorized"]),
-  );
+  const [expandedFolderKeys, setExpandedFolderKeys] = useState<Set<string>>(() => new Set());
 
   const searchRequestId = useRef(0);
   const askRequestId = useRef(0);
@@ -164,7 +158,8 @@ export default function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
 
-  const categoryScopeLabel = categoryFilterLabel(selectedCategoryFilter, categories);
+  const isBrowseTab = sidebarTab === "browse";
+  const isSearchTab = sidebarTab === "search";
   const isSearchActive = activeSearchQuery !== null;
   const sortedCategories = useMemo(() => sortCategories(categories), [categories]);
   const uncategorizedNotes = useMemo(
@@ -207,6 +202,7 @@ export default function App() {
     if (nextMode === "capture") {
       setWorkspaceMode("new");
     } else if (nextMode === "search") {
+      setSidebarTab("search");
       setWorkspaceMode("read-selected");
     }
   }, []);
@@ -352,7 +348,7 @@ export default function App() {
 
         setNotes(loadedNotes);
         setCategories(loadedCategories);
-        setExpandedFolderKeys(new Set(getBrowseFolderKeys(sortCategories(loadedCategories))));
+        setExpandedFolderKeys(new Set());
         setSelectedNoteId(null);
         setSelectedNote(null);
       } catch (error) {
@@ -388,21 +384,12 @@ export default function App() {
   }, [askAvailableNoteIds, askNoteScope]);
 
   useEffect(() => {
-    const folderKeys = getBrowseFolderKeys(sortedCategories);
-    setExpandedFolderKeys((currentKeys) => {
-      const nextKeys = new Set(currentKeys);
-      let changed = false;
+    if (!isSearchTab) {
+      return;
+    }
 
-      for (const folderKey of folderKeys) {
-        if (!nextKeys.has(folderKey)) {
-          nextKeys.add(folderKey);
-          changed = true;
-        }
-      }
-
-      return changed ? nextKeys : currentKeys;
-    });
-  }, [sortedCategories]);
+    searchRef.current?.focus();
+  }, [isSearchTab]);
 
   useEffect(() => {
     if (selectedNoteId === null) {
@@ -562,15 +549,108 @@ export default function App() {
       const category = await createCategory(name);
       setCategories((currentCategories) => sortCategories([...currentCategories, category]));
       setCategoryDraft("");
-      setIsCreatingCategory(false);
       setSelectedCategoryFilter(category.id);
       setDraftCategoryId(category.id);
       setSelectedNote(null);
       setSelectedNoteId(null);
+      setExpandedFolderKeys((currentKeys) => new Set(currentKeys).add(categoryFilterKey(category.id)));
     } catch (error) {
       setCategoryError(getErrorMessage(error, "Could not create category."));
     } finally {
       setIsSavingCategory(false);
+    }
+  }
+
+  async function handleRenameCategory(event: FormEvent, categoryId: number) {
+    event.preventDefault();
+
+    const name = categoryEditDraft.trim();
+    if (!name) {
+      setCategoryError("Enter a category name.");
+      return;
+    }
+
+    setIsUpdatingCategory(true);
+    setCategoryError(null);
+
+    try {
+      const category = await updateCategory(categoryId, name);
+      setCategories((currentCategories) =>
+        sortCategories(
+          currentCategories.map((currentCategory) =>
+            currentCategory.id === category.id ? category : currentCategory,
+          ),
+        ),
+      );
+      setNotes((currentNotes) =>
+        currentNotes.map((note) =>
+          note.category?.id === category.id ? { ...note, category } : note,
+        ),
+      );
+      setSearchResults((currentResults) =>
+        currentResults.map((result) =>
+          result.category?.id === category.id ? { ...result, category } : result,
+        ),
+      );
+      setSelectedNote((currentNote) =>
+        currentNote?.category?.id === category.id ? { ...currentNote, category } : currentNote,
+      );
+      setEditingCategoryId(null);
+      setCategoryEditDraft("");
+    } catch (error) {
+      setCategoryError(getErrorMessage(error, "Could not rename category."));
+    } finally {
+      setIsUpdatingCategory(false);
+    }
+  }
+
+  async function handleDeleteCategory(category: Category, noteCount: number) {
+    const noteLabel = noteCount === 1 ? "1 note" : `${noteCount} notes`;
+    if (!window.confirm(`Delete "${category.name}" and its ${noteLabel}? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingCategoryId(category.id);
+    setCategoryError(null);
+
+    try {
+      const result = await deleteCategory(category.id);
+      const deletedNoteIds = new Set(result.deleted_note_ids);
+      setCategories((currentCategories) =>
+        currentCategories.filter((currentCategory) => currentCategory.id !== category.id),
+      );
+      setNotes((currentNotes) => currentNotes.filter((note) => !deletedNoteIds.has(note.id)));
+      setSearchResults((currentResults) =>
+        currentResults.filter((result) => !deletedNoteIds.has(result.id)),
+      );
+      setExpandedFolderKeys((currentKeys) => {
+        const nextKeys = new Set(currentKeys);
+        nextKeys.delete(categoryFilterKey(category.id));
+        return nextKeys;
+      });
+      if (selectedCategoryFilter === category.id) {
+        setSelectedCategoryFilter("all");
+      }
+      if (draftCategoryId === category.id) {
+        setDraftCategoryId(null);
+      }
+      if (selectedNoteId !== null && deletedNoteIds.has(selectedNoteId)) {
+        setSelectedNoteId(null);
+        setSelectedNote(null);
+        setWorkspaceMode("new");
+        setDetailError(null);
+        setDeleteError(null);
+        setEditError(null);
+        setIsSelectedNoteEditDirty(false);
+      }
+      if (editingCategoryId === category.id) {
+        setEditingCategoryId(null);
+        setCategoryEditDraft("");
+      }
+    } catch (error) {
+      setCategoryError(getErrorMessage(error, "Could not delete category."));
+    } finally {
+      setDeletingCategoryId(null);
     }
   }
 
@@ -691,10 +771,6 @@ export default function App() {
     }
   }
 
-  const sidebarModeTitle = isSearchActive ? "Search results" : "Browse";
-  const sidebarContextLabel = isSearchActive
-    ? `Results for “${activeSearchQuery}”`
-    : categoryScopeLabel;
   const searchStatus = isSearching
     ? "Searching..."
     : searchError
@@ -730,96 +806,228 @@ export default function App() {
           </button>
         </div>
 
-        <div className="shrink-0 p-2.5">
-          <SearchBar
-            isSearching={isSearching}
-            onChange={handleSearchTextChange}
-            onClear={clearSearch}
-            onSubmit={handleSearchSubmit}
-            query={searchText}
-            searchRef={searchRef}
-          />
+        <div className="shrink-0 border-b border-border p-2.5">
+          <div
+            aria-label="Sidebar mode"
+            className="grid grid-cols-2 rounded-md bg-surface-raised p-0.5"
+            role="tablist"
+          >
+            <button
+              aria-selected={isBrowseTab}
+              className={`rounded px-2 py-1.5 text-[12px] font-medium transition-colors ${
+                isBrowseTab
+                  ? "bg-surface-hover text-text-primary"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+              onClick={() => setSidebarTab("browse")}
+              role="tab"
+              type="button"
+            >
+              Browse
+            </button>
+            <button
+              aria-selected={isSearchTab}
+              className={`rounded px-2 py-1.5 text-[12px] font-medium transition-colors ${
+                isSearchTab
+                  ? "bg-surface-hover text-text-primary"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+              onClick={() => setSidebarTab("search")}
+              role="tab"
+              type="button"
+            >
+              Search
+            </button>
+          </div>
         </div>
 
-        <div className="shrink-0 px-3 py-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-              {sidebarModeTitle}
-            </span>
+        {isSearchTab ? (
+          <div className="shrink-0 border-b border-border p-2.5">
+            <SearchBar
+              isSearching={isSearching}
+              onChange={handleSearchTextChange}
+              onClear={clearSearch}
+              onSubmit={handleSearchSubmit}
+              query={searchText}
+              searchRef={searchRef}
+            />
             {isSearchActive ? (
-              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{searchStatus}</span>
-            ) : !isLoadingNotes ? (
+              <div className="mt-2 flex items-center justify-between gap-2 px-0.5">
+                <span className="min-w-0 truncate text-[11px] text-text-secondary">
+                  Results for “{activeSearchQuery}”
+                </span>
+                <span className="shrink-0 text-[11px] tabular-nums text-text-muted">
+                  {searchStatus}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isBrowseTab ? (
+          <div className="shrink-0 border-b border-border px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
               <button
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
-                disabled={isSavingCategory}
+                aria-expanded={isCategoryManagerOpen}
+                className="inline-flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                 onClick={() => {
-                  setIsCreatingCategory((current) => !current);
+                  setIsCategoryManagerOpen((current) => !current);
                   setCategoryError(null);
                 }}
                 type="button"
               >
-                {isCreatingCategory ? "Cancel" : "New"}
+                {isCategoryManagerOpen ? (
+                  <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
+                ) : (
+                  <ChevronRight aria-hidden="true" size={14} strokeWidth={2} />
+                )}
+                Categories
               </button>
-            ) : null}
-          </div>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="min-w-0 truncate text-[11px] text-text-secondary">
-              {sidebarContextLabel}
-            </span>
-            {!isSearchActive ? (
               <span className="shrink-0 text-[10px] text-text-muted">{askScopeSummary}</span>
+            </div>
+
+            {isCategoryManagerOpen ? (
+              <div
+                aria-label="Manage categories"
+                className="mt-2 rounded-md border border-border bg-surface-raised p-2"
+                role="region"
+              >
+                <form className="flex gap-1.5" onSubmit={handleCreateCategory}>
+                  <input
+                    aria-label="New category name"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                    disabled={isSavingCategory}
+                    onChange={(event) => {
+                      setCategoryDraft(event.target.value);
+                      setCategoryError(null);
+                    }}
+                    placeholder="New category"
+                    value={categoryDraft}
+                  />
+                  <button
+                    aria-label="Add category"
+                    className="inline-flex items-center justify-center rounded-md bg-accent px-2.5 py-1.5 text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
+                    disabled={isSavingCategory}
+                    type="submit"
+                  >
+                    <Plus size={14} strokeWidth={2} />
+                  </button>
+                </form>
+
+                {sortedCategories.length > 0 ? (
+                  <div className="mt-2 flex flex-col gap-1">
+                    {sortedCategories.map((category) => {
+                      const noteCount = notes.filter((note) => note.category?.id === category.id).length;
+                      const isEditingCategory = editingCategoryId === category.id;
+
+                      return (
+                        <div className="rounded border border-border bg-surface px-2 py-1.5" key={category.id}>
+                          {isEditingCategory ? (
+                            <form
+                              className="flex gap-1.5"
+                              onSubmit={(event) => handleRenameCategory(event, category.id)}
+                            >
+                              <input
+                                aria-label="Category name"
+                                className="min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-2 py-1 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                                disabled={isUpdatingCategory}
+                                onChange={(event) => {
+                                  setCategoryEditDraft(event.target.value);
+                                  setCategoryError(null);
+                                }}
+                                value={categoryEditDraft}
+                              />
+                              <button
+                                aria-label="Save category"
+                                className="rounded p-1 text-accent transition-colors hover:bg-surface-hover disabled:opacity-40"
+                                disabled={isUpdatingCategory}
+                                type="submit"
+                              >
+                                <Check size={14} strokeWidth={2} />
+                              </button>
+                              <button
+                                aria-label="Cancel category rename"
+                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+                                disabled={isUpdatingCategory}
+                                onClick={() => {
+                                  setEditingCategoryId(null);
+                                  setCategoryEditDraft("");
+                                  setCategoryError(null);
+                                }}
+                                type="button"
+                              >
+                                <X size={14} strokeWidth={2} />
+                              </button>
+                            </form>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <span className="min-w-0 flex-1 truncate text-[13px] text-text-primary">
+                                {category.name}
+                              </span>
+                              <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                                {noteCount}
+                              </span>
+                              <button
+                                aria-label={`Rename ${category.name}`}
+                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+                                disabled={isUpdatingCategory || deletingCategoryId !== null}
+                                onClick={() => {
+                                  setEditingCategoryId(category.id);
+                                  setCategoryEditDraft(category.name);
+                                  setCategoryError(null);
+                                }}
+                                type="button"
+                              >
+                                <Pencil size={13} strokeWidth={2} />
+                              </button>
+                              <button
+                                aria-label={`Delete ${category.name}`}
+                                className="rounded p-1 text-text-muted transition-colors hover:bg-error-muted hover:text-error disabled:opacity-40"
+                                disabled={isUpdatingCategory || deletingCategoryId !== null}
+                                onClick={() => void handleDeleteCategory(category, noteCount)}
+                                type="button"
+                              >
+                                <Trash2 size={13} strokeWidth={2} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {categoryError ? (
+              <p className="mt-1.5 px-0.5 text-xs text-error">{categoryError}</p>
             ) : null}
           </div>
-          {!isSearchActive && isCreatingCategory ? (
-            <form className="mt-2 flex gap-1.5" onSubmit={handleCreateCategory}>
-              <input
-                aria-label="New category name"
-                className="min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-                disabled={isSavingCategory}
-                onChange={(event) => {
-                  setCategoryDraft(event.target.value);
-                  setCategoryError(null);
-                }}
-                placeholder="Category name"
-                value={categoryDraft}
-              />
-              <button
-                className="rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
-                disabled={isSavingCategory}
-                type="submit"
-              >
-                Add
-              </button>
-            </form>
-          ) : null}
-          {!isSearchActive && categoryError ? (
-            <p className="mt-1.5 px-0.5 text-xs text-error">{categoryError}</p>
-          ) : null}
-        </div>
+        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
-          {!isSearchActive && isLoadingNotes ? (
+          {isBrowseTab && isLoadingNotes ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
               Loading...
             </div>
           ) : null}
 
-          {isSearchActive && isSearching ? (
+          {isSearchTab && isSearching ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
               Searching...
             </div>
           ) : null}
 
-          {!isSearchActive && listError ? (
+          {isBrowseTab && listError ? (
             <p className="px-2 py-3 text-xs text-error">{listError}</p>
           ) : null}
-          {isSearchActive && searchError ? (
+          {isSearchTab && searchError ? (
             <p className="px-2 py-3 text-xs text-error">{searchError}</p>
           ) : null}
 
-          {!isSearchActive && !isLoadingNotes && !listError && notes.length === 0 ? (
+          {isBrowseTab && !isLoadingNotes && !listError && notes.length === 0 ? (
             <div className="px-2 py-6 text-center">
               <p className="text-xs text-text-muted">No notes yet</p>
               <p className="mt-1 text-[11px] text-text-muted">
@@ -827,11 +1035,11 @@ export default function App() {
               </p>
             </div>
           ) : null}
-          {isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
+          {isSearchTab && isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
             <p className="px-2 py-6 text-center text-xs text-text-muted">No results found</p>
           ) : null}
 
-          {isSearchActive ? (
+          {isSearchTab && isSearchActive ? (
             <div className="flex flex-col gap-0.5">
               {visibleNotes.map((note) => (
                 <NoteCard
@@ -848,7 +1056,7 @@ export default function App() {
             </div>
           ) : null}
 
-          {!isSearchActive && !isLoadingNotes && !listError && notes.length > 0 ? (
+          {isBrowseTab && !isLoadingNotes && !listError && notes.length > 0 ? (
             <div aria-label="Browse notes" className="flex flex-col gap-0.5" role="tree">
               <div className="flex items-center gap-1 rounded-md pr-1">
                 <input

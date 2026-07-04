@@ -1,4 +1,19 @@
 entries:
+  - time_utc: "2026-07-04T18:15:35Z"
+    time_local: "2026-07-04T15:15:35-03:00"
+    summary: "Added explicit sidebar Browse/Search tabs and category management."
+    changed:
+      - "Moved sidebar Search into an explicit Search tab while keeping Alt+1 new note, Alt+2 search focus, and Alt+3 Ask focus."
+      - "Replaced redundant browse/search header copy with tabs and kept Browse category folders collapsed by default."
+      - "Added a collapsed Browse category manager for create, rename, and destructive category deletion with note cleanup."
+      - "Added PATCH and DELETE category APIs; category deletion removes contained notes, refreshes FTS, and attempts Chroma cleanup per note."
+      - "Updated README and backend README for the new sidebar behavior and category endpoints."
+    verification:
+      - "Ran uv run python -m pytest tests/test_notes.py::test_update_category_renames_category_and_refreshes_note_reads tests/test_notes.py::test_update_category_rejects_duplicate_name tests/test_notes.py::test_delete_category_removes_category_notes_and_fts tests/test_notes_api.py::test_categories_api_renames_category_and_rejects_duplicates tests/test_notes_api.py::test_categories_api_deletes_category_notes_and_chroma_chunks tests/test_notes_api.py::test_categories_api_delete_reports_failed_chroma_cleanup --no-cov -q from backend/: first failed on missing helpers/routes, then passed with 6 tests."
+      - "Ran npm run test -- App.test.tsx --run from frontend/: first failed on missing tabs/category manager, then passed with 21 tests."
+      - "Ran uv run python -m pytest tests/test_notes.py tests/test_notes_api.py --no-cov -q from backend/: passed with 52 tests and 2 existing Starlette deprecation warnings."
+      - "Ran npm run typecheck and npm run lint from frontend/: passed."
+      - "Ran ./scripts/check.sh from the repository root: first required ruff formatting for modified backend tests, then passed with backend format/ruff/pyright/184 tests and frontend 27 tests/lint/build."
   - time_utc: "2026-07-04T17:53:03Z"
     time_local: "2026-07-04T14:53:03-03:00"
     summary: "Separated left-sidebar browse and global search controls."

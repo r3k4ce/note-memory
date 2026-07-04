@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { askQuestion, searchNotes } from "./api";
+import { askQuestion, createCategory, deleteCategory, searchNotes, updateCategory } from "./api";
 import App from "./App";
 import type { Category, Note, SearchResult } from "./types";
 
@@ -46,12 +46,14 @@ const { categories, notes } = vi.hoisted(() => {
 vi.mock("./api", () => ({
   askQuestion: vi.fn(),
   createCategory: vi.fn(),
+  deleteCategory: vi.fn(),
   createNote: vi.fn(),
   deleteNote: vi.fn(),
   getNote: vi.fn().mockResolvedValue(notes[0]),
   listCategories: vi.fn().mockResolvedValue(categories),
   listNotes: vi.fn().mockResolvedValue(notes),
   searchNotes: vi.fn().mockResolvedValue([]),
+  updateCategory: vi.fn(),
   updateNote: vi.fn(),
 }));
 
@@ -123,6 +125,21 @@ function getBrowseTree() {
   });
 }
 
+function openSearchTab() {
+  fireEvent.click(screen.getByRole("tab", { name: "Search" }));
+}
+
+async function expandCategory(name: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name })).toBeInTheDocument();
+  });
+
+  const categoryButton = screen.getByRole("button", { name });
+  if (categoryButton.getAttribute("aria-expanded") === "false") {
+    fireEvent.click(categoryButton);
+  }
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -135,13 +152,64 @@ function deferred<T>() {
 }
 
 describe("App sidebar navigation", () => {
-  test("organizes browsing as one expanded category tree with nested notes", async () => {
+  test("separates browse and search into sidebar tabs", async () => {
+    render(<App />);
+
+    const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+
+    await waitFor(() => {
+      expect(within(sidebar).getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    expect(within(sidebar).getByRole("tab", { name: "Browse" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(within(sidebar).getByRole("tab", { name: "Search" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    expect(within(sidebar).queryByRole("searchbox", { name: "Search notes" })).not.toBeInTheDocument();
+    expect(within(sidebar).queryByText("Browse", { selector: "span" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(sidebar).getByRole("tab", { name: "Search" }));
+
+    expect(within(sidebar).getByRole("tab", { name: "Search" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(within(sidebar).getByRole("searchbox", { name: "Search notes" })).toBeInTheDocument();
+    expect(within(sidebar).queryByRole("tree", { name: "Browse notes" })).not.toBeInTheDocument();
+    expect(within(sidebar).queryByText("Search results", { selector: "span" })).not.toBeInTheDocument();
+  });
+
+  test("keeps keyboard shortcuts unchanged while Alt+2 opens search", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Browse" })).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { altKey: true, key: "2" });
+
+    expect(screen.getByRole("tab", { name: "Search" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("searchbox", { name: "Search notes" })).toHaveFocus();
+
+    fireEvent.keyDown(window, { altKey: true, key: "1" });
+
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { altKey: true, key: "3" });
+
+    expect(screen.getByRole("button", { name: "Mock ask" })).toBeInTheDocument();
+  });
+
+  test("organizes browsing as one collapsed category tree with nested notes", async () => {
     render(<App />);
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
     const title = screen.getByText("Note Memory");
     const newNote = within(sidebar).getByRole("button", { name: "New note" });
-    const search = screen.getByRole("search");
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
@@ -151,30 +219,114 @@ describe("App sidebar navigation", () => {
     const allNotes = within(tree).getByRole("button", { name: "All notes" });
     const uncategorized = within(tree).getByRole("button", { name: "Uncategorized" });
     const personalCategory = within(tree).getByRole("button", { name: "Personal" });
-    const personalNote = within(tree).getByRole("button", { name: /Personal note/ });
     const workCategory = within(tree).getByRole("button", { name: "Work" });
-    const workNote = within(tree).getByRole("button", { name: /Work note/ });
     const askAllNotes = within(tree).getByRole("checkbox", { name: "Use all notes for Ask" });
 
     expect(sidebar).toContainElement(title);
     expect(sidebar).toContainElement(newNote);
     expect(title.compareDocumentPosition(newNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(newNote.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(title.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Ask sources")).not.toBeInTheDocument();
-    expect(search.compareDocumentPosition(tree)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(tree).toContainElement(askAllNotes);
     expect(allNotes.compareDocumentPosition(uncategorized)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(uncategorized.compareDocumentPosition(personalCategory)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(personalCategory).toHaveAttribute("aria-expanded", "true");
-    expect(personalCategory.compareDocumentPosition(personalNote)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(personalNote.compareDocumentPosition(workCategory)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(workCategory).toHaveAttribute("aria-expanded", "true");
-    expect(workCategory.compareDocumentPosition(workNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(personalCategory).toHaveAttribute("aria-expanded", "false");
+    expect(workCategory).toHaveAttribute("aria-expanded", "false");
+    expect(within(tree).queryByRole("button", { name: /Personal note/ })).not.toBeInTheDocument();
+    expect(within(tree).queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
+  });
+
+  test("keeps category manager collapsed by default and creates categories from browse mode", async () => {
+    vi.mocked(createCategory).mockResolvedValueOnce({
+      id: 3,
+      name: "Research",
+      slug: "research",
+      created_at: "2026-07-05",
+      updated_at: "2026-07-05",
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Categories" })).toBeInTheDocument();
+    });
+
+    const categoriesButton = screen.getByRole("button", { name: "Categories" });
+    expect(categoriesButton).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("region", { name: "Manage categories" })).not.toBeInTheDocument();
+
+    fireEvent.click(categoriesButton);
+
+    const manager = screen.getByRole("region", { name: "Manage categories" });
+    expect(categoriesButton).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.change(within(manager).getByRole("textbox", { name: "New category name" }), {
+      target: { value: "Research" },
+    });
+    fireEvent.click(within(manager).getByRole("button", { name: "Add category" }));
+
+    await waitFor(() => {
+      expect(createCategory).toHaveBeenCalledWith("Research");
+    });
+    expect(screen.getByRole("button", { name: "Research" })).toBeInTheDocument();
+  });
+
+  test("renames categories from the collapsed browse manager", async () => {
+    vi.mocked(updateCategory).mockResolvedValueOnce({
+      ...categories[0],
+      name: "Projects",
+      slug: "projects",
+      updated_at: "2026-07-05",
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Categories" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Categories" }));
+    const manager = screen.getByRole("region", { name: "Manage categories" });
+    fireEvent.click(within(manager).getByRole("button", { name: "Rename Work" }));
+    fireEvent.change(within(manager).getByRole("textbox", { name: "Category name" }), {
+      target: { value: "Projects" },
+    });
+    fireEvent.click(within(manager).getByRole("button", { name: "Save category" }));
+
+    await waitFor(() => {
+      expect(updateCategory).toHaveBeenCalledWith(1, "Projects");
+    });
+    expect(screen.getByRole("button", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Work" })).not.toBeInTheDocument();
+  });
+
+  test("deletes categories and their notes from browse mode after confirmation", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(true);
+    vi.mocked(deleteCategory).mockResolvedValueOnce({
+      id: 1,
+      deleted: true,
+      deleted_note_ids: [10],
+      vector_cleanup: "deleted",
+    });
+
+    render(<App />);
+
+    await expandCategory("Work");
+    fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
+    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Categories" }));
+    const manager = screen.getByRole("region", { name: "Manage categories" });
+    fireEvent.click(within(manager).getByRole("button", { name: "Delete Work" }));
+
+    await waitFor(() => {
+      expect(deleteCategory).toHaveBeenCalledWith(1);
+    });
+    expect(confirm).toHaveBeenCalledWith('Delete "Work" and its 1 note? This cannot be undone.');
+    expect(screen.queryByRole("button", { name: "Work" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
   });
 
   test("keeps category navigation separate from global search behavior", async () => {
@@ -187,20 +339,21 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Uncategorized" }));
 
     expect(screen.queryByText(/Scope:/)).not.toBeInTheDocument();
-    expect(screen.getByText("Browse", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Browse" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getAllByText("Uncategorized", { selector: "span" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Uncategorized" })).toHaveAttribute(
       "aria-expanded",
-      "false",
+      "true",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
 
     expect(screen.getAllByText("Work", { selector: "span" }).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Work" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Work" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
     expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "react" } });
     fireEvent.submit(screen.getByRole("search"));
@@ -209,24 +362,22 @@ describe("App sidebar navigation", () => {
       expect(searchNotes).toHaveBeenCalledWith("react");
     });
 
-    expect(screen.getByText("Search results", { selector: "span" })).toBeInTheDocument();
+    expect(screen.queryByText("Search results", { selector: "span" })).not.toBeInTheDocument();
     expect(screen.getByText("Results for “react”", { selector: "span" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(searchbox).toHaveValue("");
-    expect(screen.getByText("Browse", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getAllByText("Work", { selector: "span" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("tab", { name: "Search" })).toHaveAttribute("aria-selected", "true");
   });
 
   test("expands collapsed categories to reveal nested notes without opening them", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Work" }));
     expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
     expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
 
@@ -240,9 +391,7 @@ describe("App sidebar navigation", () => {
   test("shows Ask source checkboxes without a selection mode", async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     expect(screen.queryByRole("button", { name: "Select notes for Ask" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Done selecting notes for Ask" })).not.toBeInTheDocument();
@@ -259,9 +408,7 @@ describe("App sidebar navigation", () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     expect(screen.queryByText("Ask sources")).not.toBeInTheDocument();
     expect(screen.getByText("Mock Ask scope: All notes")).toBeInTheDocument();
@@ -304,9 +451,7 @@ describe("App sidebar navigation", () => {
   test("opens the existing new-note workspace from the sidebar action", async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
     expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
@@ -319,9 +464,7 @@ describe("App sidebar navigation", () => {
   test("shows compact note rows while browsing", async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     const noteRow = screen.getByRole("button", { name: /Work note/ });
 
@@ -340,9 +483,7 @@ describe("App sidebar navigation", () => {
   test("toggles Ask scope checkboxes without opening note rows", async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Use Work note for Ask" }));
@@ -355,23 +496,21 @@ describe("App sidebar navigation", () => {
     expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
   });
 
-  test("keeps browsing presentation while search text is typed but not submitted", async () => {
+  test("keeps search tab presentation while search text is typed but not submitted", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "work" } });
 
     expect(searchbox).toHaveValue("work");
     expect(searchNotes).not.toHaveBeenCalled();
-    expect(getBrowseTree()).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Browse notes" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Results for/)).not.toBeInTheDocument();
-
-    const noteRow = screen.getByRole("button", { name: /Work note/ });
-    expect(noteRow).not.toHaveTextContent("A note about work.");
   });
 
   test("shows active search loading status", async () => {
@@ -381,14 +520,15 @@ describe("App sidebar navigation", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "work" } });
     fireEvent.submit(screen.getByRole("search"));
 
-    expect(await screen.findByText("Search results", { selector: "span" })).toBeInTheDocument();
+    expect(screen.queryByText("Search results", { selector: "span" })).not.toBeInTheDocument();
     expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Searching...", { selector: "span" })).toBeInTheDocument();
 
@@ -408,9 +548,10 @@ describe("App sidebar navigation", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "work" } });
     fireEvent.submit(screen.getByRole("search"));
@@ -441,12 +582,11 @@ describe("App sidebar navigation", () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "work" } });
     fireEvent.submit(screen.getByRole("search"));
@@ -457,7 +597,7 @@ describe("App sidebar navigation", () => {
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
-    fireEvent.click(screen.getByRole("button", { name: "Personal" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Browse" }));
     fireEvent.click(screen.getByRole("button", { name: "Personal" }));
 
     expect(screen.getByRole("checkbox", { name: "Use Personal note for Ask" })).toBeInTheDocument();
@@ -474,6 +614,8 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
 
     expect(screen.getByText("1 note selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+    fireEvent.click(screen.getByRole("button", { name: "Personal" }));
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Use Personal note for Ask" })).not.toBeChecked();
 
@@ -489,9 +631,10 @@ describe("App sidebar navigation", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "missing" } });
     fireEvent.submit(screen.getByRole("search"));
@@ -507,9 +650,10 @@ describe("App sidebar navigation", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
+    openSearchTab();
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "work" } });
     fireEvent.submit(screen.getByRole("search"));
@@ -524,9 +668,7 @@ describe("App sidebar navigation", () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
-    });
+    await expandCategory("Work");
 
     fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
     await waitFor(() => {
