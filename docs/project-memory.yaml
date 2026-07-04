@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T18:29:22Z"
+    time_local: "2026-07-04T15:29:22-03:00"
+    summary: "Added drag-and-drop note moves between Browse categories."
+    changed:
+      - "Made Browse tree note rows draggable and category folders, including Uncategorized, valid drop targets for category moves."
+      - "Reused PATCH note updates for moves, refreshed note/search/selected-note frontend state from the returned note, and kept existing edit-screen category changes intact."
+      - "Preserved dirty selected-note protection by requiring the existing discard confirmation before drag moves."
+      - "Updated README sidebar and checklist wording for dragging notes between categories."
+    verification:
+      - "Ran npm run test -- App.test.tsx --run from frontend/: first failed on missing drag/drop behavior, then passed with 24 tests."
+      - "Ran ./scripts/check.sh from the repository root: first blocked by sandbox uv cache permissions, then passed with escalation; backend format/ruff/pyright/184 tests and frontend 30 tests/lint/build passed."
   - time_utc: "2026-07-04T18:15:35Z"
     time_local: "2026-07-04T15:15:35-03:00"
     summary: "Added explicit sidebar Browse/Search tabs and category management."

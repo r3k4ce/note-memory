@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 import {
   Check,
   ChevronDown,
@@ -61,6 +69,10 @@ type BrowseFolder = {
   key: string;
   label: string;
   notes: Note[];
+};
+type NoteDropTarget = {
+  categoryId: number | null;
+  key: string;
 };
 
 const ASK_HISTORY_MESSAGE_LIMIT = 6;
@@ -149,11 +161,14 @@ export default function App() {
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
   const [askNoteScope, setAskNoteScope] = useState(DEFAULT_ASK_NOTE_SCOPE);
   const [expandedFolderKeys, setExpandedFolderKeys] = useState<Set<string>>(() => new Set());
+  const [draggedNoteId, setDraggedNoteId] = useState<number | null>(null);
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
 
   const searchRequestId = useRef(0);
   const askRequestId = useRef(0);
   const askMessageId = useRef(0);
   const askPendingMessageIdRef = useRef<string | null>(null);
+  const draggedNoteIdRef = useRef<number | null>(null);
   const captureRef = useRef<MarkdownPaneHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
@@ -318,6 +333,112 @@ export default function App() {
       toggleFolder(folder.key);
     },
     [handleCategoryFilterChange, toggleFolder],
+  );
+
+  const getFolderDropTarget = useCallback(
+    (folder: BrowseFolder): NoteDropTarget => ({
+      categoryId: folder.filter === "uncategorized" ? null : folder.filter,
+      key: folder.key,
+    }),
+    [],
+  );
+
+  const clearNoteDrag = useCallback(() => {
+    draggedNoteIdRef.current = null;
+    setDraggedNoteId(null);
+    setDropTargetKey(null);
+  }, []);
+
+  const handleNoteDragStart = useCallback(
+    (event: DragEvent<HTMLButtonElement>, noteId: number) => {
+      if (!confirmDiscardSelectedNoteEdit()) {
+        event.preventDefault();
+        clearNoteDrag();
+        return;
+      }
+
+      if (hasUnsavedSelectedNoteEdit) {
+        setIsSelectedNoteEditDirty(false);
+        setEditError(null);
+        setWorkspaceMode("read-selected");
+      }
+
+      draggedNoteIdRef.current = noteId;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(noteId));
+      }
+      setDraggedNoteId(noteId);
+    },
+    [clearNoteDrag, confirmDiscardSelectedNoteEdit, hasUnsavedSelectedNoteEdit],
+  );
+
+  const handleFolderDragOver = useCallback(
+    (event: DragEvent<HTMLButtonElement>, target: NoteDropTarget) => {
+      const activeDraggedNoteId = draggedNoteIdRef.current ?? draggedNoteId;
+      if (activeDraggedNoteId === null) {
+        return;
+      }
+
+      const draggedNote = notes.find((note) => note.id === activeDraggedNoteId);
+      if (!draggedNote || (draggedNote.category?.id ?? null) === target.categoryId) {
+        return;
+      }
+
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      setDropTargetKey(target.key);
+    },
+    [draggedNoteId, notes],
+  );
+
+  const handleFolderDragLeave = useCallback((target: NoteDropTarget) => {
+    setDropTargetKey((currentKey) => (currentKey === target.key ? null : currentKey));
+  }, []);
+
+  const handleFolderDrop = useCallback(
+    async (event: DragEvent<HTMLButtonElement>, target: NoteDropTarget) => {
+      event.preventDefault();
+
+      const activeDraggedNoteId = draggedNoteIdRef.current ?? draggedNoteId;
+      if (activeDraggedNoteId === null) {
+        clearNoteDrag();
+        return;
+      }
+
+      const draggedNote = notes.find((note) => note.id === activeDraggedNoteId);
+      if (!draggedNote || (draggedNote.category?.id ?? null) === target.categoryId) {
+        clearNoteDrag();
+        return;
+      }
+
+      setCategoryError(null);
+      setExpandedFolderKeys((currentKeys) => new Set(currentKeys).add(target.key));
+
+      try {
+        const savedNote = await updateNote(activeDraggedNoteId, { category_id: target.categoryId });
+        setNotes((currentNotes) =>
+          currentNotes.map((note) => (note.id === savedNote.id ? savedNote : note)),
+        );
+        setSearchResults((currentResults) =>
+          currentResults.map((result) =>
+            result.id === savedNote.id ? { ...result, ...savedNote } : result,
+          ),
+        );
+        setSelectedNote((currentNote) => (currentNote?.id === savedNote.id ? savedNote : currentNote));
+        if (selectedNoteId === savedNote.id) {
+          setSelectedCategoryFilter(savedNote.category?.id ?? "uncategorized");
+          setDraftCategoryId(savedNote.category?.id ?? null);
+        }
+      } catch (error) {
+        setCategoryError(getErrorMessage(error, "Could not move note."));
+      } finally {
+        clearNoteDrag();
+      }
+    },
+    [clearNoteDrag, draggedNoteId, notes, selectedNoteId],
   );
 
   const handleSearchTextChange = useCallback((value: string) => {
@@ -1096,6 +1217,8 @@ export default function App() {
                   folderNoteIds.length > 0 && selectedFolderNoteCount === folderNoteIds.length;
                 const isFolderAskPartiallySelected =
                   selectedFolderNoteCount > 0 && selectedFolderNoteCount < folderNoteIds.length;
+                const folderDropTarget = getFolderDropTarget(folder);
+                const isDropTarget = dropTargetKey === folder.key;
 
                 return (
                   <div className="flex flex-col gap-0.5" key={folder.key}>
@@ -1119,10 +1242,15 @@ export default function App() {
                         aria-expanded={isExpanded}
                         aria-selected={isSelected}
                         className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                          isSelected
-                            ? "bg-surface-raised text-text-primary"
-                            : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                          isDropTarget
+                            ? "bg-accent-muted text-text-primary ring-1 ring-accent/40"
+                            : isSelected
+                              ? "bg-surface-raised text-text-primary"
+                              : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
                         }`}
+                        onDragLeave={() => handleFolderDragLeave(folderDropTarget)}
+                        onDragOver={(event) => handleFolderDragOver(event, folderDropTarget)}
+                        onDrop={(event) => void handleFolderDrop(event, folderDropTarget)}
                         onClick={() => handleFolderClick(folder)}
                         title={folder.label}
                         type="button"
@@ -1157,12 +1285,16 @@ export default function App() {
                             <div className="relative" key={note.id}>
                               <button
                                 aria-selected={note.id === selectedNoteId}
-                                className={`group flex w-full items-center gap-1.5 rounded-md border px-2 py-1.5 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                                className={`group flex w-full cursor-grab items-center gap-1.5 rounded-md border px-2 py-1.5 pr-8 text-left transition-colors active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                                   note.id === selectedNoteId
                                     ? "border-border-strong bg-surface-hover"
                                     : "border-transparent hover:bg-surface-hover"
                                 }`}
+                                draggable
                                 onClick={() => selectNote(note.id)}
+                                onDragEnd={clearNoteDrag}
+                                onDragStart={(event) => handleNoteDragStart(event, note.id)}
+                                title="Drag to move note"
                                 type="button"
                               >
                                 <FileText

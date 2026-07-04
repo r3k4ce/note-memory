@@ -1,7 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { askQuestion, createCategory, deleteCategory, searchNotes, updateCategory } from "./api";
+import {
+  askQuestion,
+  createCategory,
+  deleteCategory,
+  searchNotes,
+  updateCategory,
+  updateNote,
+} from "./api";
 import App from "./App";
 import type { Category, Note, SearchResult } from "./types";
 
@@ -623,6 +630,75 @@ describe("App sidebar navigation", () => {
 
     expect(screen.getByText("No sources selected")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).not.toBeChecked();
+  });
+
+  test("moves a note to another category by dragging it onto a category folder", async () => {
+    vi.mocked(updateNote).mockResolvedValueOnce({
+      ...notes[0],
+      category: categories[1],
+      updated_at: "2026-07-05T00:00:00Z",
+    });
+
+    render(<App />);
+
+    await expandCategory("Work");
+    const workNote = screen.getByRole("button", { name: /Work note/ });
+    const personalCategory = screen.getByRole("button", { name: "Personal" });
+
+    fireEvent.dragStart(workNote);
+    fireEvent.dragOver(personalCategory);
+    fireEvent.drop(personalCategory);
+
+    await waitFor(() => {
+      expect(updateNote).toHaveBeenCalledWith(10, { category_id: 2 });
+    });
+    expect(personalCategory).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("moves a note to Uncategorized by dragging it onto the Uncategorized folder", async () => {
+    vi.mocked(updateNote).mockResolvedValueOnce({
+      ...notes[1],
+      category: null,
+      updated_at: "2026-07-05T00:00:00Z",
+    });
+
+    render(<App />);
+
+    await expandCategory("Personal");
+    const personalNote = screen.getByRole("button", { name: /Personal note/ });
+    const uncategorizedFolder = screen.getByRole("button", { name: "Uncategorized" });
+
+    fireEvent.dragStart(personalNote);
+    fireEvent.dragOver(uncategorizedFolder);
+    fireEvent.drop(uncategorizedFolder);
+
+    await waitFor(() => {
+      expect(updateNote).toHaveBeenCalledWith(11, { category_id: null });
+    });
+    expect(uncategorizedFolder).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("cancels drag moves when unsaved selected-note edits are not discarded", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+
+    render(<App />);
+
+    await expandCategory("Work");
+    const workNote = screen.getByRole("button", { name: /Work note/ });
+    fireEvent.click(workNote);
+    await waitFor(() => {
+      expect(screen.getByText("Loaded note: Work note")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mock edit" }));
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mock dirty" }));
+
+    fireEvent.dragStart(workNote);
+    fireEvent.drop(screen.getByRole("button", { name: "Personal" }));
+
+    expect(confirm).toHaveBeenCalledWith("Discard unsaved note changes?");
+    expect(updateNote).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 
   test("shows zero-result status and body copy for active search", async () => {
