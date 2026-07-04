@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-04T02:15:16Z"
+    time_local: "2026-07-03T23:15:16-03:00"
+    summary: "Quieted the Ask sidebar presentation."
+    changed:
+      - "Renamed the right-sidebar Ask heading to Notes assistant, shortened the scope line, intro copy, and composer placeholder, and tightened AskChat spacing and bubble chrome."
+      - "Kept AskChat props, submit handlers, pending disable behavior, right-sidebar placement, source rendering, and display-only source cards unchanged."
+      - "Added AskChat regression coverage for compact copy, controlled submit clearing, pending disabled state, custom disabled messaging, and non-clickable sources."
+    verification:
+      - "Ran npm run test -- AskChat.test.tsx from frontend/: first failed on the planned heading copy, then passed with 3 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, npm run test, and npm run build from frontend/: passed."
   - time_utc: "2026-07-04T02:01:56Z"
     time_local: "2026-07-03T23:01:56-03:00"
     summary: "Reframed the new-note flow copy."

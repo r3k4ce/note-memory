@@ -50,7 +50,7 @@ function SourceList({ sources }: { sources: AskSource[] }) {
 function AssistantBubble({ content, sources }: AssistantBubbleProps) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[82%] rounded-lg border border-border bg-surface px-3.5 py-3 text-sm leading-relaxed text-text-secondary">
+      <div className="max-w-[86%] rounded-md border border-border bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
         <p className="whitespace-pre-wrap">{content}</p>
         <SourceList sources={sources} />
       </div>
@@ -61,7 +61,7 @@ function AssistantBubble({ content, sources }: AssistantBubbleProps) {
 function UserBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[78%] rounded-lg bg-accent px-3.5 py-3 text-sm leading-relaxed text-black">
+      <div className="max-w-[78%] rounded-md bg-accent px-3 py-2.5 text-[13px] leading-relaxed text-black">
         <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
@@ -71,7 +71,7 @@ function UserBubble({ content }: { content: string }) {
 function ErrorBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[82%] rounded-lg border border-error/40 bg-error-muted px-3.5 py-3 text-sm leading-relaxed text-text-primary">
+      <div className="max-w-[86%] rounded-md border border-error/40 bg-error-muted px-3 py-2.5 text-[13px] leading-relaxed text-text-primary">
         <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
@@ -121,25 +121,22 @@ export function AskChat({
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col gap-4" aria-labelledby="ask-title">
-      <header className="flex shrink-0 flex-col gap-1.5 border-b border-border pb-4">
+    <section className="flex h-full min-h-0 w-full flex-col gap-3" aria-labelledby="ask-title">
+      <header className="flex shrink-0 flex-col gap-1 border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
             <Sparkles size={13} strokeWidth={2} className="text-accent" />
           </div>
-          <h2 className="text-sm font-semibold text-text-primary" id="ask-title">
-            Ask saved notes
+          <h2 className="text-[13px] font-semibold text-text-primary" id="ask-title">
+            Notes assistant
           </h2>
         </div>
-        <p className="text-[12px] leading-relaxed text-text-muted">
-          Recent chat turns can clarify follow-ups, but answers still cite saved notes in the selected scope.
-        </p>
-        <p className="text-[11px] text-text-muted">Scope: {scopeLabel}</p>
+        <p className="pl-8 text-[11px] text-text-muted">Scope · {scopeLabel}</p>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1" aria-live="polite">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
         <AssistantBubble
-          content="Ask a question about your saved notes. I will read the selected scope and cite the notes that support the answer."
+          content="Ask about notes in this scope. Answers include sources."
           sources={[]}
         />
         {messages.map((message) => {
@@ -156,14 +153,14 @@ export function AskChat({
         <div ref={transcriptEndRef} />
       </div>
 
-      <form className="flex shrink-0 flex-col gap-2 border-t border-border pt-4" onSubmit={handleSubmit}>
+      <form className="flex shrink-0 flex-col gap-2 border-t border-border pt-3" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="min-h-24 w-full resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="min-h-20 w-full resize-y rounded-md border border-border bg-surface-raised px-3 py-2.5 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything about your saved notes..."
+          placeholder="Ask the assistant..."
           ref={askRef}
           rows={3}
           value={question}
