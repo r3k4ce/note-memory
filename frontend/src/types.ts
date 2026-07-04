@@ -24,7 +24,7 @@ export type NoteCardData = Pick<
 
 export type SearchResult = NoteCardData & {
   score: number;
-  match_type: "exact" | "semantic" | "hybrid";
+  match_type: "exact" | "semantic" | "hybrid" | "fuzzy";
   matched_snippet: string | null;
 };
 

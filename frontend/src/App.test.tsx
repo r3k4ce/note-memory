@@ -586,6 +586,14 @@ describe("App sidebar navigation", () => {
   });
 
   test("keeps search tab presentation while search text is typed but not submitted", async () => {
+    vi.mocked(searchNotes).mockResolvedValueOnce([
+      {
+        ...notes[0],
+        match_type: "fuzzy",
+        matched_snippet: "Work note",
+        score: 0.82,
+      },
+    ]);
     render(<App />);
 
     await waitFor(() => {
@@ -597,9 +605,51 @@ describe("App sidebar navigation", () => {
     fireEvent.change(searchbox, { target: { value: "work" } });
 
     expect(searchbox).toHaveValue("work");
-    expect(searchNotes).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(searchNotes).toHaveBeenCalledWith("work", { semantic: false });
+    });
     expect(screen.queryByRole("tree", { name: "Browse notes" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Results for/)).not.toBeInTheDocument();
+    expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
+  });
+
+  test("pressing enter runs full search after live local search", async () => {
+    vi.mocked(searchNotes)
+      .mockResolvedValueOnce([
+        {
+          ...notes[0],
+          match_type: "fuzzy",
+          matched_snippet: "Work note",
+          score: 0.82,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          ...notes[0],
+          match_type: "hybrid",
+          matched_snippet: "Matched work detail",
+          score: 1.9,
+        },
+      ]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    openSearchTab();
+    const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
+    fireEvent.change(searchbox, { target: { value: "work" } });
+
+    await waitFor(() => {
+      expect(searchNotes).toHaveBeenCalledWith("work", { semantic: false });
+    });
+
+    fireEvent.submit(screen.getByRole("search"));
+
+    await waitFor(() => {
+      expect(searchNotes).toHaveBeenLastCalledWith("work");
+    });
   });
 
   test("shows active search loading status", async () => {

@@ -122,12 +122,15 @@ Search notes across all notes, only Uncategorized, or one category:
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954"
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&uncategorized=true"
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&category_id=1"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=CD-30954&semantic=false"
 ```
 
-Search results include `match_type` (`exact`, `semantic`, or `hybrid`) and
+Search results include `match_type` (`exact`, `fuzzy`, `semantic`, or `hybrid`) and
 `matched_snippet`. Exact matches include a compact plain-text snippet from the matched
-note body or metadata. Semantic matches include a compact cleaned snippet from the best
-matching retrieval chunk, and hybrid matches prefer the exact snippet when available.
+note body or metadata. Fuzzy matches use local RapidFuzz matching over note titles and
+tags. Semantic matches include a compact cleaned snippet from the best matching
+retrieval chunk, and hybrid matches prefer local snippets when available. Pass
+`semantic=false` to skip embeddings and Chroma for local-only search.
 
 Ask a grounded question across all notes, only Uncategorized, one category, or
 selected note IDs:

@@ -14,6 +14,7 @@ type NoteCardProps = {
 
 const MATCH_TYPE_LABELS: Record<NonNullable<NoteCardSearchMetadata["match_type"]>, string> = {
   exact: "Exact",
+  fuzzy: "Fuzzy",
   semantic: "Semantic",
   hybrid: "Hybrid",
 };

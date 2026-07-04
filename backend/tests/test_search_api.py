@@ -206,6 +206,44 @@ def test_search_returns_exact_metadata_snippet(tmp_path: Path, monkeypatch) -> N
     assert body[0]["matched_snippet"] == "Ticket CD-30954 needs source reconciliation."
 
 
+def test_search_returns_fuzzy_result_for_typo_when_exact_misses(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = _init_path(tmp_path)
+    note = create_note(
+        sqlite_path,
+        "Tocantinense mapping source recreation notes.",
+        ai_title="Tocantinense source rebuild",
+        short_summary="Rebuild source behavior after recreation.",
+        tags=["mapping"],
+    )
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[], init_db_first=False)
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "Tocantinese", "semantic": "false"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["id"] for item in body] == [note.id]
+    assert body[0]["matched_snippet"] == "Tocantinense source rebuild"
+    assert body[0]["match_type"] == "fuzzy"
+
+
+def test_search_semantic_false_skips_embeddings_and_chroma(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _search_app(tmp_path, monkeypatch, semantic_results=[])
+
+    with TestClient(app) as client:
+        response = client.get("/search", params={"q": "CD-30954", "semantic": "false"})
+
+    assert response.status_code == 200
+    assert [item["match_type"] for item in response.json()] == ["exact"]
+    assert FakeVectorStore.calls == []
+
+
 def test_search_returns_short_exact_body_snippet(tmp_path: Path, monkeypatch) -> None:
     sqlite_path = _init_path(tmp_path)
     create_note(

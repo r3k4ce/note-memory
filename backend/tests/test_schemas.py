@@ -10,7 +10,7 @@ def test_ask_request_accepts_note_ids() -> None:
     assert ask_request.note_ids == [1, 2, 3]
 
 
-@pytest.mark.parametrize("match_type", ["exact", "semantic", "hybrid"])
+@pytest.mark.parametrize("match_type", ["exact", "semantic", "hybrid", "fuzzy"])
 def test_search_result_accepts_match_metadata(match_type: str) -> None:
     search_result = SearchResult.model_validate(
         {

@@ -222,6 +222,7 @@ export default function App() {
   const [rightPaneWidth, setRightPaneWidth] = useState(RIGHT_PANE_DEFAULT_WIDTH);
 
   const searchRequestId = useRef(0);
+  const liveSearchTimeoutId = useRef<number | null>(null);
   const askRequestId = useRef(0);
   const askMessageId = useRef(0);
   const askPendingMessageIdRef = useRef<string | null>(null);
@@ -368,6 +369,10 @@ export default function App() {
 
   const clearSearch = useCallback(() => {
     searchRequestId.current += 1;
+    if (liveSearchTimeoutId.current !== null) {
+      window.clearTimeout(liveSearchTimeoutId.current);
+      liveSearchTimeoutId.current = null;
+    }
     setSearchText("");
     setActiveSearchQuery(null);
     setSearchResults([]);
@@ -578,6 +583,48 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const query = searchText.trim();
+    if (!isSearchTab || !query) {
+      return;
+    }
+
+    const requestId = searchRequestId.current + 1;
+    searchRequestId.current = requestId;
+    setActiveSearchQuery(query);
+    setSearchResults([]);
+    setSearchError(null);
+    setIsSearching(true);
+
+    liveSearchTimeoutId.current = window.setTimeout(() => {
+      liveSearchTimeoutId.current = null;
+      void (async () => {
+        try {
+          const results = await searchNotes(query, { semantic: false });
+          if (searchRequestId.current === requestId) {
+            setSearchResults(results);
+          }
+        } catch (error) {
+          if (searchRequestId.current === requestId) {
+            setSearchResults([]);
+            setSearchError(getErrorMessage(error, "Could not search notes."));
+          }
+        } finally {
+          if (searchRequestId.current === requestId) {
+            setIsSearching(false);
+          }
+        }
+      })();
+    }, 300);
+
+    return () => {
+      if (liveSearchTimeoutId.current !== null) {
+        window.clearTimeout(liveSearchTimeoutId.current);
+        liveSearchTimeoutId.current = null;
+      }
+    };
+  }, [isSearchTab, searchText]);
+
+  useEffect(() => {
     let ignore = false;
 
     async function loadInitialData() {
@@ -680,6 +727,10 @@ export default function App() {
       return;
     }
 
+    if (liveSearchTimeoutId.current !== null) {
+      window.clearTimeout(liveSearchTimeoutId.current);
+      liveSearchTimeoutId.current = null;
+    }
     const requestId = searchRequestId.current + 1;
     searchRequestId.current = requestId;
     setActiveSearchQuery(query);

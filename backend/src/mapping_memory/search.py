@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
+from rapidfuzz import fuzz, process
 
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.fts import SNIPPET_MAX_CHARS, collapse_whitespace
+from mapping_memory.fts import SNIPPET_MAX_CHARS, collapse_whitespace, tags_to_text
 from mapping_memory.notes import (
     ExactSearchMatch,
     get_category,
@@ -22,6 +23,7 @@ from mapping_memory.vector_store import ChromaVectorStore, VectorSearchResult
 
 SEARCH_LIMIT = 20
 OVERLAP_BONUS = 1.0
+FUZZY_SCORE_CUTOFF = 85.0
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,13 @@ class SemanticSearchMatch:
     matched_snippet: str | None
 
 
+@dataclass(frozen=True)
+class FuzzySearchMatch:
+    note: NoteRead
+    matched_snippet: str | None
+    score: float
+
+
 def create_search_router(settings: Settings) -> APIRouter:
     router = APIRouter()
 
@@ -40,6 +49,7 @@ def create_search_router(settings: Settings) -> APIRouter:
         q: str | None = Query(default=None),
         category_id: int | None = Query(default=None),
         uncategorized: bool = Query(default=False),
+        semantic: bool = Query(default=True),
     ) -> list[SearchResult]:
         query = (q or "").strip()
         if not query:
@@ -54,15 +64,21 @@ def create_search_router(settings: Settings) -> APIRouter:
         exact_matches = search_notes_exact_matches(
             settings.sqlite_path, query, limit=SEARCH_LIMIT, category_scope=category_scope
         )
-        try:
-            semantic_hits = _search_semantic_notes(
-                query, settings=settings, category_scope=category_scope
-            )
-        except Exception:
-            logger.warning("Semantic search unavailable; returning exact search results")
-            semantic_hits = []
+        fuzzy_matches = _search_fuzzy_notes(
+            query, settings=settings, category_scope=category_scope, exact_matches=exact_matches
+        )
+        semantic_hits: list[SemanticSearchMatch] = []
+        if semantic:
+            try:
+                semantic_hits = _search_semantic_notes(
+                    query, settings=settings, category_scope=category_scope
+                )
+            except Exception:
+                logger.warning("Semantic search unavailable; returning local search results")
 
-        return _merge_search_results(exact_matches, semantic_hits, limit=SEARCH_LIMIT)
+        return _merge_search_results(
+            exact_matches, fuzzy_matches, semantic_hits, limit=SEARCH_LIMIT
+        )
 
     return router
 
@@ -98,16 +114,22 @@ def _search_semantic_notes(
 
 def _merge_search_results(
     exact_matches: list[ExactSearchMatch],
+    fuzzy_matches: list[FuzzySearchMatch],
     semantic_matches: list[SemanticSearchMatch],
     *,
     limit: int,
 ) -> list[SearchResult]:
     exact_notes = [match.note for match in exact_matches]
+    fuzzy_notes = [match.note for match in fuzzy_matches]
     semantic_notes = [match.note for match in semantic_matches]
     notes_by_id = {note.id: note for note in exact_notes}
+    notes_by_id.update({note.id: note for note in fuzzy_notes})
     notes_by_id.update({note.id: note for note in semantic_notes})
     exact_ranks = {note.id: rank for rank, note in enumerate(exact_notes, start=1)}
     exact_snippets = {match.note.id: match.matched_snippet for match in exact_matches}
+    fuzzy_ranks = {note.id: rank for rank, note in enumerate(fuzzy_notes, start=1)}
+    fuzzy_scores = {match.note.id: match.score for match in fuzzy_matches}
+    fuzzy_snippets = {match.note.id: match.matched_snippet for match in fuzzy_matches}
     semantic_snippets = {match.note.id: match.matched_snippet for match in semantic_matches}
     semantic_ranks = {note.id: rank for rank, note in enumerate(semantic_notes, start=1)}
 
@@ -115,8 +137,14 @@ def _merge_search_results(
         _to_search_result(
             note,
             exact_rank=exact_ranks.get(note.id),
+            fuzzy_rank=fuzzy_ranks.get(note.id),
+            fuzzy_score=fuzzy_scores.get(note.id),
             semantic_rank=semantic_ranks.get(note.id),
-            matched_snippet=exact_snippets.get(note.id) or semantic_snippets.get(note.id),
+            matched_snippet=(
+                exact_snippets.get(note.id)
+                or fuzzy_snippets.get(note.id)
+                or semantic_snippets.get(note.id)
+            ),
         )
         for note in notes_by_id.values()
     ]
@@ -129,11 +157,17 @@ def _to_search_result(
     note: NoteRead,
     *,
     exact_rank: int | None,
+    fuzzy_rank: int | None,
+    fuzzy_score: float | None,
     semantic_rank: int | None,
     matched_snippet: str | None,
 ) -> SearchResult:
-    score = _rank_score(exact_rank) + _rank_score(semantic_rank)
-    if exact_rank is not None and semantic_rank is not None:
+    score = (
+        _rank_score(exact_rank)
+        + _fuzzy_rank_score(fuzzy_rank, fuzzy_score)
+        + _rank_score(semantic_rank)
+    )
+    if semantic_rank is not None and (exact_rank is not None or fuzzy_rank is not None):
         score += OVERLAP_BONUS
 
     return SearchResult(
@@ -145,23 +179,28 @@ def _to_search_result(
         score=score,
         category=note.category,
         matched_snippet=matched_snippet,
-        match_type=_match_type(exact_rank=exact_rank, semantic_rank=semantic_rank),
+        match_type=_match_type(
+            exact_rank=exact_rank, fuzzy_rank=fuzzy_rank, semantic_rank=semantic_rank
+        ),
     )
 
 
 def _match_type(
     *,
     exact_rank: int | None,
+    fuzzy_rank: int | None,
     semantic_rank: int | None,
-) -> Literal["exact", "semantic", "hybrid"]:
-    if exact_rank is not None and semantic_rank is not None:
+) -> Literal["exact", "semantic", "hybrid", "fuzzy"]:
+    if semantic_rank is not None and (exact_rank is not None or fuzzy_rank is not None):
         return "hybrid"
     if exact_rank is not None:
         return "exact"
+    if fuzzy_rank is not None:
+        return "fuzzy"
     if semantic_rank is not None:
         return "semantic"
 
-    raise ValueError("search result must have an exact or semantic rank")
+    raise ValueError("search result must have an exact, fuzzy, or semantic rank")
 
 
 def _rank_score(rank: int | None) -> float:
@@ -169,6 +208,78 @@ def _rank_score(rank: int | None) -> float:
         return 0.0
 
     return 1 / rank
+
+
+def _fuzzy_rank_score(rank: int | None, score: float | None) -> float:
+    if rank is None or score is None:
+        return 0.0
+
+    return (score / 100) / (rank + 1)
+
+
+def _search_fuzzy_notes(
+    query: str,
+    *,
+    settings: Settings,
+    category_scope: CategoryScope,
+    exact_matches: list[ExactSearchMatch],
+) -> list[FuzzySearchMatch]:
+    exact_note_ids = {match.note.id for match in exact_matches}
+    choices: dict[str, str] = {}
+    notes_by_id = {
+        note.id: note
+        for note in list_notes(
+            settings.sqlite_path,
+            category_id=category_scope.category_id,
+            uncategorized=category_scope.uncategorized,
+        )
+    }
+    for note in notes_by_id.values():
+        if note.id in exact_note_ids:
+            continue
+
+        choices[f"{note.id}:title"] = note.ai_title
+        choices[f"{note.id}:tags"] = tags_to_text(note.tags)
+
+    raw_matches = process.extract(
+        query,
+        choices,
+        scorer=fuzz.partial_ratio,
+        score_cutoff=FUZZY_SCORE_CUTOFF,
+        limit=SEARCH_LIMIT * 4,
+    )
+    matches_by_note_id: dict[int, FuzzySearchMatch] = {}
+    for snippet, score, key in raw_matches:
+        note_id_text = str(key).split(":", maxsplit=1)[0]
+        if not note_id_text.isdecimal():
+            continue
+
+        note_id = int(note_id_text)
+        note = notes_by_id.get(note_id)
+        if note is None:
+            continue
+
+        existing_match = matches_by_note_id.get(note_id)
+        if existing_match is None or score > existing_match.score:
+            matches_by_note_id[note_id] = FuzzySearchMatch(
+                note=note,
+                matched_snippet=_fuzzy_snippet(snippet),
+                score=score,
+            )
+
+    return sorted(matches_by_note_id.values(), key=lambda match: match.score, reverse=True)[
+        :SEARCH_LIMIT
+    ]
+
+
+def _fuzzy_snippet(text: str, *, max_chars: int = SNIPPET_MAX_CHARS) -> str | None:
+    snippet = collapse_whitespace(text)
+    if not snippet:
+        return None
+    if len(snippet) <= max_chars:
+        return snippet
+
+    return f"{snippet[: max_chars - len('...')].rstrip()}..."
 
 
 def _ranked_note_ids(hits: Iterable[VectorSearchResult]) -> list[int]:

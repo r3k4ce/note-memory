@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/github/license/r3k4ce/note-memory?style=flat-square)
 ![Last commit](https://img.shields.io/github/last-commit/r3k4ce/note-memory?style=flat-square)
 
-FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; ChromaDB &middot; OpenAI
+FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; RapidFuzz &middot; ChromaDB &middot; OpenAI
 
 > [!WARNING]
 > **Privacy and work data.**
@@ -16,8 +16,8 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 > account configured in `backend/.env` for AI metadata, embeddings, and Ask answers.
 > Do not paste confidential or work-restricted material unless your company policy
 > explicitly permits sending it to that OpenAI account.
-> Without `OPENAI_API_KEY`, notes still save with local fallback metadata but search and Ask
-> degrade to exact-match only (Ask answers are disabled).
+> Without `OPENAI_API_KEY`, notes still save with local fallback metadata but search uses
+> local exact and fuzzy matching only (Ask answers are disabled).
 
 ## What it is
 
@@ -54,8 +54,9 @@ endpoints that return sourced results from your own note collection.
   `data/mapping_memory.sqlite` first; if anything else (AI metadata, embeddings,
   Chroma indexing) fails, the saved note is still there.
 - **Chroma is rebuildable.** The vector index in `data/chroma/` is a derived cache.
-  It can be deleted at any time and re-created from SQLite. Search and ask will
-  fall back to exact-match only while the index is empty or unavailable.
+  It can be deleted at any time and re-created from SQLite. Search falls back to
+  local exact and fuzzy matching while the index is empty or unavailable; Ask
+  needs the retrieval index for sourced answers.
 - No cloud sync, no telemetry, no remote backup. The data folder is yours.
 
 ## Prerequisites
@@ -91,7 +92,7 @@ The backend reads `backend/.env` on startup. Copy `backend/.env.example` to
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | _empty_ | Enables AI metadata, embeddings, and Ask answers. Leave unset to run with fallback metadata and exact-only search. |
+| `OPENAI_API_KEY` | _empty_ | Enables AI metadata, embeddings, and Ask answers. Leave unset to run with fallback metadata plus local exact/fuzzy search. |
 | `OPENAI_ORGANIZER_MODEL` | `gpt-5.4-mini` | Model used to generate note title, summary, and tags, and to answer Ask questions. |
 | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Model used to embed retrieval chunks and search/ask queries. |
 | `SQLITE_PATH` | `../data/mapping_memory.sqlite` | SQLite database file (canonical note storage). Resolved relative to `backend/`. |
@@ -156,6 +157,7 @@ Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "applica
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=note"
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=note&uncategorized=true"
 Invoke-RestMethod "http://127.0.0.1:8000/search?q=note&category_id=1"
+Invoke-RestMethod "http://127.0.0.1:8000/search?q=note&semantic=false"
 
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" `
     -Body '{"question":"What notes have I saved?"}'
@@ -184,7 +186,7 @@ Walk through these once after a clean install:
 - [ ] `PATCH /notes/{id}` updates body/title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`
 - [ ] Frontend at `http://localhost:5173` loads the three-pane workspace
-- [ ] Left sidebar Search tab returns note cards with `Exact`, `Semantic`, or `Hybrid` match chips and matched snippets when available
+- [ ] Left sidebar Search tab returns live local results while typing, full hybrid results on Enter, and note cards with `Exact`, `Fuzzy`, `Semantic`, or `Hybrid` match chips and matched snippets when available
 - [ ] Left sidebar Browse tab starts with collapsed category folders, supports dragging notes between categories, and has a collapsed category manager for create/rename/delete
 - [ ] Left sidebar Ask source checkboxes switch between all notes, category-selected notes, individual notes, and no selected notes
 - [ ] Center workspace creates notes, opens selected notes, and edits the saved Markdown body plus metadata
