@@ -1,4 +1,25 @@
 entries:
+  - time_utc: "2026-07-04T01:53:21Z"
+    time_local: "2026-07-03T22:53:21-03:00"
+    summary: "Added frontend test dependencies to the check workflow."
+    changed:
+      - "Added Vitest, jsdom, and Testing Library dev dependencies with a frontend npm test script that check.sh runs before lint and build."
+      - "Added a NoteDetail edit-mode regression test covering aligned field order, icon-only header actions, controlled edits, tag parsing, and save payload shape."
+      - "Configured Vitest jsdom setup and documented that repo-level checks now include frontend tests."
+    verification:
+      - "Ran npm run test from frontend/: passed with 1 test."
+      - "Ran ./scripts/check.sh from the repository root outside the sandbox: backend checks/tests and frontend test/lint/build passed."
+  - time_utc: "2026-07-04T01:43:39Z"
+    time_local: "2026-07-03T22:43:39-03:00"
+    summary: "Aligned selected-note edit mode with read mode."
+    changed:
+      - "Moved selected-note actions into icon-only header buttons with native labels while preserving existing callbacks, delete confirmation, and dirty discard paths."
+      - "Reordered edit mode to title, editable properties, CodeMirror body editor, and secondary summary textarea to match read-mode flow."
+      - "Kept edit draft fields, validation, parseTags, save payload shape, App dirty tracking, and MarkdownPane CodeMirror configuration unchanged."
+    verification:
+      - "Ran npm run typecheck from frontend/: passed."
+      - "Ran npm run lint from frontend/: passed."
+      - "Ran npm run build from frontend/: passed."
   - time_utc: "2026-07-04T01:32:16Z"
     time_local: "2026-07-03T22:32:16-03:00"
     summary: "Compacted selected-note read-mode properties."

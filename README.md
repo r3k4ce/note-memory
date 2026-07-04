@@ -240,11 +240,15 @@ uv run python -m pytest
 Pop-Location
 ```
 
-To run format, lint, typecheck, and tests together (backend) plus lint and
-build (frontend), use the repo-level check script:
+To run format, lint, typecheck, and tests together (backend) plus tests, lint,
+and build (frontend), use the repo-level check script:
 
 ```powershell
 .\scripts\check.ps1
+```
+
+```bash
+./scripts/check.sh
 ```
 
 ## Project structure
