@@ -16,11 +16,13 @@ afterEach(() => {
 function renderAskChat({
   isSubmitDisabled = false,
   messages = [],
+  onSourceSelect = vi.fn(),
   pendingMessageId = null,
   submitDisabledMessage,
 }: {
   isSubmitDisabled?: boolean;
   messages?: ChatMessage[];
+  onSourceSelect?: (noteId: number) => void;
   pendingMessageId?: string | null;
   submitDisabledMessage?: string;
 } = {}) {
@@ -31,6 +33,7 @@ function renderAskChat({
       askRef={createRef<HTMLTextAreaElement>()}
       isSubmitDisabled={isSubmitDisabled}
       messages={messages}
+      onSourceSelect={onSourceSelect}
       onSubmit={onSubmit}
       pendingMessageId={pendingMessageId}
       scopeLabel="All notes"
@@ -38,7 +41,7 @@ function renderAskChat({
     />,
   );
 
-  return { onSubmit };
+  return { onSourceSelect, onSubmit };
 }
 
 describe("AskChat quiet assistant panel", () => {
@@ -61,8 +64,8 @@ describe("AskChat quiet assistant panel", () => {
     expect(textarea).toHaveValue("");
   });
 
-  test("keeps pending disable state and display-only source cards", () => {
-    renderAskChat({
+  test("keeps pending disable state and opens source cards", () => {
+    const { onSourceSelect } = renderAskChat({
       messages: [
         {
           id: "assistant:1",
@@ -83,8 +86,9 @@ describe("AskChat quiet assistant panel", () => {
     expect(screen.getByRole("button", { name: /Reading/i })).toBeDisabled();
     expect(screen.getByLabelText("Ask a question about saved notes")).toBeDisabled();
     expect(screen.getByText("Sources · 1")).toBeInTheDocument();
-    expect(screen.getByText("React textarea notes")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /React textarea notes/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open cited note: React textarea notes" }));
+
+    expect(onSourceSelect).toHaveBeenCalledWith(7);
   });
 
   test("keeps custom disabled message visible when Ask has no selected notes", () => {

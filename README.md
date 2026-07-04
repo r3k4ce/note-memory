@@ -29,7 +29,7 @@ and grounded Ask/chat over your saved notes.
 - **Center workspace:** write new Markdown notes, read selected notes, and edit
   the note body, title, summary, tags, and category in one workspace.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, selected
-  note/category scope, and cited answers from saved notes.
+  note/category scope, and cited answers whose sources open saved notes.
 
 The backend stores notes locally, asks an LLM for title, summary, and tags when
 configured, indexes note chunks for retrieval, and exposes search and Ask

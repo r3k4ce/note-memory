@@ -176,18 +176,22 @@ export default function App() {
 
   useKeyboardShortcuts(handleModeChange, { captureRef, searchRef, askRef });
 
+  const openSelectedNote = useCallback((noteId: number) => {
+    setIsSelectedNoteEditDirty(false);
+    setEditError(null);
+    setSelectedNoteId(noteId);
+    setWorkspaceMode("read-selected");
+  }, []);
+
   const selectNote = useCallback(
     (noteId: number) => {
       if (!confirmDiscardSelectedNoteEdit()) {
         return;
       }
 
-      setIsSelectedNoteEditDirty(false);
-      setEditError(null);
-      setSelectedNoteId(noteId);
-      setWorkspaceMode("read-selected");
+      openSelectedNote(noteId);
     },
-    [confirmDiscardSelectedNoteEdit],
+    [confirmDiscardSelectedNoteEdit, openSelectedNote],
   );
 
   const clearSearch = useCallback(() => {
@@ -215,6 +219,25 @@ export default function App() {
   const handleClearAskNotes = useCallback(() => {
     setAskNoteScope(clearAskNotes());
   }, []);
+
+  const handleAskSourceSelect = useCallback(
+    (noteId: number) => {
+      if (!confirmDiscardSelectedNoteEdit()) {
+        return;
+      }
+
+      const sourceNote = notes.find((note) => note.id === noteId);
+      if (sourceNote) {
+        clearSearch();
+        setCategoryError(null);
+        setSelectedCategoryFilter(sourceNote.category?.id ?? "uncategorized");
+        setDraftCategoryId(sourceNote.category?.id ?? null);
+      }
+
+      openSelectedNote(noteId);
+    },
+    [clearSearch, confirmDiscardSelectedNoteEdit, notes, openSelectedNote],
+  );
 
   const handleCategoryFilterChange = useCallback(
     (filter: CategoryFilter) => {
@@ -819,6 +842,7 @@ export default function App() {
           <AskChat
             askRef={askRef}
             messages={askMessages}
+            onSourceSelect={handleAskSourceSelect}
             onSubmit={handleAskSubmit}
             pendingMessageId={askPendingMessageId}
             isSubmitDisabled={isAskNoteScopeEmpty}
