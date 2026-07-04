@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T01:19:15Z"
+    time_local: "2026-07-03T22:19:15-03:00"
+    summary: "Made the selected-note read view editor-first."
+    changed:
+      - "Moved the read-mode Markdown note body above the summary in NoteDetail."
+      - "Removed the read-mode Original text heading while keeping edit-mode labels unchanged."
+      - "Kept read-mode title, dates, category, and tags visible as compact note metadata."
+    verification:
+      - "Ran npm run typecheck from frontend/: passed."
+      - "Ran npm run lint from frontend/: passed."
+      - "Ran npm run build from frontend/: passed."
   - time_utc: "2026-07-03T23:52:00Z"
     time_local: "2026-07-03T20:52:02-03:00"
     summary: "Updated AGENTS.md to prefer the Bash workflow."

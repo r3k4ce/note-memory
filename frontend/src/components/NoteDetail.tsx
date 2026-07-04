@@ -229,7 +229,25 @@ export function NoteDetail({
             </>
           ) : null}
         </div>
+        {!isEditing && note.tags.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5" aria-label="Tags">
+            {note.tags.map((tag) => (
+              <span
+                className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
+                key={tag}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </header>
+
+      {!isEditing ? (
+        <div className="flex flex-col gap-2">
+          <MarkdownPane mode="read" value={note.original_text} />
+        </div>
+      ) : null}
 
       {isEditing && categories.length > 0 ? (
         <div className="flex flex-col gap-1.5 sm:max-w-xs">
@@ -272,17 +290,6 @@ export function NoteDetail({
             value={editDraft.tagsText}
           />
         </div>
-      ) : note.tags.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5" aria-label="Tags">
-          {note.tags.map((tag) => (
-            <span
-              className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
-              key={tag}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
       ) : null}
 
       <div className="flex flex-col gap-1.5">
@@ -310,31 +317,24 @@ export function NoteDetail({
         )}
       </div>
 
-      <div className={isEditing ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-2"}>
-        {isEditing ? (
-          <>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
-              Original text
-            </label>
-            <MarkdownPane
-              disabled={isSavingEdit}
-              id="edit-note-body"
-              mode="edit"
-              onChange={(value) => {
-                setEditDraft({ ...editDraft, bodyText: value });
-                setValidationError(null);
-              }}
-              value={editDraft.bodyText}
-              variant="workspace"
-            />
-          </>
-        ) : (
-          <>
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Original text</h3>
-            <MarkdownPane mode="read" value={note.original_text} />
-          </>
-        )}
-      </div>
+      {isEditing ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-body">
+            Original text
+          </label>
+          <MarkdownPane
+            disabled={isSavingEdit}
+            id="edit-note-body"
+            mode="edit"
+            onChange={(value) => {
+              setEditDraft({ ...editDraft, bodyText: value });
+              setValidationError(null);
+            }}
+            value={editDraft.bodyText}
+            variant="workspace"
+          />
+        </div>
+      ) : null}
 
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4">
         {isEditing ? (
