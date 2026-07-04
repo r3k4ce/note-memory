@@ -24,8 +24,8 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 A local-first three-pane notes workspace with AI-assisted metadata, hybrid search,
 and grounded Ask/chat over your saved notes.
 
-- **Left sidebar:** search, category filters, note list, search match snippets,
-  and Ask scope controls for choosing all notes or selected notes.
+- **Left sidebar:** search, an expandable category tree with nested notes, search
+  match snippets, and Ask scope controls for choosing all notes or selected notes.
 - **Center workspace:** write new Markdown notes, read selected notes, and edit
   the note body, title, summary, tags, and category in one workspace.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, selected
@@ -172,7 +172,7 @@ Walk through these once after a clean install:
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`
 - [ ] Frontend at `http://localhost:5173` loads the three-pane workspace
 - [ ] Left sidebar search returns note cards with `Exact`, `Semantic`, or `Hybrid` match chips and matched snippets when available
-- [ ] Left sidebar categories filter the note list, search, and Ask scope
+- [ ] Left sidebar categories expand into nested notes and scope search and Ask
 - [ ] Left sidebar Ask scope controls switch between all notes, selected notes, and no selected notes
 - [ ] Center workspace creates notes, opens selected notes, and edits the saved Markdown body plus metadata
 - [ ] Saved note detail renders the note body as Markdown in single-pane read mode

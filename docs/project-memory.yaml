@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T04:41:50Z"
+    time_local: "2026-07-04T01:41:50-03:00"
+    summary: "Reworked the left sidebar into an expandable category tree."
+    changed:
+      - "Replaced separate Notes/Categories navigation and the flat browse list with one Browse notes tree: All notes, Uncategorized, sorted category folders, and nested note rows."
+      - "Folder clicks now set the active category scope and expand or collapse without auto-opening the first note; note rows remain the only browse rows that open note detail."
+      - "Kept active search as a flat rich result list and preserved Ask scope controls, note-selection checkboxes, scoped search, and category creation."
+    verification:
+      - "Ran npm run test -- App.test.tsx from frontend/: first failed on the missing tree and old category-click behavior, then passed with 15 tests after implementation."
+      - "Ran npm run typecheck, npm run test, npm run lint, and npm run build from frontend/: passed."
+      - "Ran ./scripts/check.sh from the repository root outside the sandbox after uv cache writes were blocked in the sandbox: passed with backend checks/tests and frontend tests/lint/build."
   - time_utc: "2026-07-04T04:23:25Z"
     time_local: "2026-07-04T01:23:25-03:00"
     summary: "Added an explicit Ask note-selection mode in the left sidebar."

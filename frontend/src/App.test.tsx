@@ -111,17 +111,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function expectListHeading(label: string) {
-  expect(
-    screen
-      .getAllByText(label, { selector: "span" })
-      .some((element) => element.className.includes("uppercase")),
-  ).toBe(true);
-}
-
 function getSidebarNewNoteButton() {
   return within(screen.getByRole("complementary", { name: "Notes sidebar" })).getByRole("button", {
     name: "New note",
+  });
+}
+
+function getBrowseTree() {
+  return within(screen.getByRole("complementary", { name: "Notes sidebar" })).getByRole("tree", {
+    name: "Browse notes",
   });
 }
 
@@ -137,42 +135,45 @@ function deferred<T>() {
 }
 
 describe("App sidebar navigation", () => {
-  test("organizes the sidebar as navigation first with compact Ask scope in the note-list header", async () => {
+  test("organizes browsing as one expanded category tree with nested notes", async () => {
     render(<App />);
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
     const title = screen.getByText("Note Memory");
     const newNote = within(sidebar).getByRole("button", { name: "New note" });
     const search = screen.getByRole("search");
-    const notesHeading = screen.getByText("Notes");
-    const allNotes = screen.getByRole("button", { name: "All notes" });
-    const uncategorized = screen.getByRole("button", { name: "Uncategorized" });
-    const categoriesHeading = screen.getByText("Categories");
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
-    const workCategory = screen.getByRole("button", { name: "Work" });
+    const tree = getBrowseTree();
+    const allNotes = within(tree).getByRole("button", { name: "All notes" });
+    const uncategorized = within(tree).getByRole("button", { name: "Uncategorized" });
+    const personalCategory = within(tree).getByRole("button", { name: "Personal" });
+    const personalNote = within(tree).getByRole("button", { name: /Personal note/ });
+    const workCategory = within(tree).getByRole("button", { name: "Work" });
+    const workNote = within(tree).getByRole("button", { name: /Work note/ });
     const askScope = screen.getByText("Ask scope: All notes");
-    const listHeading = screen.getByText("All notes", { selector: "span" });
 
     expect(sidebar).toContainElement(title);
     expect(sidebar).toContainElement(newNote);
     expect(title.compareDocumentPosition(newNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(newNote.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(title.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(search.compareDocumentPosition(notesHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(notesHeading.compareDocumentPosition(allNotes)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(search.compareDocumentPosition(askScope)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(askScope.compareDocumentPosition(tree)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(allNotes.compareDocumentPosition(uncategorized)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(uncategorized.compareDocumentPosition(categoriesHeading)).toBe(
+    expect(uncategorized.compareDocumentPosition(personalCategory)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(categoriesHeading.compareDocumentPosition(workCategory)).toBe(
+    expect(personalCategory).toHaveAttribute("aria-expanded", "true");
+    expect(personalCategory.compareDocumentPosition(personalNote)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(workCategory.compareDocumentPosition(listHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(listHeading.compareDocumentPosition(askScope)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(personalNote.compareDocumentPosition(workCategory)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(workCategory).toHaveAttribute("aria-expanded", "true");
+    expect(workCategory.compareDocumentPosition(workNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   test("keeps category navigation and scoped search behavior unchanged", async () => {
@@ -184,13 +185,18 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Uncategorized" }));
 
-    expect(screen.getByText("Uncategorized", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText(/Scope: Uncategorized/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Uncategorized" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
 
-    expectListHeading("Work");
     expect(screen.getByText(/Scope: Work/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Work" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
 
     const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
     fireEvent.change(searchbox, { target: { value: "react" } });
@@ -205,7 +211,25 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(searchbox).toHaveValue("");
-    expectListHeading("Work");
+    expect(screen.getByText(/Scope: Work/)).toBeInTheDocument();
+  });
+
+  test("expands collapsed categories to reveal nested notes without opening them", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+    expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Work" }));
+    const workNote = screen.getByRole("button", { name: /Work note/ });
+
+    expect(workNote).toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
   });
 
   test("keeps Ask checkboxes hidden until note-selection mode is active", async () => {
@@ -309,7 +333,6 @@ describe("App sidebar navigation", () => {
 
     expect(noteRow).toHaveTextContent("Work note");
     expect(noteRow).toHaveTextContent("07-03");
-    expect(noteRow).toHaveTextContent("Work");
     expect(noteRow).not.toHaveTextContent("A note about work.");
     expect(noteRow).not.toHaveTextContent("work");
     expect(
@@ -353,7 +376,7 @@ describe("App sidebar navigation", () => {
 
     expect(searchbox).toHaveValue("work");
     expect(searchNotes).not.toHaveBeenCalled();
-    expectListHeading("All notes");
+    expect(getBrowseTree()).toBeInTheDocument();
     expect(screen.queryByText(/Results for/)).not.toBeInTheDocument();
 
     const noteRow = screen.getByRole("button", { name: /Work note/ });
@@ -445,6 +468,7 @@ describe("App sidebar navigation", () => {
     expect(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    fireEvent.click(screen.getByRole("button", { name: "Personal" }));
     fireEvent.click(screen.getByRole("button", { name: "Personal" }));
 
     expect(screen.getByRole("checkbox", { name: "Include Personal note in Ask scope" })).toBeInTheDocument();
