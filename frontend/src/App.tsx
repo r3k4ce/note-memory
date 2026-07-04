@@ -907,9 +907,9 @@ export default function App() {
     <div className="flex h-screen bg-bg text-text-primary">
       <aside
         aria-label="Notes sidebar"
-        className="flex w-64 shrink-0 flex-col border-r border-border bg-surface sm:w-72"
+        className="flex w-64 shrink-0 flex-col bg-bg sm:w-72"
       >
-        <div className="shrink-0 border-b border-border p-3">
+        <div className="shrink-0 px-3 py-3">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
             <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
@@ -919,7 +919,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="shrink-0 border-b border-border p-2.5">
+        <div className="shrink-0 px-2.5 py-2">
           <button
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSaving || isSavingEdit || isDeleting}
@@ -931,10 +931,10 @@ export default function App() {
           </button>
         </div>
 
-        <div className="shrink-0 border-b border-border p-2.5">
+        <div className="shrink-0 px-2.5 py-2">
           <div
             aria-label="Sidebar mode"
-            className="grid grid-cols-2 rounded-md bg-surface-raised p-0.5"
+            className="grid grid-cols-2 rounded-md bg-surface p-0.5"
             role="tablist"
           >
             <button
@@ -967,7 +967,7 @@ export default function App() {
         </div>
 
         {isSearchTab ? (
-          <div className="shrink-0 border-b border-border p-2.5">
+          <div className="shrink-0 px-2.5 py-2">
             <SearchBar
               isSearching={isSearching}
               onChange={handleSearchTextChange}
@@ -990,11 +990,11 @@ export default function App() {
         ) : null}
 
         {isBrowseTab ? (
-          <div className="shrink-0 border-b border-border px-3 py-2">
+          <div className="shrink-0 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <button
                 aria-expanded={isCategoryManagerOpen}
-                className="inline-flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+                className="inline-flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
                 onClick={() => {
                   setIsCategoryManagerOpen((current) => !current);
                   setCategoryError(null);
@@ -1014,13 +1014,13 @@ export default function App() {
             {isCategoryManagerOpen ? (
               <div
                 aria-label="Manage categories"
-                className="mt-2 rounded-md border border-border bg-surface-raised p-2"
+                className="mt-2 rounded-md bg-surface p-2"
                 role="region"
               >
                 <form className="flex gap-1.5" onSubmit={handleCreateCategory}>
                   <input
                     aria-label="New category name"
-                    className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface disabled:opacity-60"
                     disabled={isSavingCategory}
                     onChange={(event) => {
                       setCategoryDraft(event.target.value);
@@ -1046,7 +1046,7 @@ export default function App() {
                       const isEditingCategory = editingCategoryId === category.id;
 
                       return (
-                        <div className="rounded border border-border bg-surface px-2 py-1.5" key={category.id}>
+                        <div className="rounded bg-bg px-2 py-1.5" key={category.id}>
                           {isEditingCategory ? (
                             <form
                               className="flex gap-1.5"
@@ -1054,7 +1054,7 @@ export default function App() {
                             >
                               <input
                                 aria-label="Category name"
-                                className="min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-2 py-1 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                                 disabled={isUpdatingCategory}
                                 onChange={(event) => {
                                   setCategoryEditDraft(event.target.value);
@@ -1072,7 +1072,7 @@ export default function App() {
                               </button>
                               <button
                                 aria-label="Cancel category rename"
-                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
                                 disabled={isUpdatingCategory}
                                 onClick={() => {
                                   setEditingCategoryId(null);
@@ -1094,7 +1094,7 @@ export default function App() {
                               </span>
                               <button
                                 aria-label={`Rename ${category.name}`}
-                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
                                 disabled={isUpdatingCategory || deletingCategoryId !== null}
                                 onClick={() => {
                                   setEditingCategoryId(category.id);
@@ -1130,7 +1130,7 @@ export default function App() {
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+        <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2 pt-1">
           {isBrowseTab && isLoadingNotes ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
@@ -1156,7 +1156,7 @@ export default function App() {
             <div className="px-2 py-6 text-center">
               <p className="text-xs text-text-muted">No notes yet</p>
               <p className="mt-1 text-[11px] text-text-muted">
-                Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
+                Press <kbd className="rounded bg-surface px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
               </p>
             </div>
           ) : null}
@@ -1187,7 +1187,7 @@ export default function App() {
                 <input
                   aria-label="Use all notes for Ask"
                   checked={askNoteScope.mode === "all"}
-                  className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface-raised accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                  className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                   onChange={handleToggleAllAskNotes}
                   type="checkbox"
                 />
@@ -1195,7 +1195,7 @@ export default function App() {
                   aria-selected={selectedCategoryFilter === "all"}
                   className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                     selectedCategoryFilter === "all"
-                      ? "bg-surface-raised text-text-primary"
+                      ? "bg-surface text-text-primary"
                       : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
                   }`}
                   onClick={() => handleCategoryFilterChange("all")}
@@ -1230,7 +1230,7 @@ export default function App() {
                       <input
                         aria-label={`Use ${folder.label} category for Ask`}
                         checked={isFolderAskSelected}
-                        className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface-raised accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
+                        className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
                         disabled={folderNoteIds.length === 0}
                         onChange={() =>
                           handleSetAskSourceNotesSelected(folderNoteIds, !isFolderAskSelected)
@@ -1249,7 +1249,7 @@ export default function App() {
                           isDropTarget
                             ? "bg-accent-muted text-text-primary ring-1 ring-accent/40"
                             : isSelected
-                              ? "bg-surface-raised text-text-primary"
+                              ? "bg-surface text-text-primary"
                               : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
                         }`}
                         onDragLeave={() => handleFolderDragLeave(folderDropTarget)}
@@ -1283,16 +1283,16 @@ export default function App() {
                     </div>
 
                     {isExpanded ? (
-                      <div className="ml-4 flex flex-col gap-0.5 border-l border-border pl-1.5" role="group">
+                      <div className="ml-4 flex flex-col gap-0.5 pl-1.5" role="group">
                         {folder.notes.length > 0 ? (
                           folder.notes.map((note) => (
                             <div className="relative" key={note.id}>
                               <button
                                 aria-selected={note.id === selectedNoteId}
-                                className={`group flex w-full cursor-grab items-center gap-1.5 rounded-md border px-2 py-1.5 pr-8 text-left transition-colors active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                                className={`group flex w-full cursor-grab items-center gap-1.5 rounded-md px-2 py-1.5 pr-8 text-left transition-colors active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                                   note.id === selectedNoteId
-                                    ? "border-border-strong bg-surface-hover"
-                                    : "border-transparent hover:bg-surface-hover"
+                                    ? "bg-surface"
+                                    : "hover:bg-surface-hover"
                                 }`}
                                 draggable
                                 onClick={() => selectNote(note.id)}
@@ -1326,7 +1326,7 @@ export default function App() {
                               <input
                                 aria-label={`Use ${note.ai_title} for Ask`}
                                 checked={isNoteSelectedForAsk(askNoteScope, note.id)}
-                                className="absolute right-2.5 top-2 h-3 w-3 rounded border-border bg-surface-raised accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                                className="absolute right-2.5 top-2 h-3 w-3 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                                 onChange={(event) => {
                                   event.stopPropagation();
                                   handleToggleAskNoteScope(note.id);
@@ -1382,7 +1382,7 @@ export default function App() {
         />
       </main>
 
-      <aside className="hidden min-h-0 w-80 shrink-0 border-l border-border bg-bg p-4 lg:flex xl:w-96">
+      <aside className="hidden min-h-0 w-80 shrink-0 bg-bg px-4 py-3 lg:flex xl:w-96">
         <AskChat
           askRef={askRef}
           messages={askMessages}

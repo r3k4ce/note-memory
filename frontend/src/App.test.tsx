@@ -484,7 +484,7 @@ describe("App sidebar navigation", () => {
     fireEvent.click(noteRow);
 
     expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
-    expect(noteRow.className).toContain("border-border-strong");
+    expect(noteRow).toHaveAttribute("aria-selected", "true");
   });
 
   test("toggles Ask scope checkboxes without opening note rows", async () => {

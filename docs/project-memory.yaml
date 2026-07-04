@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T19:38:08Z"
+    time_local: "2026-07-04T16:38:08-03:00"
+    summary: "Made the frontend presentation more cohesive, minimal, and borderless across the three-pane workspace."
+    changed:
+      - "Tuned theme surface and border tokens so app regions share a closer visual canvas in light, dark, forest, and solarized themes."
+      - "Removed decorative pane borders, header underlines, tree guide lines, card borders, and chip borders so the sidebar, workspace, and assistant read as one continuous surface."
+      - "Kept functional borders for inputs, selects, checkboxes, focusable textareas, loading spinners, markdown code/table content, and error/destructive states."
+      - "Preserved existing React state, API calls, labels, roles, keyboard behavior, and note/Ask workflows; this was presentation-only."
+    verification:
+      - "Ran npm run test (51 passing), npm run typecheck, and npm run lint in frontend/."
+      - "Ran ./scripts/check.sh from the repository root after rerunning with cache-write escalation; backend checks/184 tests and frontend tests/lint/build passed."
   - time_utc: "2026-07-04T19:00:00Z"
     time_local: "2026-07-04T16:00:00-03:00"
     summary: "Added Forest (dark) and Solarized (light) theme variants with a chevron menu next to the Sun/Moon toggle."

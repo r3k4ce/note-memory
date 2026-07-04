@@ -142,7 +142,7 @@ export function NoteDetail({
   if (!note) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-1.5 py-20">
-        <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-surface-raised">
+        <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-surface">
           <Pencil size={18} strokeWidth={1.5} className="text-text-muted" />
         </div>
         <p className="text-sm font-medium text-text-secondary">No note selected</p>
@@ -205,7 +205,7 @@ export function NoteDetail({
                   Title
                 </label>
                 <input
-                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-xl font-semibold leading-tight text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                  className="rounded-md border border-border bg-surface px-3 py-2 text-xl font-semibold leading-tight text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                   disabled={isSavingEdit}
                   id="edit-note-title"
                   onChange={(event) => {
@@ -235,7 +235,7 @@ export function NoteDetail({
                 </button>
                 <button
                   aria-label="Cancel edit"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface disabled:opacity-40"
                   disabled={actionsDisabled}
                   onClick={onCancelEdit}
                   title="Cancel edit"
@@ -247,7 +247,7 @@ export function NoteDetail({
             ) : (
               <button
                 aria-label="Edit note"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface disabled:opacity-40"
                 disabled={actionsDisabled}
                 onClick={onEdit}
                 title="Edit note"
@@ -258,7 +258,7 @@ export function NoteDetail({
             )}
             <button
               aria-label="New note"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-40"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface disabled:opacity-40"
               disabled={actionsDisabled}
               onClick={onNewNote}
               title="New note"
@@ -281,7 +281,7 @@ export function NoteDetail({
 
         {!isEditing ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-text-muted">
-            <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
+            <span className="rounded bg-surface px-2 py-0.5 text-text-secondary">
               {note.category?.name ?? "Uncategorized"}
             </span>
             <time dateTime={note.date_added}>Created {note.date_added}</time>
@@ -290,7 +290,7 @@ export function NoteDetail({
               <span className="flex flex-wrap items-center gap-1.5" aria-label="Tags">
                 {note.tags.map((tag) => (
                   <span
-                    className="rounded border border-border bg-surface-raised px-2 py-0.5 font-medium text-text-secondary"
+                    className="rounded bg-surface px-2 py-0.5 font-medium text-text-secondary"
                     key={tag}
                   >
                     {tag}
@@ -305,7 +305,7 @@ export function NoteDetail({
               <label className="flex items-center gap-1.5">
                 <span className="sr-only">Category</span>
                 <select
-                  className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                  className="rounded border border-border bg-surface px-2 py-0.5 text-text-secondary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                   disabled={isSavingEdit}
                   id="edit-note-category"
                   onChange={(event) =>
@@ -327,7 +327,7 @@ export function NoteDetail({
             <label className="min-w-40 flex-1">
               <span className="sr-only">Tags</span>
               <input
-                className="w-full rounded border border-border bg-surface-raised px-2 py-0.5 font-medium text-text-secondary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                className="w-full rounded border border-border bg-surface px-2 py-0.5 font-medium text-text-secondary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                 disabled={isSavingEdit}
                 id="edit-note-tags"
                 onChange={(event) => {
@@ -346,7 +346,7 @@ export function NoteDetail({
       </header>
 
       {!isEditing ? (
-        <details className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-secondary">
+        <details className="rounded-md bg-surface px-3 py-2 text-sm text-text-secondary">
           <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
             Summary
           </summary>
@@ -366,7 +366,7 @@ export function NoteDetail({
             Summary
           </label>
           <textarea
-            className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+            className="min-h-28 resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
             disabled={isSavingEdit}
             id="edit-note-summary"
             onChange={(event) => {
