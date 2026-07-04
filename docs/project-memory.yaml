@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-04T02:47:17Z"
+    time_local: "2026-07-03T23:47:17-03:00"
+    summary: "Removed the legacy ResultPanel wrapper."
+    changed:
+      - "Rendered NoteDetail directly from NoteWorkspace for selected-note read/edit modes while preserving the existing note/mode remount key."
+      - "Deleted the pass-through ResultPanel component without changing selected-note UX, state, styling, API, or Ask behavior."
+    verification:
+      - "Confirmed live ResultPanel references were removed from frontend/src; remaining mentions are historical project-memory entries."
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: passed."
   - time_utc: "2026-07-04T02:25:09Z"
     time_local: "2026-07-03T23:25:09-03:00"
     summary: "Opened cited notes from Ask sources."
