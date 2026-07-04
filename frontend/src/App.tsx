@@ -41,7 +41,6 @@ import type {
   AskHistoryMessage,
   AskNoteScope,
   Category,
-  CategoryScopeRequest,
   ChatMessage,
   Note,
   NoteCardData,
@@ -85,18 +84,6 @@ function sortCategories(categories: Category[]): Category[] {
   return [...categories].sort((left, right) =>
     left.name.localeCompare(right.name, undefined, { sensitivity: "base" }) || left.id - right.id,
   );
-}
-
-function categoryFilterScope(filter: CategoryFilter): CategoryScopeRequest {
-  if (filter === "uncategorized") {
-    return { uncategorized: true };
-  }
-
-  if (typeof filter === "number") {
-    return { category_id: filter };
-  }
-
-  return {};
 }
 
 function categoryFilterLabel(filter: CategoryFilter, categories: Category[]): string {
@@ -177,7 +164,6 @@ export default function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
 
-  const categoryScope = categoryFilterScope(selectedCategoryFilter);
   const categoryScopeLabel = categoryFilterLabel(selectedCategoryFilter, categories);
   const isSearchActive = activeSearchQuery !== null;
   const sortedCategories = useMemo(() => sortCategories(categories), [categories]);
@@ -470,7 +456,7 @@ export default function App() {
     setIsSearching(true);
 
     try {
-      const results = await searchNotes(query, categoryScope);
+      const results = await searchNotes(query);
       if (searchRequestId.current === requestId) {
         setSearchResults(results);
       }
@@ -705,7 +691,8 @@ export default function App() {
     }
   }
 
-  const listTitle = isSearchActive
+  const sidebarModeTitle = isSearchActive ? "Search results" : "Browse";
+  const sidebarContextLabel = isSearchActive
     ? `Results for “${activeSearchQuery}”`
     : categoryScopeLabel;
   const searchStatus = isSearching
@@ -750,7 +737,6 @@ export default function App() {
             onClear={clearSearch}
             onSubmit={handleSearchSubmit}
             query={searchText}
-            scopeLabel={categoryScopeLabel}
             searchRef={searchRef}
           />
         </div>
@@ -758,7 +744,7 @@ export default function App() {
         <div className="shrink-0 px-3 py-1.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-              {listTitle}
+              {sidebarModeTitle}
             </span>
             {isSearchActive ? (
               <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{searchStatus}</span>
@@ -776,24 +762,13 @@ export default function App() {
               </button>
             ) : null}
           </div>
-          <div className="mt-2 rounded-md border border-border bg-surface-raised px-2 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-                Ask sources
-              </span>
-              <span className="min-w-0 truncate text-[11px] text-text-muted">{askScopeSummary}</span>
-            </div>
-            <label className="mt-1.5 flex items-center gap-2 rounded px-1 py-1 text-[12px] text-text-secondary transition-colors hover:bg-surface-hover">
-              <input
-                aria-label="Use all notes for Ask"
-                checked={askNoteScope.mode === "all"}
-                className="h-3.5 w-3.5 rounded border-border bg-surface accent-accent"
-                onChange={handleToggleAllAskNotes}
-                type="checkbox"
-              />
-              <span className="min-w-0 flex-1 truncate">All notes</span>
-              <span className="shrink-0 text-[10px] tabular-nums text-text-muted">{notes.length}</span>
-            </label>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-[11px] text-text-secondary">
+              {sidebarContextLabel}
+            </span>
+            {!isSearchActive ? (
+              <span className="shrink-0 text-[10px] text-text-muted">{askScopeSummary}</span>
+            ) : null}
           </div>
           {!isSearchActive && isCreatingCategory ? (
             <form className="mt-2 flex gap-1.5" onSubmit={handleCreateCategory}>
@@ -875,22 +850,31 @@ export default function App() {
 
           {!isSearchActive && !isLoadingNotes && !listError && notes.length > 0 ? (
             <div aria-label="Browse notes" className="flex flex-col gap-0.5" role="tree">
-              <button
-                aria-selected={selectedCategoryFilter === "all"}
-                className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                  selectedCategoryFilter === "all"
-                    ? "bg-surface-raised text-text-primary"
-                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                }`}
-                onClick={() => handleCategoryFilterChange("all")}
-                type="button"
-              >
-                <FileText aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
-                <span className="min-w-0 flex-1 truncate">All notes</span>
-                <span aria-hidden="true" className="shrink-0 text-[10px] tabular-nums text-text-muted">
-                  {notes.length}
-                </span>
-              </button>
+              <div className="flex items-center gap-1 rounded-md pr-1">
+                <input
+                  aria-label="Use all notes for Ask"
+                  checked={askNoteScope.mode === "all"}
+                  className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface-raised accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                  onChange={handleToggleAllAskNotes}
+                  type="checkbox"
+                />
+                <button
+                  aria-selected={selectedCategoryFilter === "all"}
+                  className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                    selectedCategoryFilter === "all"
+                      ? "bg-surface-raised text-text-primary"
+                      : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                  }`}
+                  onClick={() => handleCategoryFilterChange("all")}
+                  type="button"
+                >
+                  <FileText aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
+                  <span className="min-w-0 flex-1 truncate">All notes</span>
+                  <span aria-hidden="true" className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                    {notes.length}
+                  </span>
+                </button>
+              </div>
 
               {browseFolders.map((folder) => {
                 const isExpanded = expandedFolderKeys.has(folder.key);
@@ -911,7 +895,7 @@ export default function App() {
                       <input
                         aria-label={`Use ${folder.label} category for Ask`}
                         checked={isFolderAskSelected}
-                        className="ml-2 h-3.5 w-3.5 shrink-0 rounded border-border bg-surface-raised accent-accent disabled:opacity-40"
+                        className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface-raised accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
                         disabled={folderNoteIds.length === 0}
                         onChange={() =>
                           handleSetAskSourceNotesSelected(folderNoteIds, !isFolderAskSelected)
@@ -998,7 +982,7 @@ export default function App() {
                               <input
                                 aria-label={`Use ${note.ai_title} for Ask`}
                                 checked={isNoteSelectedForAsk(askNoteScope, note.id)}
-                                className="absolute right-2.5 top-2 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
+                                className="absolute right-2.5 top-2 h-3 w-3 rounded border-border bg-surface-raised accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                                 onChange={(event) => {
                                   event.stopPropagation();
                                   handleToggleAskNoteScope(note.id);

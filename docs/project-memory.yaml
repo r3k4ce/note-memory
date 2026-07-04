@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-04T17:53:03Z"
+    time_local: "2026-07-04T14:53:03-03:00"
+    summary: "Separated left-sidebar browse and global search controls."
+    changed:
+      - "Removed the standalone Ask sources panel and moved the all-notes Ask checkbox into the All notes browse row."
+      - "Removed SearchBar scope copy and changed frontend search submissions to query all notes instead of the active browse category."
+      - "Added explicit Browse versus Search results sidebar headers and made Ask source checkboxes smaller and less prominent."
+      - "Updated README sidebar and verification checklist language for global sidebar search."
+    verification:
+      - "Ran npm test -- App.test.tsx --run from frontend/: first failed on the old Ask sources panel and scoped search copy, then passed with 16 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm test -- --run from frontend/: passed with 22 tests."
+      - "Ran ./scripts/check.sh from the repository root: first blocked by sandbox uv cache writes, then passed with escalation; backend checks/tests and frontend tests/lint/build passed."
   - time_utc: "2026-07-04T04:57:53Z"
     time_local: "2026-07-04T01:57:53-03:00"
     summary: "Simplified left-sidebar Ask source selection."

@@ -33,7 +33,7 @@ export function NoteCard({
     <input
       aria-label={`Use ${note.ai_title} for Ask`}
       checked={askScopeSelected}
-      className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
+      className="absolute right-2.5 top-2.5 h-3 w-3 rounded border-border bg-surface-raised accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
       onChange={(event) => {
         event.stopPropagation();
         onAskScopeToggle(note.id);

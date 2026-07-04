@@ -154,15 +154,16 @@ describe("App sidebar navigation", () => {
     const personalNote = within(tree).getByRole("button", { name: /Personal note/ });
     const workCategory = within(tree).getByRole("button", { name: "Work" });
     const workNote = within(tree).getByRole("button", { name: /Work note/ });
-    const askSources = screen.getByText("Ask sources");
+    const askAllNotes = within(tree).getByRole("checkbox", { name: "Use all notes for Ask" });
 
     expect(sidebar).toContainElement(title);
     expect(sidebar).toContainElement(newNote);
     expect(title.compareDocumentPosition(newNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(newNote.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(title.compareDocumentPosition(search)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(search.compareDocumentPosition(askSources)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(askSources.compareDocumentPosition(tree)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByText("Ask sources")).not.toBeInTheDocument();
+    expect(search.compareDocumentPosition(tree)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(tree).toContainElement(askAllNotes);
     expect(allNotes.compareDocumentPosition(uncategorized)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(uncategorized.compareDocumentPosition(personalCategory)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
@@ -176,7 +177,7 @@ describe("App sidebar navigation", () => {
     expect(workCategory.compareDocumentPosition(workNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  test("keeps category navigation and scoped search behavior unchanged", async () => {
+  test("keeps category navigation separate from global search behavior", async () => {
     render(<App />);
 
     await waitFor(() => {
@@ -185,7 +186,9 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Uncategorized" }));
 
-    expect(screen.getByText(/Scope: Uncategorized/)).toBeInTheDocument();
+    expect(screen.queryByText(/Scope:/)).not.toBeInTheDocument();
+    expect(screen.getByText("Browse", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getAllByText("Uncategorized", { selector: "span" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Uncategorized" })).toHaveAttribute(
       "aria-expanded",
       "false",
@@ -193,7 +196,7 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
 
-    expect(screen.getByText(/Scope: Work/)).toBeInTheDocument();
+    expect(screen.getAllByText("Work", { selector: "span" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Work" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
     expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
@@ -203,15 +206,17 @@ describe("App sidebar navigation", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     await waitFor(() => {
-      expect(searchNotes).toHaveBeenCalledWith("react", { category_id: 1 });
+      expect(searchNotes).toHaveBeenCalledWith("react");
     });
 
+    expect(screen.getByText("Search results", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Results for “react”", { selector: "span" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
     expect(searchbox).toHaveValue("");
-    expect(screen.getByText(/Scope: Work/)).toBeInTheDocument();
+    expect(screen.getByText("Browse", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getAllByText("Work", { selector: "span" }).length).toBeGreaterThan(0);
   });
 
   test("expands collapsed categories to reveal nested notes without opening them", async () => {
@@ -258,7 +263,7 @@ describe("App sidebar navigation", () => {
       expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Ask sources")).toBeInTheDocument();
+    expect(screen.queryByText("Ask sources")).not.toBeInTheDocument();
     expect(screen.getByText("Mock Ask scope: All notes")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
@@ -280,8 +285,7 @@ describe("App sidebar navigation", () => {
     expect(screen.getByText("Select at least one source for Ask.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mock ask" })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Work" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use Work note for Ask" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
 
     expect(screen.getByText("1 note selected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mock ask" })).not.toBeDisabled();
@@ -384,7 +388,8 @@ describe("App sidebar navigation", () => {
     fireEvent.change(searchbox, { target: { value: "work" } });
     fireEvent.submit(screen.getByRole("search"));
 
-    expect(await screen.findByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
+    expect(await screen.findByText("Search results", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("Searching...", { selector: "span" })).toBeInTheDocument();
 
     search.resolve([]);
