@@ -617,8 +617,17 @@ export default function App() {
   }
 
   const listTitle = isSearchActive
-    ? `Results · ${activeSearchQuery}`
+    ? `Results for “${activeSearchQuery}”`
     : categoryScopeLabel;
+  const searchStatus = isSearching
+    ? "Searching..."
+    : searchError
+      ? "Search failed"
+      : searchResults.length === 0
+        ? "No results"
+        : searchResults.length === 1
+          ? "1 found"
+          : `${searchResults.length} found`;
 
   return (
     <div className="flex h-screen bg-bg text-text-primary">
@@ -770,8 +779,10 @@ export default function App() {
             <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
               {listTitle}
             </span>
-            {!isSearchActive && !isLoadingNotes ? (
-              <span className="text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
+            {isSearchActive ? (
+              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{searchStatus}</span>
+            ) : !isLoadingNotes ? (
+              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
             ) : null}
           </div>
         </div>

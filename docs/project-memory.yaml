@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T03:46:26Z"
+    time_local: "2026-07-04T00:46:27-03:00"
+    summary: "Separated browse and active search sidebar presentation."
+    changed:
+      - "Changed the active search list heading from Results-dot-query copy to Results for query with a right-aligned status/count."
+      - "Added active search statuses for searching, result count, zero results, and search failure while preserving rich search cards, snippets, match chips, and clear-search behavior."
+      - "Kept typed-but-unsubmitted search text in browse mode and demoted the SearchBar scope copy without changing category-scoped search requests."
+      - "Added App-level regression coverage for typed browse state, search loading, result count, zero results, failure status, rich result preservation, and scoped clear behavior."
+    verification:
+      - "Ran npm run test -- src/App.test.tsx from frontend/: first failed on the old Results-dot-query heading and missing statuses, then passed with 10 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: passed with 16 tests."
   - time_utc: "2026-07-04T03:34:37Z"
     time_local: "2026-07-04T00:34:37-03:00"
     summary: "Compacted browse-mode note rows."

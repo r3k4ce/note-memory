@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { searchNotes } from "./api";
 import App from "./App";
-import type { Category, Note } from "./types";
+import type { Category, Note, SearchResult } from "./types";
 
 const { categories, notes } = vi.hoisted(() => {
   const mockCategories: Category[] = [
@@ -97,6 +97,17 @@ function getSidebarNewNoteButton() {
   });
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, reject, resolve };
+}
+
 describe("App sidebar navigation", () => {
   test("organizes the sidebar as app header, search, note navigation, category navigation, Ask scope, and note list", async () => {
     render(<App />);
@@ -161,7 +172,7 @@ describe("App sidebar navigation", () => {
       expect(searchNotes).toHaveBeenCalledWith("react", { category_id: 1 });
     });
 
-    expect(screen.getByText("Results · react", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Results for “react”", { selector: "span" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
 
@@ -206,6 +217,45 @@ describe("App sidebar navigation", () => {
     expect(noteRow.className).toContain("border-border-strong");
   });
 
+  test("keeps browsing presentation while search text is typed but not submitted", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
+    fireEvent.change(searchbox, { target: { value: "work" } });
+
+    expect(searchbox).toHaveValue("work");
+    expect(searchNotes).not.toHaveBeenCalled();
+    expectListHeading("All notes");
+    expect(screen.queryByText(/Results for/)).not.toBeInTheDocument();
+
+    const noteRow = screen.getByRole("button", { name: /Work note/ });
+    expect(noteRow).not.toHaveTextContent("A note about work.");
+  });
+
+  test("shows active search loading status", async () => {
+    const search = deferred<SearchResult[]>();
+    vi.mocked(searchNotes).mockReturnValueOnce(search.promise);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
+    fireEvent.change(searchbox, { target: { value: "work" } });
+    fireEvent.submit(screen.getByRole("search"));
+
+    expect(await screen.findByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Searching...", { selector: "span" })).toBeInTheDocument();
+
+    search.resolve([]);
+  });
+
   test("keeps rich note result cards while searching", async () => {
     vi.mocked(searchNotes).mockResolvedValueOnce([
       {
@@ -227,8 +277,9 @@ describe("App sidebar navigation", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     await waitFor(() => {
-      expect(screen.getByText("Results · work", { selector: "span" })).toBeInTheDocument();
+      expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
     });
+    expect(screen.getByText("1 found")).toBeInTheDocument();
 
     const resultCard = screen.getByRole("button", { name: /Work note/ });
 
@@ -236,6 +287,42 @@ describe("App sidebar navigation", () => {
     expect(resultCard).toHaveTextContent('Matched: "Matched work detail"');
     expect(resultCard).toHaveTextContent("Hybrid");
     expect(resultCard).toHaveTextContent("work");
+  });
+
+  test("shows zero-result status and body copy for active search", async () => {
+    vi.mocked(searchNotes).mockResolvedValueOnce([]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
+    fireEvent.change(searchbox, { target: { value: "missing" } });
+    fireEvent.submit(screen.getByRole("search"));
+
+    expect(await screen.findByText("Results for “missing”", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("No results")).toBeInTheDocument();
+    expect(screen.getByText("No results found")).toBeInTheDocument();
+  });
+
+  test("shows failed search status while preserving the error body", async () => {
+    vi.mocked(searchNotes).mockRejectedValueOnce(new Error("Search service unavailable."));
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
+    fireEvent.change(searchbox, { target: { value: "work" } });
+    fireEvent.submit(screen.getByRole("search"));
+
+    expect(await screen.findByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Search failed")).toBeInTheDocument();
+    expect(screen.getByText("Search service unavailable.")).toBeInTheDocument();
   });
 
   test("confirms before leaving an unsaved selected-note edit from the sidebar action", async () => {
