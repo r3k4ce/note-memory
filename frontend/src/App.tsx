@@ -154,6 +154,7 @@ export default function App() {
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
   const [askNoteScope, setAskNoteScope] = useState(DEFAULT_ASK_NOTE_SCOPE);
+  const [isAskNoteSelectionMode, setIsAskNoteSelectionMode] = useState(false);
 
   const searchRequestId = useRef(0);
   const askRequestId = useRef(0);
@@ -784,6 +785,21 @@ export default function App() {
             </span>
             <div className="flex shrink-0 items-center gap-1">
               <button
+                aria-label={
+                  isAskNoteSelectionMode ? "Done selecting notes for Ask" : "Select notes for Ask"
+                }
+                aria-pressed={isAskNoteSelectionMode}
+                className={`rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
+                  isAskNoteSelectionMode
+                    ? "bg-accent-muted text-accent hover:bg-surface-hover"
+                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                }`}
+                onClick={() => setIsAskNoteSelectionMode((current) => !current)}
+                type="button"
+              >
+                {isAskNoteSelectionMode ? "Done" : "Select"}
+              </button>
+              <button
                 className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
                 onClick={handleSelectAllAskNotes}
                 type="button"
@@ -848,6 +864,7 @@ export default function App() {
                 onAskScopeToggle={handleToggleAskNoteScope}
                 onSelect={selectNote}
                 selected={note.id === selectedNoteId}
+                showAskScopeCheckbox={isAskNoteSelectionMode}
               />
             ))}
           </div>

@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-04T04:23:25Z"
+    time_local: "2026-07-04T01:23:25-03:00"
+    summary: "Added an explicit Ask note-selection mode in the left sidebar."
+    changed:
+      - "Added a Select/Done toggle to the compact Ask scope area so note rows hide Ask checkboxes by default and reveal them only while selecting notes for Ask."
+      - "Kept Ask all/custom/clear helpers, Ask payload semantics, dirty selected-note protection, note row opening, search, and category filtering unchanged."
+      - "Added App-level regression coverage for hidden default checkboxes, selection mode toggling, checkbox event propagation, payloads, and persistence across search/category changes."
+    verification:
+      - "Ran npm test -- App.test.tsx from frontend/: first failed on always-visible checkboxes and missing Select/Done control, then passed with 14 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, and npm run build from frontend/: passed."
   - time_utc: "2026-07-04T04:01:38Z"
     time_local: "2026-07-04T01:01:38-03:00"
     summary: "Demoted left-sidebar Ask scope controls into the note-list header."

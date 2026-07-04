@@ -8,6 +8,7 @@ type NoteCardProps = {
   note: NoteCardData & NoteCardSearchMetadata;
   onAskScopeToggle: (noteId: number) => void;
   selected?: boolean;
+  showAskScopeCheckbox: boolean;
   onSelect: (noteId: number) => void;
 };
 
@@ -23,10 +24,24 @@ export function NoteCard({
   note,
   onAskScopeToggle,
   selected = false,
+  showAskScopeCheckbox,
   onSelect,
 }: NoteCardProps) {
   const matchedSnippet = note.matched_snippet?.trim();
   const matchTypeLabel = note.match_type ? MATCH_TYPE_LABELS[note.match_type] : null;
+  const askScopeCheckbox = showAskScopeCheckbox ? (
+    <input
+      aria-label={`Include ${note.ai_title} in Ask scope`}
+      checked={askScopeSelected}
+      className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
+      onChange={(event) => {
+        event.stopPropagation();
+        onAskScopeToggle(note.id);
+      }}
+      onClick={(event) => event.stopPropagation()}
+      type="checkbox"
+    />
+  ) : null;
 
   if (mode === "browse") {
     return (
@@ -56,17 +71,7 @@ export function NoteCard({
             ) : null}
           </span>
         </button>
-        <input
-          aria-label={`Include ${note.ai_title} in Ask scope`}
-          checked={askScopeSelected}
-          className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
-          onChange={(event) => {
-            event.stopPropagation();
-            onAskScopeToggle(note.id);
-          }}
-          onClick={(event) => event.stopPropagation()}
-          type="checkbox"
-        />
+        {askScopeCheckbox}
       </div>
     );
   }
@@ -131,17 +136,7 @@ export function NoteCard({
           ) : null}
         </div>
       </button>
-      <input
-        aria-label={`Include ${note.ai_title} in Ask scope`}
-        checked={askScopeSelected}
-        className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
-        onChange={(event) => {
-          event.stopPropagation();
-          onAskScopeToggle(note.id);
-        }}
-        onClick={(event) => event.stopPropagation()}
-        type="checkbox"
-      />
+      {askScopeCheckbox}
     </div>
   );
 }
