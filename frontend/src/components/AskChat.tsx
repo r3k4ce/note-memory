@@ -34,7 +34,7 @@ function SourceList({
   }
 
   return (
-    <div className="mt-3 border-t border-border pt-3" aria-label="Supporting sources">
+    <div className="mt-3 pt-3" aria-label="Supporting sources">
       <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
         Sources · {sources.length}
       </p>
@@ -42,7 +42,7 @@ function SourceList({
         {sources.map((source) => (
           <button
             aria-label={`Open cited note: ${source.title}`}
-            className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            className="flex cursor-pointer items-center justify-between gap-2 rounded-md bg-bg px-3 py-2 text-left transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             key={source.note_id}
             onClick={() => onSourceSelect(source.note_id)}
             type="button"
@@ -61,7 +61,7 @@ function SourceList({
 function AssistantBubble({ content, onSourceSelect, sources }: AssistantBubbleProps) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[86%] rounded-md border border-border bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
+      <div className="max-w-[86%] rounded-md bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
         <p className="whitespace-pre-wrap">{content}</p>
         <SourceList onSourceSelect={onSourceSelect} sources={sources} />
       </div>
@@ -134,7 +134,7 @@ export function AskChat({
 
   return (
     <section className="flex h-full min-h-0 w-full flex-col gap-3" aria-labelledby="ask-title">
-      <header className="flex shrink-0 flex-col gap-1 border-b border-border pb-3">
+      <header className="flex shrink-0 flex-col gap-1 pb-2">
         <div className="flex items-center gap-2">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-muted">
             <Sparkles size={13} strokeWidth={2} className="text-accent" />
@@ -173,10 +173,10 @@ export function AskChat({
         <div ref={transcriptEndRef} />
       </div>
 
-      <form className="flex shrink-0 flex-col gap-2 border-t border-border pt-3" onSubmit={handleSubmit}>
+      <form className="flex shrink-0 flex-col gap-2 pt-2" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="min-h-20 w-full resize-y rounded-md border border-border bg-surface-raised px-3 py-2.5 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="min-h-20 w-full resize-y rounded-md border border-border bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}

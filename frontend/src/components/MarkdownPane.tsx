@@ -110,7 +110,7 @@ export function MarkdownPane({
 }: MarkdownPaneProps) {
   if (mode === "read") {
     return (
-      <div className="min-h-72 overflow-y-auto rounded-md border border-border bg-surface-raised px-4 py-3">
+      <div className="min-h-72 overflow-y-auto rounded-md bg-surface px-4 py-3">
         <MarkdownPreview source={value} />
       </div>
     );

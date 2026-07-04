@@ -85,7 +85,7 @@ export function NoteWorkspace({
   }
 
   return (
-    <div className={mode === "edit-selected" ? "h-full min-h-0 overflow-hidden px-6 py-6" : "h-full min-h-0 overflow-y-auto px-6 py-6"}>
+    <div className={mode === "edit-selected" ? "h-full min-h-0 overflow-hidden px-6 py-5" : "h-full min-h-0 overflow-y-auto px-6 py-5"}>
       <NoteDetail
         categories={categories}
         deleteError={deleteError}

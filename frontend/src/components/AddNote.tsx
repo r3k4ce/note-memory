@@ -32,7 +32,7 @@ export function AddNote({
       <h2 className="sr-only" id="add-note-title">
         New note
       </h2>
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-2.5">
         <div className="flex min-w-0 items-center gap-3">
           {categories.length > 0 ? (
             <div className="flex items-center gap-2">
@@ -40,7 +40,7 @@ export function AddNote({
                 Category
               </label>
               <select
-                className="max-w-48 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                className="max-w-48 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                 disabled={isSaving}
                 id="capture-category"
                 onChange={(event) => onCategoryChange(event.target.value ? Number(event.target.value) : null)}

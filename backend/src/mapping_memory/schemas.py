@@ -167,7 +167,7 @@ class SearchResult(BaseModel):
     score: float
     category: CategoryRead | None = None
     matched_snippet: str | None = None
-    match_type: Literal["exact", "semantic", "hybrid"]
+    match_type: Literal["exact", "semantic", "hybrid", "fuzzy"]
 
 
 ASK_HISTORY_MAX_MESSAGES = 10

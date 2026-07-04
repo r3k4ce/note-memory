@@ -33,7 +33,7 @@ export function SearchBar({
         />
         <input
           aria-label="Search notes"
-          className="w-full rounded-md border border-border bg-surface-raised py-1.5 pl-8 pr-8 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="w-full rounded-md border border-border bg-surface py-1.5 pl-8 pr-8 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           onChange={(event) => onChange(event.target.value)}
           placeholder={isSearching ? "Searching..." : "Search notes..."}
           ref={searchRef}

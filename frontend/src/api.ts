@@ -119,9 +119,16 @@ function appendCategoryScope(params: URLSearchParams, scope: CategoryScopeReques
   }
 }
 
-export function searchNotes(query: string, scope: CategoryScopeRequest = {}): Promise<SearchResult[]> {
+type SearchRequestOptions = CategoryScopeRequest & {
+  semantic?: boolean;
+};
+
+export function searchNotes(query: string, options: SearchRequestOptions = {}): Promise<SearchResult[]> {
   const params = new URLSearchParams({ q: query });
-  appendCategoryScope(params, scope);
+  appendCategoryScope(params, options);
+  if (options.semantic !== undefined) {
+    params.set("semantic", String(options.semantic));
+  }
 
   return requestJson<SearchResult[]>(`/search?${params.toString()}`);
 }

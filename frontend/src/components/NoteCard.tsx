@@ -14,6 +14,7 @@ type NoteCardProps = {
 
 const MATCH_TYPE_LABELS: Record<NonNullable<NoteCardSearchMetadata["match_type"]>, string> = {
   exact: "Exact",
+  fuzzy: "Fuzzy",
   semantic: "Semantic",
   hybrid: "Hybrid",
 };
@@ -33,7 +34,7 @@ export function NoteCard({
     <input
       aria-label={`Use ${note.ai_title} for Ask`}
       checked={askScopeSelected}
-      className="absolute right-2.5 top-2.5 h-3 w-3 rounded border-border bg-surface-raised accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+      className="absolute right-2.5 top-2.5 h-3 w-3 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
       onChange={(event) => {
         event.stopPropagation();
         onAskScopeToggle(note.id);
@@ -47,10 +48,10 @@ export function NoteCard({
     return (
       <div className="relative">
         <button
-          className={`group w-full rounded-md border p-2 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+          className={`group w-full rounded-md p-2 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
             selected
-              ? "border-border-strong bg-surface-hover"
-              : "border-transparent hover:bg-surface-hover"
+              ? "bg-surface"
+              : "hover:bg-surface-hover"
           }`}
           onClick={() => onSelect(note.id)}
           type="button"
@@ -79,10 +80,10 @@ export function NoteCard({
   return (
     <div className="relative">
       <button
-        className={`group w-full rounded-md border p-2.5 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+        className={`group w-full rounded-md p-2.5 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
           selected
-            ? "border-border-strong bg-surface-hover"
-            : "border-transparent hover:bg-surface-hover"
+            ? "bg-surface"
+            : "hover:bg-surface-hover"
         }`}
         onClick={() => onSelect(note.id)}
         type="button"
@@ -112,25 +113,25 @@ export function NoteCard({
         ) : null}
         <div className="flex flex-wrap gap-1" aria-label="Metadata">
           {matchTypeLabel ? (
-            <span className="rounded border border-border bg-accent-muted px-1.5 py-0.5 text-[10px] font-medium text-accent">
+            <span className="rounded bg-accent-muted px-1.5 py-0.5 text-[10px] font-medium text-accent">
               {matchTypeLabel}
             </span>
           ) : null}
           {note.category ? (
-            <span className="rounded border border-border bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
               {note.category.name}
             </span>
           ) : null}
           {note.tags.slice(0, 3).map((tag) => (
             <span
-              className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
+              className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
               key={tag}
             >
               {tag}
             </span>
           ))}
           {note.tags.length > 3 ? (
-            <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+            <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
               +{note.tags.length - 3}
             </span>
           ) : null}

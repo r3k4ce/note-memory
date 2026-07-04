@@ -42,7 +42,7 @@ export function ThemeMenu() {
     <div className="relative flex items-center" ref={containerRef}>
       <button
         aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-        className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+        className="rounded p-1 text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
         onClick={toggleTheme}
         type="button"
       >
@@ -52,7 +52,7 @@ export function ThemeMenu() {
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label="Browse themes"
-        className="rounded p-1 text-text-muted opacity-70 transition-colors hover:bg-surface-hover hover:text-text-primary hover:opacity-100"
+        className="rounded p-1 text-text-muted opacity-70 transition-colors hover:bg-surface hover:text-text-primary hover:opacity-100"
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
@@ -60,7 +60,7 @@ export function ThemeMenu() {
       </button>
       {isOpen ? (
         <div
-          className="absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] rounded-md border border-border bg-surface px-1 py-1 shadow-elevated"
+          className="absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] rounded-md bg-bg px-1 py-1 shadow-elevated"
           role="menu"
         >
           {variants.map((variantId) => {

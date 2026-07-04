@@ -1,4 +1,37 @@
 entries:
+  - time_utc: "2026-07-04T20:47:35Z"
+    time_local: "2026-07-04T17:47:35-03:00"
+    summary: "Added RapidFuzz-backed live local search while preserving full semantic search on submit."
+    changed:
+      - "Added RapidFuzz as a backend dependency and extended /search with semantic=false for local exact plus fuzzy search without embeddings or Chroma."
+      - "Added fuzzy match metadata and compact Fuzzy chips, keeping exact, semantic, and hybrid result behavior."
+      - "Changed the Search tab to debounce local search while typing and run the full default search when the form is submitted."
+    verification:
+      - "Added backend and frontend tests first; targeted backend tests failed on missing fuzzy schema/results and semantic=false behavior, then passed with 44 tests after implementation."
+      - "Ran npm test -- App.test.tsx --run from frontend/: first failed on missing live local search behavior, then passed with 29 tests after implementation."
+      - "Ran ./scripts/check.sh from the repository root after rerunning with uv cache escalation; backend checks/187 tests and frontend 56 tests/lint/build passed."
+  - time_utc: "2026-07-04T20:30:17Z"
+    time_local: "2026-07-04T17:30:17-03:00"
+    summary: "Added subtle resizable separators for the three-pane frontend workspace."
+    changed:
+      - "Replaced fixed sidebar widths with state-driven left and right pane widths, including drag handles on subtle vertical separators and collapse-to-zero behavior."
+      - "Added center workspace controls for showing all panes or focusing the text area by collapsing both side panes."
+      - "Kept the notes assistant desktop-only while preserving mounted pane state and existing note/search/Ask behavior."
+    verification:
+      - "Added App tests first; npm run test -- App.test.tsx failed on missing separators, pane labels, controls, and resize behavior, then passed with 28 tests after implementation."
+      - "Ran npm run typecheck in frontend/."
+      - "Ran ./scripts/check.sh from the repository root: first blocked by sandbox uv cache writes, then passed with escalation; backend format/ruff/pyright/184 tests and frontend 55 tests/lint/build passed."
+  - time_utc: "2026-07-04T19:38:08Z"
+    time_local: "2026-07-04T16:38:08-03:00"
+    summary: "Made the frontend presentation more cohesive, minimal, and borderless across the three-pane workspace."
+    changed:
+      - "Tuned theme surface and border tokens so app regions share a closer visual canvas in light, dark, forest, and solarized themes."
+      - "Removed decorative pane borders, header underlines, tree guide lines, card borders, and chip borders so the sidebar, workspace, and assistant read as one continuous surface."
+      - "Kept functional borders for inputs, selects, checkboxes, focusable textareas, loading spinners, markdown code/table content, and error/destructive states."
+      - "Preserved existing React state, API calls, labels, roles, keyboard behavior, and note/Ask workflows; this was presentation-only."
+    verification:
+      - "Ran npm run test (51 passing), npm run typecheck, and npm run lint in frontend/."
+      - "Ran ./scripts/check.sh from the repository root after rerunning with cache-write escalation; backend checks/184 tests and frontend tests/lint/build passed."
   - time_utc: "2026-07-04T19:00:00Z"
     time_local: "2026-07-04T16:00:00-03:00"
     summary: "Added Forest (dark) and Solarized (light) theme variants with a chevron menu next to the Sun/Moon toggle."
