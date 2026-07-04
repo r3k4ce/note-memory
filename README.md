@@ -50,7 +50,7 @@ endpoints that return sourced results from your own note collection.
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/) for backend dependency management
 - Node.js 24 or newer and npm
-- Windows PowerShell 5.1+ (the commands below use PowerShell-native syntax)
+- Windows PowerShell 5.1+ for `.ps1` scripts, or Bash for `.sh` scripts
 
 ## Setup
 
@@ -93,6 +93,10 @@ The frontend reads `VITE_BACKEND_BASE_URL` at build time. If unset, it defaults 
 
 ```powershell
 .\scripts\run.ps1
+```
+
+```bash
+./scripts/run.sh
 ```
 
 Press `Ctrl+C` to stop both processes. The runner cleans up the backend and Vite
