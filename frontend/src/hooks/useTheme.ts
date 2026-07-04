@@ -1,14 +1,35 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type Theme = "dark" | "light";
+export const THEME_IDS = ["dark", "forest", "light", "solarized"] as const;
+export type ThemeId = (typeof THEME_IDS)[number];
+export type ThemeMode = "dark" | "light";
+
+export const DEFAULT_THEME: ThemeId = "dark";
+
+export const THEME_MODE: Record<ThemeId, ThemeMode> = {
+  dark: "dark",
+  forest: "dark",
+  light: "light",
+  solarized: "light",
+};
+
+const DEFAULT_THEME_FOR_MODE: Record<ThemeMode, ThemeId> = {
+  dark: "dark",
+  light: "light",
+};
 
 const STORAGE_KEY = "theme";
-const DEFAULT_THEME: Theme = "dark";
 
-function readStoredTheme(): Theme {
+const VALID_THEME_IDS: ReadonlySet<string> = new Set<string>(THEME_IDS);
+
+function isValidThemeId(value: unknown): value is ThemeId {
+  return typeof value === "string" && VALID_THEME_IDS.has(value);
+}
+
+function readStoredTheme(): ThemeId {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark") {
+    if (isValidThemeId(stored)) {
       return stored;
     }
   } catch {
@@ -17,7 +38,7 @@ function readStoredTheme(): Theme {
   return DEFAULT_THEME;
 }
 
-function applyTheme(theme: Theme): void {
+function applyTheme(theme: ThemeId): void {
   document.documentElement.dataset.theme = theme;
   try {
     localStorage.setItem(STORAGE_KEY, theme);
@@ -26,21 +47,32 @@ function applyTheme(theme: Theme): void {
   }
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme());
+export function getThemeMode(theme: ThemeId): ThemeMode {
+  return THEME_MODE[theme];
+}
 
-  const setTheme = useCallback((next: Theme) => {
+export function useTheme() {
+  const [theme, setThemeState] = useState<ThemeId>(() => readStoredTheme());
+
+  const setTheme = useCallback((next: ThemeId) => {
     setThemeState(next);
     applyTheme(next);
   }, []);
 
   const toggleTheme = useCallback(() => {
     setThemeState((current) => {
-      const next: Theme = current === "dark" ? "light" : "dark";
+      const currentMode = THEME_MODE[current];
+      const nextMode: ThemeMode = currentMode === "dark" ? "light" : "dark";
+      const next = DEFAULT_THEME_FOR_MODE[nextMode];
       applyTheme(next);
       return next;
     });
   }, []);
+
+  const themesForMode = useCallback(
+    (mode: ThemeMode): ThemeId[] => THEME_IDS.filter((id) => THEME_MODE[id] === mode),
+    [],
+  );
 
   useEffect(() => {
     applyTheme(theme);
@@ -49,10 +81,9 @@ export function useTheme() {
   useEffect(() => {
     function handleStorage(event: StorageEvent) {
       if (event.key !== STORAGE_KEY) return;
-      const next = event.newValue;
-      if (next === "light" || next === "dark") {
-        setThemeState(next);
-        document.documentElement.dataset.theme = next;
+      if (isValidThemeId(event.newValue)) {
+        setThemeState(event.newValue);
+        document.documentElement.dataset.theme = event.newValue;
       }
     }
 
@@ -60,5 +91,5 @@ export function useTheme() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  return { theme, setTheme, toggleTheme } as const;
+  return { theme, setTheme, toggleTheme, themesForMode } as const;
 }

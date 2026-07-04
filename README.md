@@ -24,8 +24,16 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 A local-first three-pane notes workspace with AI-assisted metadata, hybrid search,
 and grounded Ask/chat over your saved notes.
 
-The workspace includes a dark/light theme toggle (Sun/Moon icon) in the sidebar
-header. Dark is the default; the choice persists in localStorage.
+The workspace includes a theme switcher in the sidebar header. The Sun/Moon
+icon toggles between light and dark; the small chevron next to it opens a menu
+of variants for the current mode. Available themes:
+
+- **Midnight** (dark, default) — zinc surfaces with an amber accent.
+- **Forest** (dark) — moss-green surfaces with a lime accent.
+- **Daylight** (light) — neutral light surfaces with an amber accent.
+- **Solarized** (light) — classic Solarized Light palette with a blue accent.
+
+The choice persists in `localStorage`.
 
 - **Left sidebar:** explicit Browse and Search tabs, a collapsed category manager
   for creating/renaming/deleting categories, a browse category tree with nested

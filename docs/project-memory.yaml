@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T19:00:00Z"
+    time_local: "2026-07-04T16:00:00-03:00"
+    summary: "Added Forest (dark) and Solarized (light) theme variants with a chevron menu next to the Sun/Moon toggle."
+    changed:
+      - "Renamed the Theme union to ThemeId covering dark, forest, light, solarized; added THEME_MODE map and getThemeMode helper; toggleTheme now resets to the default variant of the opposite mode."
+      - "Replaced ThemeToggle with ThemeMenu (same sidebar placement): Sun/Moon button retains toggle behavior; a small always-visible ChevronDown opens a role=menu popover listing the variants of the current mode with aria-checked active state and Escape/outside-click dismiss."
+      - "Moved theme labels/icons into components/themes.ts to keep ThemeMenu fast-refresh clean."
+      - "Added [data-theme="forest"] (dark green, lime accent) and [data-theme="solarized"] (Solarized Light, blue accent) blocks to style.css reusing the same CSS variable set."
+      - "Updated index.html pre-paint inline script and MarkdownPane's CodeMirror dark flag to recognize all four theme ids."
+    verification:
+      - "Ran npm run typecheck, npm run lint, npm run test (51 passing), and npm run build in frontend/."
   - time_utc: "2026-07-04T18:37:00Z"
     time_local: "2026-07-04T15:37:00-03:00"
     summary: "Added a dark/light theme toggle to the frontend."

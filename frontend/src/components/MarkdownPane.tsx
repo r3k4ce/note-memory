@@ -6,6 +6,7 @@ import { tags } from "@lezer/highlight";
 import type { RefObject } from "react";
 
 import { MarkdownPreview } from "./MarkdownPreview";
+import { THEME_MODE, type ThemeId } from "../hooks/useTheme";
 
 export type MarkdownPaneHandle = {
   focus: () => void;
@@ -61,7 +62,7 @@ const markdownEditorTheme = EditorView.theme(
       backgroundColor: "transparent",
     },
   },
-  { dark: document.documentElement.dataset.theme === "dark" },
+  { dark: THEME_MODE[(document.documentElement.dataset.theme ?? "dark") as ThemeId] === "dark" },
 );
 
 const markdownHighlightStyle = HighlightStyle.define([
