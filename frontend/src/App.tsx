@@ -49,7 +49,9 @@ import { AskChat } from "./components/AskChat";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
 import { NoteCard } from "./components/NoteCard";
 import { SearchBar } from "./components/SearchBar";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
+import { useTheme } from "./hooks/useTheme";
 import type { MarkdownPaneHandle } from "./components/MarkdownPane";
 import type {
   AskHistoryMessage,
@@ -223,6 +225,7 @@ export default function App() {
   }, []);
 
   useKeyboardShortcuts(handleModeChange, { captureRef, searchRef, askRef });
+  const { theme, toggleTheme } = useTheme();
 
   const openSelectedNote = useCallback((noteId: number) => {
     setIsSelectedNoteEditDirty(false);
@@ -912,6 +915,9 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
             <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
+            <span className="ml-auto">
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            </span>
           </div>
         </div>
 

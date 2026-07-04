@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T18:37:00Z"
+    time_local: "2026-07-04T15:37:00-03:00"
+    summary: "Added a dark/light theme toggle to the frontend."
+    changed:
+      - "Split the Tailwind v4 @theme block into light default tokens and a [data-theme="dark"] override block so existing utility classes work in both themes."
+      - "Added a useTheme hook that persists the choice to localStorage and syncs document.documentElement.dataset.theme, plus a ThemeToggle Sun/Moon button in the sidebar header."
+      - "Added a pre-paint inline script in index.html to set data-theme from localStorage before CSS loads, avoiding a flash of wrong theme."
+      - "Replaced the hardcoded dark-only index.html attributes, body background, and color-scheme rule with data-theme-driven switching."
+      - "Added useTheme tests covering default, localStorage restore, toggle round-trip, invalid values, and cross-tab storage events."
+    verification:
+      - "Ran ./scripts/check.sh from the repository root: backend format/ruff/pyright/184 tests and frontend 38 tests/lint/build passed."
   - time_utc: "2026-07-04T18:29:22Z"
     time_local: "2026-07-04T15:29:22-03:00"
     summary: "Added drag-and-drop note moves between Browse categories."

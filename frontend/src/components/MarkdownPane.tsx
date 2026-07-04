@@ -61,7 +61,7 @@ const markdownEditorTheme = EditorView.theme(
       backgroundColor: "transparent",
     },
   },
-  { dark: true },
+  { dark: document.documentElement.dataset.theme === "dark" },
 );
 
 const markdownHighlightStyle = HighlightStyle.define([

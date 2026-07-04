@@ -2,30 +2,30 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  /* Surfaces */
-  --color-bg: #09090b;
-  --color-surface: #111113;
-  --color-surface-raised: #18181b;
-  --color-surface-hover: #1f1f23;
+  /* Surfaces (light default) */
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f4f4f5;
+  --color-surface-hover: #e4e4e7;
 
   /* Borders */
-  --color-border: #27272a;
-  --color-border-strong: #3f3f46;
+  --color-border: #e4e4e7;
+  --color-border-strong: #d4d4d8;
 
   /* Text */
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #71717a;
+  --color-text-primary: #18181b;
+  --color-text-secondary: #52525b;
+  --color-text-muted: #a1a1aa;
 
-  /* Accent (amber) */
-  --color-accent: #f59e0b;
-  --color-accent-hover: #d97706;
-  --color-accent-muted: rgba(245, 158, 11, 0.1);
-  --color-accent-soft: rgba(245, 158, 11, 0.14);
+  /* Accent (amber — darker for light surfaces, keeps text-black readable) */
+  --color-accent: #d97706;
+  --color-accent-hover: #b45309;
+  --color-accent-muted: rgba(217, 119, 6, 0.1);
+  --color-accent-soft: rgba(217, 119, 6, 0.14);
 
   /* Status */
-  --color-error: #ef4444;
-  --color-error-muted: rgba(239, 68, 68, 0.1);
+  --color-error: #dc2626;
+  --color-error-muted: rgba(220, 38, 38, 0.1);
 
   /* Shape */
   --radius-card: 0.625rem;
@@ -33,7 +33,7 @@
   --radius-pill: 9999px;
 
   /* Shadows */
-  --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
 
   /* Motion */
   --duration-150: 150ms;
@@ -44,7 +44,33 @@
 }
 
 :root {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
   color-scheme: dark;
+
+  --color-bg: #09090b;
+  --color-surface: #111113;
+  --color-surface-raised: #18181b;
+  --color-surface-hover: #1f1f23;
+
+  --color-border: #27272a;
+  --color-border-strong: #3f3f46;
+
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+
+  --color-accent: #f59e0b;
+  --color-accent-hover: #d97706;
+  --color-accent-muted: rgba(245, 158, 11, 0.1);
+  --color-accent-soft: rgba(245, 158, 11, 0.14);
+
+  --color-error: #ef4444;
+  --color-error-muted: rgba(239, 68, 68, 0.1);
+
+  --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
 }
 
 html,
@@ -52,9 +78,12 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   min-height: 100vh;
+  transition:
+    background-color var(--duration-150) var(--ease-out),
+    color var(--duration-150) var(--ease-out);
 }
 
-/* Custom scrollbar — subtle, dark */
+/* Custom scrollbar — subtle, theme-aware */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-strong) transparent;

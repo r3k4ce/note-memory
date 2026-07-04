@@ -24,6 +24,9 @@ FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; Chrom
 A local-first three-pane notes workspace with AI-assisted metadata, hybrid search,
 and grounded Ask/chat over your saved notes.
 
+The workspace includes a dark/light theme toggle (Sun/Moon icon) in the sidebar
+header. Dark is the default; the choice persists in localStorage.
+
 - **Left sidebar:** explicit Browse and Search tabs, a collapsed category manager
   for creating/renaming/deleting categories, a browse category tree with nested
   notes that can be dragged between categories, search match snippets, and
