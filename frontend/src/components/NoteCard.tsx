@@ -4,6 +4,7 @@ type NoteCardSearchMetadata = Partial<Pick<SearchResult, "match_type" | "matched
 
 type NoteCardProps = {
   askScopeSelected: boolean;
+  mode: "browse" | "search";
   note: NoteCardData & NoteCardSearchMetadata;
   onAskScopeToggle: (noteId: number) => void;
   selected?: boolean;
@@ -18,6 +19,7 @@ const MATCH_TYPE_LABELS: Record<NonNullable<NoteCardSearchMetadata["match_type"]
 
 export function NoteCard({
   askScopeSelected,
+  mode,
   note,
   onAskScopeToggle,
   selected = false,
@@ -25,6 +27,49 @@ export function NoteCard({
 }: NoteCardProps) {
   const matchedSnippet = note.matched_snippet?.trim();
   const matchTypeLabel = note.match_type ? MATCH_TYPE_LABELS[note.match_type] : null;
+
+  if (mode === "browse") {
+    return (
+      <div className="relative">
+        <button
+          className={`group w-full rounded-md border p-2 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+            selected
+              ? "border-border-strong bg-surface-hover"
+              : "border-transparent hover:bg-surface-hover"
+          }`}
+          onClick={() => onSelect(note.id)}
+          type="button"
+        >
+          <span
+            className={`block truncate text-[13px] font-medium ${
+              selected ? "text-accent" : "text-text-primary"
+            }`}
+          >
+            {note.ai_title}
+          </span>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-text-muted">
+            <time className="shrink-0 tabular-nums" dateTime={note.date_added}>
+              {note.date_added.slice(5, 10)}
+            </time>
+            {note.category ? (
+              <span className="truncate text-text-secondary">{note.category.name}</span>
+            ) : null}
+          </span>
+        </button>
+        <input
+          aria-label={`Include ${note.ai_title} in Ask scope`}
+          checked={askScopeSelected}
+          className="absolute right-2.5 top-2.5 h-3.5 w-3.5 rounded border-border bg-surface-raised accent-accent"
+          onChange={(event) => {
+            event.stopPropagation();
+            onAskScopeToggle(note.id);
+          }}
+          onClick={(event) => event.stopPropagation()}
+          type="checkbox"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative">

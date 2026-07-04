@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T03:34:37Z"
+    time_local: "2026-07-04T00:34:37-03:00"
+    summary: "Compacted browse-mode note rows."
+    changed:
+      - "Added a narrow NoteCard browse/search mode so inactive search lists render compact two-line rows while active search keeps richer result cards."
+      - "Browse rows now show title, compact created date, category when present, selected highlighting, and the existing Ask checkbox without summaries, snippets, match chips, or tags."
+      - "Added App-level regression coverage for compact browse rows, selection, Ask checkbox presence, and rich search result preservation."
+    verification:
+      - "Ran npm run test -- App.test.tsx from frontend/: first failed on browse rows still showing summary/tag content, then passed with 6 tests after implementation."
+      - "Ran npm run test from frontend/: passed with 12 tests."
+      - "Ran npm run typecheck, npm run lint, and npm run build from frontend/: passed."
   - time_utc: "2026-07-04T03:24:11Z"
     time_local: "2026-07-04T00:24:11-03:00"
     summary: "Added a primary sidebar New note action."

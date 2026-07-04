@@ -184,6 +184,60 @@ describe("App sidebar navigation", () => {
     expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
   });
 
+  test("shows compact note rows while browsing", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    const noteRow = screen.getByRole("button", { name: /Work note/ });
+
+    expect(noteRow).toHaveTextContent("Work note");
+    expect(noteRow).toHaveTextContent("07-03");
+    expect(noteRow).toHaveTextContent("Work");
+    expect(noteRow).not.toHaveTextContent("A note about work.");
+    expect(noteRow).not.toHaveTextContent("work");
+    expect(screen.getByRole("checkbox", { name: "Include Work note in Ask scope" })).toBeInTheDocument();
+
+    fireEvent.click(noteRow);
+
+    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+    expect(noteRow.className).toContain("border-border-strong");
+  });
+
+  test("keeps rich note result cards while searching", async () => {
+    vi.mocked(searchNotes).mockResolvedValueOnce([
+      {
+        ...notes[0],
+        match_type: "hybrid",
+        matched_snippet: "Matched work detail",
+        score: 0.91,
+      },
+    ]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    });
+
+    const searchbox = screen.getByRole("searchbox", { name: "Search notes" });
+    fireEvent.change(searchbox, { target: { value: "work" } });
+    fireEvent.submit(screen.getByRole("search"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Results · work", { selector: "span" })).toBeInTheDocument();
+    });
+
+    const resultCard = screen.getByRole("button", { name: /Work note/ });
+
+    expect(resultCard).toHaveTextContent("A note about work.");
+    expect(resultCard).toHaveTextContent('Matched: "Matched work detail"');
+    expect(resultCard).toHaveTextContent("Hybrid");
+    expect(resultCard).toHaveTextContent("work");
+  });
+
   test("confirms before leaving an unsaved selected-note edit from the sidebar action", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
 

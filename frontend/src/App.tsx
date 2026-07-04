@@ -818,6 +818,7 @@ export default function App() {
               <NoteCard
                 askScopeSelected={isNoteSelectedForAsk(askNoteScope, note.id)}
                 key={note.id}
+                mode={isSearchActive ? "search" : "browse"}
                 note={note}
                 onAskScopeToggle={handleToggleAskNoteScope}
                 onSelect={selectNote}
