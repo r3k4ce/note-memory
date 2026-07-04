@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-04T01:32:16Z"
+    time_local: "2026-07-03T22:32:16-03:00"
+    summary: "Compacted selected-note read-mode properties."
+    changed:
+      - "Grouped read-mode category, created and updated timestamps, and tags into a quiet NoteDetail property row under the title."
+      - "Moved the read-mode summary into a collapsed native disclosure below the note body."
+      - "Kept edit-mode fields, validation, backend APIs, and note data shape unchanged."
+    verification:
+      - "Ran npm run typecheck from frontend/: passed."
+      - "Ran npm run lint from frontend/: passed."
+      - "Ran npm run build from frontend/: passed."
   - time_utc: "2026-07-04T01:19:15Z"
     time_local: "2026-07-03T22:19:15-03:00"
     summary: "Made the selected-note read view editor-first."

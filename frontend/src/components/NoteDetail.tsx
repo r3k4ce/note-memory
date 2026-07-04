@@ -216,31 +216,33 @@ export function NoteDetail({
         ) : (
           <h2 className="text-xl font-semibold leading-tight text-text-primary">{note.ai_title}</h2>
         )}
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
-          <time dateTime={note.date_added}>{note.date_added}</time>
-          <span className="text-border-strong">·</span>
-          <time dateTime={note.updated_at}>updated {note.updated_at}</time>
-          {!isEditing && note.category ? (
-            <>
-              <span className="text-border-strong">·</span>
-              <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
-                {note.category.name}
+        {!isEditing ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-text-muted">
+            <span className="rounded border border-border bg-surface-raised px-2 py-0.5 text-text-secondary">
+              {note.category?.name ?? "Uncategorized"}
+            </span>
+            <time dateTime={note.date_added}>Created {note.date_added}</time>
+            <time dateTime={note.updated_at}>Updated {note.updated_at}</time>
+            {note.tags.length > 0 ? (
+              <span className="flex flex-wrap items-center gap-1.5" aria-label="Tags">
+                {note.tags.map((tag) => (
+                  <span
+                    className="rounded border border-border bg-surface-raised px-2 py-0.5 font-medium text-text-secondary"
+                    key={tag}
+                  >
+                    {tag}
+                  </span>
+                ))}
               </span>
-            </>
-          ) : null}
-        </div>
-        {!isEditing && note.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5" aria-label="Tags">
-            {note.tags.map((tag) => (
-              <span
-                className="rounded border border-border bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-secondary"
-                key={tag}
-              >
-                {tag}
-              </span>
-            ))}
+            ) : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
+            <time dateTime={note.date_added}>{note.date_added}</time>
+            <span className="text-border-strong">·</span>
+            <time dateTime={note.updated_at}>updated {note.updated_at}</time>
+          </div>
+        )}
       </header>
 
       {!isEditing ? (
@@ -292,30 +294,32 @@ export function NoteDetail({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
-        {isEditing ? (
-          <>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-summary">
-              Summary
-            </label>
-            <textarea
-              className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-              disabled={isSavingEdit}
-              id="edit-note-summary"
-              onChange={(event) => {
-                setEditDraft({ ...editDraft, summary: event.target.value });
-                setValidationError(null);
-              }}
-              value={editDraft.summary}
-            />
-          </>
-        ) : (
-          <>
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Summary</h3>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{note.short_summary}</p>
-          </>
-        )}
-      </div>
+      {isEditing ? (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-text-muted" htmlFor="edit-note-summary">
+            Summary
+          </label>
+          <textarea
+            className="min-h-28 resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+            disabled={isSavingEdit}
+            id="edit-note-summary"
+            onChange={(event) => {
+              setEditDraft({ ...editDraft, summary: event.target.value });
+              setValidationError(null);
+            }}
+            value={editDraft.summary}
+          />
+        </div>
+      ) : null}
+
+      {!isEditing ? (
+        <details className="rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-text-secondary">
+          <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            Summary
+          </summary>
+          <p className="mt-2 whitespace-pre-wrap leading-relaxed">{note.short_summary}</p>
+        </details>
+      ) : null}
 
       {isEditing ? (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
