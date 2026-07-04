@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-04T03:13:24Z"
+    time_local: "2026-07-04T00:13:24-03:00"
+    summary: "Organized the left sidebar as note navigation."
+    changed:
+      - "Moved the Note Memory title into the left sidebar and split the old mixed category filter block into Notes and Categories navigation sections."
+      - "Kept All notes, Uncategorized, category filters, category creation, search, Ask scope controls, list headings, empty states, and note cards on the existing handlers and state."
+      - "Added App-level regression coverage for sidebar hierarchy, category navigation, scoped search submission, and search clearing back to browse mode."
+    verification:
+      - "Ran npm run test -- src/App.test.tsx from frontend/: first failed on the missing sidebar navigation hierarchy, then passed with 2 tests after implementation."
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: passed."
   - time_utc: "2026-07-04T02:47:17Z"
     time_local: "2026-07-03T23:47:17-03:00"
     summary: "Removed the legacy ResultPanel wrapper."

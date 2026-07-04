@@ -620,237 +620,246 @@ export default function App() {
     : categoryScopeLabel;
 
   return (
-    <div className="flex h-screen flex-col bg-bg text-text-primary">
-      <header className="flex h-11 shrink-0 items-center border-b border-border px-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-accent" />
-          <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-surface sm:w-72">
-          <div className="shrink-0 p-2.5">
-            <SearchBar
-              isSearching={isSearching}
-              onChange={handleSearchTextChange}
-              onClear={clearSearch}
-              onSubmit={handleSearchSubmit}
-              query={searchText}
-              scopeLabel={categoryScopeLabel}
-              searchRef={searchRef}
-            />
+    <div className="flex h-screen bg-bg text-text-primary">
+      <aside
+        aria-label="Notes sidebar"
+        className="flex w-64 shrink-0 flex-col border-r border-border bg-surface sm:w-72"
+      >
+        <div className="shrink-0 border-b border-border p-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
           </div>
+        </div>
 
-          <div className="shrink-0 border-b border-border px-2.5 pb-2">
-            <div className="mb-1.5 flex items-center justify-between px-0.5">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Categories</span>
+        <div className="shrink-0 p-2.5">
+          <SearchBar
+            isSearching={isSearching}
+            onChange={handleSearchTextChange}
+            onClear={clearSearch}
+            onSubmit={handleSearchSubmit}
+            query={searchText}
+            scopeLabel={categoryScopeLabel}
+            searchRef={searchRef}
+          />
+        </div>
+
+        <div className="shrink-0 border-b border-border px-2.5 pb-2">
+          <div className="mb-1.5 px-0.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Notes</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <button
+              className={`rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
+                selectedCategoryFilter === "all"
+                  ? "bg-surface-raised text-text-primary"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+              }`}
+              onClick={() => handleCategoryFilterChange("all")}
+              type="button"
+            >
+              All notes
+            </button>
+            <button
+              className={`rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
+                selectedCategoryFilter === "uncategorized"
+                  ? "bg-surface-raised text-text-primary"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+              }`}
+              onClick={() => handleCategoryFilterChange("uncategorized")}
+              type="button"
+            >
+              Uncategorized
+            </button>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-b border-border px-2.5 py-2">
+          <div className="mb-1.5 flex items-center justify-between px-0.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">Categories</span>
+            <button
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+              disabled={isSavingCategory}
+              onClick={() => {
+                setIsCreatingCategory((current) => !current);
+                setCategoryError(null);
+              }}
+              type="button"
+            >
+              {isCreatingCategory ? "Cancel" : "New"}
+            </button>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {categories.map((category) => (
               <button
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
+                className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
+                  selectedCategoryFilter === category.id
+                    ? "bg-surface-raised text-text-primary"
+                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
+                }`}
+                key={category.id}
+                onClick={() => handleCategoryFilterChange(category.id)}
+                title={category.name}
+                type="button"
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+          {isCreatingCategory ? (
+            <form className="mt-2 flex gap-1.5" onSubmit={handleCreateCategory}>
+              <input
+                aria-label="New category name"
+                className="min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                 disabled={isSavingCategory}
-                onClick={() => {
-                  setIsCreatingCategory((current) => !current);
+                onChange={(event) => {
+                  setCategoryDraft(event.target.value);
                   setCategoryError(null);
                 }}
-                type="button"
-              >
-                {isCreatingCategory ? "Cancel" : "New"}
-              </button>
-            </div>
-            <div className="flex flex-col gap-0.5">
+                placeholder="Category name"
+                value={categoryDraft}
+              />
               <button
-                className={`rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
-                  selectedCategoryFilter === "all"
-                    ? "bg-surface-raised text-text-primary"
-                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                }`}
-                onClick={() => handleCategoryFilterChange("all")}
+                className="rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
+                disabled={isSavingCategory}
+                type="submit"
+              >
+                Add
+              </button>
+            </form>
+          ) : null}
+          {categoryError ? <p className="mt-1.5 px-0.5 text-xs text-error">{categoryError}</p> : null}
+        </div>
+
+        <div className="shrink-0 px-3 py-1.5">
+          <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md bg-surface-raised px-2 py-1.5">
+            <span className="min-w-0 truncate text-[11px] font-medium text-text-secondary">
+              {askScopeLabel}
+            </span>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
+                onClick={handleSelectAllAskNotes}
                 type="button"
               >
-                All notes
+                All
               </button>
               <button
-                className={`rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
-                  selectedCategoryFilter === "uncategorized"
-                    ? "bg-surface-raised text-text-primary"
-                    : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                }`}
-                onClick={() => handleCategoryFilterChange("uncategorized")}
+                className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
+                onClick={handleClearAskNotes}
                 type="button"
               >
-                Uncategorized
+                Clear
               </button>
-              {categories.map((category) => (
-                <button
-                  className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] transition-colors ${
-                    selectedCategoryFilter === category.id
-                      ? "bg-surface-raised text-text-primary"
-                      : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
-                  }`}
-                  key={category.id}
-                  onClick={() => handleCategoryFilterChange(category.id)}
-                  title={category.name}
-                  type="button"
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-            {isCreatingCategory ? (
-              <form className="mt-2 flex gap-1.5" onSubmit={handleCreateCategory}>
-                <input
-                  aria-label="New category name"
-                  className="min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-                  disabled={isSavingCategory}
-                  onChange={(event) => {
-                    setCategoryDraft(event.target.value);
-                    setCategoryError(null);
-                  }}
-                  placeholder="Category name"
-                  value={categoryDraft}
-                />
-                <button
-                  className="rounded-md bg-accent px-2.5 py-1.5 text-[12px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
-                  disabled={isSavingCategory}
-                  type="submit"
-                >
-                  Add
-                </button>
-              </form>
-            ) : null}
-            {categoryError ? <p className="mt-1.5 px-0.5 text-xs text-error">{categoryError}</p> : null}
-          </div>
-
-          <div className="shrink-0 px-3 py-1.5">
-            <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md bg-surface-raised px-2 py-1.5">
-              <span className="min-w-0 truncate text-[11px] font-medium text-text-secondary">
-                {askScopeLabel}
-              </span>
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                  onClick={handleSelectAllAskNotes}
-                  type="button"
-                >
-                  All
-                </button>
-                <button
-                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text-secondary"
-                  onClick={handleClearAskNotes}
-                  type="button"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-                {listTitle}
-              </span>
-              {!isSearchActive && !isLoadingNotes ? (
-                <span className="text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
-              ) : null}
             </div>
           </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
-            {!isSearchActive && isLoadingNotes ? (
-              <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-                Loading...
-              </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+              {listTitle}
+            </span>
+            {!isSearchActive && !isLoadingNotes ? (
+              <span className="text-[11px] tabular-nums text-text-muted">{visibleNotes.length}</span>
             ) : null}
-
-            {isSearchActive && isSearching ? (
-              <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-                Searching...
-              </div>
-            ) : null}
-
-            {!isSearchActive && listError ? (
-              <p className="px-2 py-3 text-xs text-error">{listError}</p>
-            ) : null}
-            {isSearchActive && searchError ? (
-              <p className="px-2 py-3 text-xs text-error">{searchError}</p>
-            ) : null}
-
-            {!isSearchActive && !isLoadingNotes && !listError && notes.length === 0 ? (
-              <div className="px-2 py-6 text-center">
-                <p className="text-xs text-text-muted">No notes yet</p>
-                <p className="mt-1 text-[11px] text-text-muted">
-                  Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
-                </p>
-              </div>
-            ) : null}
-            {!isSearchActive && !isLoadingNotes && !listError && notes.length > 0 && visibleNotes.length === 0 ? (
-              <p className="px-2 py-6 text-center text-xs text-text-muted">No notes in this category</p>
-            ) : null}
-            {isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
-              <p className="px-2 py-6 text-center text-xs text-text-muted">No results found</p>
-            ) : null}
-
-            <div className="flex flex-col gap-0.5">
-              {visibleNotes.map((note) => (
-                <NoteCard
-                  askScopeSelected={isNoteSelectedForAsk(askNoteScope, note.id)}
-                  key={note.id}
-                  note={note}
-                  onAskScopeToggle={handleToggleAskNoteScope}
-                  onSelect={selectNote}
-                  selected={note.id === selectedNoteId}
-                />
-              ))}
-            </div>
           </div>
-        </aside>
+        </div>
 
-        <main className="min-h-0 flex-1 overflow-hidden bg-bg">
-          <NoteWorkspace
-            captureRef={captureRef}
-            categories={categories}
-            deleteError={deleteError}
-            draftCategoryId={draftCategoryId}
-            draftText={draftText}
-            error={detailError}
-            isDeleting={isDeleting}
-            isLoading={isLoadingDetail}
-            isSavingEdit={isSavingEdit}
-            isSaving={isSaving}
-            mode={workspaceMode}
-            note={selectedNote}
-            editError={editError}
-            onCancelEdit={handleCancelEditSelectedNote}
-            onDelete={handleDeleteNote}
-            onDraftCategoryChange={setDraftCategoryId}
-            onDraftTextChange={(value) => {
-              setDraftText(value);
-              if (saveError) {
-                setSaveError(null);
-              }
-            }}
-            onEdit={handleEditSelectedNote}
-            onEditDirtyChange={setIsSelectedNoteEditDirty}
-            onNewNote={handleNewNote}
-            onSave={handleSaveNote}
-            onSaveEdit={handleSaveSelectedNoteEdit}
-            saveError={saveError}
-          />
-        </main>
+        <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+          {!isSearchActive && isLoadingNotes ? (
+            <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+              Loading...
+            </div>
+          ) : null}
 
-        <aside className="hidden min-h-0 w-80 shrink-0 border-l border-border bg-bg p-4 lg:flex xl:w-96">
-          <AskChat
-            askRef={askRef}
-            messages={askMessages}
-            onSourceSelect={handleAskSourceSelect}
-            onSubmit={handleAskSubmit}
-            pendingMessageId={askPendingMessageId}
-            isSubmitDisabled={isAskNoteScopeEmpty}
-            scopeLabel={categoryScopeLabel}
-            submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one note for Ask" : undefined}
-          />
-        </aside>
-      </div>
+          {isSearchActive && isSearching ? (
+            <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+              Searching...
+            </div>
+          ) : null}
+
+          {!isSearchActive && listError ? (
+            <p className="px-2 py-3 text-xs text-error">{listError}</p>
+          ) : null}
+          {isSearchActive && searchError ? (
+            <p className="px-2 py-3 text-xs text-error">{searchError}</p>
+          ) : null}
+
+          {!isSearchActive && !isLoadingNotes && !listError && notes.length === 0 ? (
+            <div className="px-2 py-6 text-center">
+              <p className="text-xs text-text-muted">No notes yet</p>
+              <p className="mt-1 text-[11px] text-text-muted">
+                Press <kbd className="rounded bg-surface-raised px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
+              </p>
+            </div>
+          ) : null}
+          {!isSearchActive && !isLoadingNotes && !listError && notes.length > 0 && visibleNotes.length === 0 ? (
+            <p className="px-2 py-6 text-center text-xs text-text-muted">No notes in this category</p>
+          ) : null}
+          {isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
+            <p className="px-2 py-6 text-center text-xs text-text-muted">No results found</p>
+          ) : null}
+
+          <div className="flex flex-col gap-0.5">
+            {visibleNotes.map((note) => (
+              <NoteCard
+                askScopeSelected={isNoteSelectedForAsk(askNoteScope, note.id)}
+                key={note.id}
+                note={note}
+                onAskScopeToggle={handleToggleAskNoteScope}
+                onSelect={selectNote}
+                selected={note.id === selectedNoteId}
+              />
+            ))}
+          </div>
+        </div>
+      </aside>
+
+      <main className="min-h-0 flex-1 overflow-hidden bg-bg">
+        <NoteWorkspace
+          captureRef={captureRef}
+          categories={categories}
+          deleteError={deleteError}
+          draftCategoryId={draftCategoryId}
+          draftText={draftText}
+          error={detailError}
+          isDeleting={isDeleting}
+          isLoading={isLoadingDetail}
+          isSavingEdit={isSavingEdit}
+          isSaving={isSaving}
+          mode={workspaceMode}
+          note={selectedNote}
+          editError={editError}
+          onCancelEdit={handleCancelEditSelectedNote}
+          onDelete={handleDeleteNote}
+          onDraftCategoryChange={setDraftCategoryId}
+          onDraftTextChange={(value) => {
+            setDraftText(value);
+            if (saveError) {
+              setSaveError(null);
+            }
+          }}
+          onEdit={handleEditSelectedNote}
+          onEditDirtyChange={setIsSelectedNoteEditDirty}
+          onNewNote={handleNewNote}
+          onSave={handleSaveNote}
+          onSaveEdit={handleSaveSelectedNoteEdit}
+          saveError={saveError}
+        />
+      </main>
+
+      <aside className="hidden min-h-0 w-80 shrink-0 border-l border-border bg-bg p-4 lg:flex xl:w-96">
+        <AskChat
+          askRef={askRef}
+          messages={askMessages}
+          onSourceSelect={handleAskSourceSelect}
+          onSubmit={handleAskSubmit}
+          pendingMessageId={askPendingMessageId}
+          isSubmitDisabled={isAskNoteScopeEmpty}
+          scopeLabel={categoryScopeLabel}
+          submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one note for Ask" : undefined}
+        />
+      </aside>
     </div>
   );
 }
