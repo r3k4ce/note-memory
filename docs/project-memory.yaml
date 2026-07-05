@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-05T02:15:25Z"
+    time_local: "2026-07-04T23:15:25-03:00"
+    summary: "Styled Markdown heading lines in the CodeMirror live-preview extension."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts with syntax-tree-driven line decorations for ATXHeading1-6 and SetextHeading1-2 title lines."
+      - "Added scoped CodeMirror theme rules so edit-mode heading lines use rendered-like size, weight, and spacing while keeping Markdown markers visible and source text editable."
+      - "Added focused Vitest coverage for ATX headings, Setext title-line styling, Setext marker visibility, and plain-line preservation."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (58 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T02:04:09Z"
     time_local: "2026-07-04T23:04:09-03:00"
     summary: "Added a no-op CodeMirror live preview extension boundary."

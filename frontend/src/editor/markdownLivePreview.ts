@@ -1,5 +1,105 @@
-import { EditorView } from "@codemirror/view";
+import { syntaxTree } from "@codemirror/language";
+import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 
-export const markdownLivePreviewExtension = EditorView.editorAttributes.of({
-  class: "cm-markdown-live-preview",
+const atxHeadingLevels = new Map([
+  ["ATXHeading1", 1],
+  ["ATXHeading2", 2],
+  ["ATXHeading3", 3],
+  ["ATXHeading4", 4],
+  ["ATXHeading5", 5],
+  ["ATXHeading6", 6],
+]);
+
+const setextHeadingLevels = new Map([
+  ["SetextHeading1", 1],
+  ["SetextHeading2", 2],
+]);
+
+function headingLineClass(level: number) {
+  return `cm-md-heading-line cm-md-heading-${level}`;
+}
+
+function buildHeadingDecorations(view: EditorView) {
+  const decorations: ReturnType<Decoration["range"]>[] = [];
+  const tree = syntaxTree(view.state);
+
+  for (const { from, to } of view.visibleRanges) {
+    tree.iterate({
+      from,
+      to,
+      enter: (node) => {
+        const atxLevel = atxHeadingLevels.get(node.name);
+        if (atxLevel) {
+          const line = view.state.doc.lineAt(node.from);
+          decorations.push(Decoration.line({ class: headingLineClass(atxLevel) }).range(line.from));
+          return;
+        }
+
+        const setextLevel = setextHeadingLevels.get(node.name);
+        if (setextLevel) {
+          const titleLine = view.state.doc.lineAt(node.from);
+          decorations.push(Decoration.line({ class: headingLineClass(setextLevel) }).range(titleLine.from));
+        }
+      },
+    });
+  }
+
+  return Decoration.set(decorations, true);
+}
+
+const headingLineDecorations = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+
+    constructor(view: EditorView) {
+      this.decorations = buildHeadingDecorations(view);
+    }
+
+    update(update: ViewUpdate) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = buildHeadingDecorations(update.view);
+      }
+    }
+  },
+  {
+    decorations: (plugin) => plugin.decorations,
+  },
+);
+
+const headingLineTheme = EditorView.theme({
+  ".cm-line.cm-md-heading-line": {
+    color: "var(--color-text-primary)",
+    fontWeight: "700",
+    lineHeight: "1.25",
+    paddingBottom: "0.18rem",
+    paddingTop: "0.55rem",
+  },
+  ".cm-line.cm-md-heading-1": {
+    fontSize: "1.55em",
+  },
+  ".cm-line.cm-md-heading-2": {
+    fontSize: "1.35em",
+  },
+  ".cm-line.cm-md-heading-3": {
+    fontSize: "1.2em",
+  },
+  ".cm-line.cm-md-heading-4": {
+    fontSize: "1.1em",
+  },
+  ".cm-line.cm-md-heading-5": {
+    fontSize: "1.02em",
+  },
+  ".cm-line.cm-md-heading-6": {
+    color: "var(--color-text-secondary)",
+    fontSize: "0.98em",
+    letterSpacing: "0",
+  },
 });
+
+export const markdownLivePreviewExtension = [
+  EditorView.editorAttributes.of({
+    class: "cm-markdown-live-preview",
+  }),
+  headingLineDecorations,
+  headingLineTheme,
+];
