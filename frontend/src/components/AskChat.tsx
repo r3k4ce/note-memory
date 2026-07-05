@@ -140,7 +140,7 @@ export function AskChat({
             <Sparkles size={13} strokeWidth={2} className="text-accent" />
           </div>
           <h2 className="text-[13px] font-semibold text-text-primary" id="ask-title">
-            Notes assistant
+            Ask Bun
           </h2>
         </div>
         <p className="pl-8 text-[11px] text-text-muted">Scope · {scopeLabel}</p>
@@ -180,7 +180,7 @@ export function AskChat({
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the assistant..."
+          placeholder="Ask about your notes..."
           ref={askRef}
           rows={3}
           value={question}

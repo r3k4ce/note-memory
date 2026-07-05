@@ -44,16 +44,16 @@ function renderAskChat({
   return { onSourceSelect, onSubmit };
 }
 
-describe("AskChat quiet assistant panel", () => {
-  test("uses compact assistant copy while keeping controlled submit behavior", () => {
+describe("AskChat Ask Bun panel", () => {
+  test("uses Ask Bun heading and copy while keeping controlled submit behavior", () => {
     const { onSubmit } = renderAskChat();
 
-    expect(screen.getByRole("heading", { name: "Notes assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ask Bun" })).toBeInTheDocument();
     expect(screen.getByText("Scope · All notes")).toBeInTheDocument();
     expect(screen.getByText("Ask about notes in this scope. Answers include sources.")).toBeInTheDocument();
 
     const textarea = screen.getByLabelText("Ask a question about saved notes");
-    expect(screen.getByPlaceholderText("Ask the assistant...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Ask about your notes...")).toBeInTheDocument();
 
     fireEvent.change(textarea, { target: { value: "What did I save about React?" } });
     expect(textarea).toHaveValue("What did I save about React?");

@@ -175,7 +175,7 @@ describe("App sidebar navigation", () => {
     });
 
     expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize notes assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize Bun" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show all panes" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
   });
@@ -188,14 +188,14 @@ describe("App sidebar navigation", () => {
     });
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
-    const assistant = screen.getByRole("complementary", { name: "Notes assistant pane" });
+    const assistant = screen.getByRole("complementary", { name: "Bun pane" });
 
     fireEvent.click(screen.getByRole("button", { name: "Focus Mode" }));
 
     expect(sidebar).toHaveStyle({ width: "0px" });
     expect(assistant).toHaveStyle({ width: "0px" });
     expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize notes assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("separator", { name: "Resize Bun" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Exit" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Exit" }));
@@ -250,15 +250,15 @@ describe("App sidebar navigation", () => {
     expect(sidebar).toHaveStyle({ width: "240px" });
   });
 
-  test("collapses and restores the notes assistant by dragging its separator", async () => {
+  test("collapses and restores the Bun pane by dragging its separator", async () => {
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
-    const assistant = screen.getByRole("complementary", { name: "Notes assistant pane" });
-    const separator = screen.getByRole("separator", { name: "Resize notes assistant" });
+    const assistant = screen.getByRole("complementary", { name: "Bun pane" });
+    const separator = screen.getByRole("separator", { name: "Resize Bun" });
 
     fireEvent.pointerDown(separator, { clientX: 600, pointerId: 1 });
     fireEvent.pointerMove(window, { clientX: 940, pointerId: 1 });
@@ -329,7 +329,7 @@ describe("App sidebar navigation", () => {
     render(<App />);
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
-    const title = screen.getByText("Note Memory");
+    const title = screen.getByText("Notebun");
     const newNote = within(sidebar).getByRole("button", { name: "New note" });
 
     await waitFor(() => {

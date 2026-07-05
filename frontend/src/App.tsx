@@ -1166,7 +1166,7 @@ export default function App() {
         <div className="shrink-0 px-3 py-3">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
-            <span className="text-[13px] font-semibold tracking-tight text-text-primary">Note Memory</span>
+            <span className="text-[13px] font-semibold tracking-tight text-text-primary">Notebun</span>
             <span className="ml-auto">
               <ThemeMenu />
             </span>
@@ -1650,14 +1650,14 @@ export default function App() {
 
       <PaneResizeHandle
         className="hidden lg:flex"
-        label="Resize notes assistant"
+        label="Resize Bun"
         maxWidth={RIGHT_PANE_MAX_WIDTH}
         onResizeStart={(event) => startPaneResize("right", event)}
         width={rightPaneWidth}
       />
 
       <aside
-        aria-label="Notes assistant pane"
+        aria-label="Bun pane"
         className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-3 transition-[width,padding] duration-150 ease-out lg:flex ${
           rightPaneWidth === 0 ? "px-0" : "px-4"
         }`}
