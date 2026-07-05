@@ -50,7 +50,8 @@ describe("AskChat Ask Bun panel", () => {
 
     expect(screen.getByRole("heading", { name: "Ask Bun" })).toBeInTheDocument();
     expect(screen.getByText("Scope · All notes")).toBeInTheDocument();
-    expect(screen.getByText("Ask about notes in this scope. Answers include sources.")).toBeInTheDocument();
+    expect(screen.getByText(/Ask about your saved notes\./)).toBeInTheDocument();
+    expect(screen.getByText(/Bun cites the notes it uses\./)).toBeInTheDocument();
 
     const textarea = screen.getByLabelText("Ask a question about saved notes");
     expect(screen.getByPlaceholderText("Ask about your notes...")).toBeInTheDocument();

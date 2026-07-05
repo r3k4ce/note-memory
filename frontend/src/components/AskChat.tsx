@@ -2,7 +2,6 @@ import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Send, Sparkles } from "lucide-react";
 
-import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { AskSource, ChatMessage } from "../types";
 
 type AskChatProps = {
@@ -148,7 +147,7 @@ export function AskChat({
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
         <AssistantBubble
-          content="Ask about notes in this scope. Answers include sources."
+          content={"Ask about your saved notes.\n\nBun cites the notes it uses."}
           onSourceSelect={onSourceSelect}
           sources={[]}
         />
@@ -173,10 +172,10 @@ export function AskChat({
         <div ref={transcriptEndRef} />
       </div>
 
-      <form className="flex shrink-0 flex-col gap-2 pt-2" onSubmit={handleSubmit}>
+      <form aria-busy={isPending} className="flex shrink-0 flex-col gap-2 pt-2" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="min-h-20 w-full resize-y rounded-md border border-border bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="min-h-20 w-full resize-y rounded-md border border-border bg-bg px-3 py-2.5 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -187,7 +186,10 @@ export function AskChat({
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="min-w-0 flex-1 text-[11px] leading-relaxed text-text-muted">
-            {submitDisabledMessage ?? `Enter to send · Shift+Enter for newline · ${APP_SHORTCUTS.ask.label} to focus`}
+            {submitDisabledMessage
+              ?? (isPending
+                ? "Reading your notes…"
+                : "Press Enter to send, Shift+Enter for a new line.")}
           </span>
           <button
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
