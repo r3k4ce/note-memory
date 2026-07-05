@@ -29,12 +29,21 @@
   --color-error-muted: rgba(179, 38, 30, 0.1);
 
   /* Shape */
-  --radius-card: 0.625rem;
+  --radius-card: 0.75rem;
   --radius-control: 0.5rem;
+  --radius-panel: 1rem;
+  --radius-input: 0.625rem;
   --radius-pill: 9999px;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
 
   /* Shadows */
+  --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+
+  /* Soft panel surface */
+  --color-panel-soft: #f7eed8;
 
   /* Motion */
   --duration-150: 150ms;
@@ -72,7 +81,10 @@
   --color-error: #e8714a;
   --color-error-muted: rgba(232, 113, 74, 0.1);
 
+  --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+
+  --color-panel-soft: #241a12;
 }
 
 [data-theme="forest"] {
@@ -99,7 +111,10 @@
   --color-error: #e07a6c;
   --color-error-muted: rgba(224, 122, 108, 0.1);
 
+  --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+
+  --color-panel-soft: #201915;
 }
 
 [data-theme="solarized"] {
@@ -126,7 +141,10 @@
   --color-error: #b8331a;
   --color-error-muted: rgba(184, 51, 26, 0.1);
 
+  --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+
+  --color-panel-soft: #f3e6c8;
 }
 
 html,
@@ -230,4 +248,69 @@ body {
 .markdown-codemirror-workspace .cm-content {
   min-height: 100%;
   padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem);
+}
+
+/* Soft panel tone on the two side panes */
+aside[aria-label="Notes sidebar"],
+aside[aria-label="Bun pane"] {
+  background-color: var(--color-panel-soft);
+  transition: background-color var(--duration-150) var(--ease-out);
+}
+
+/* Soft surface tone + radius on inner cards */
+[aria-label="Manage categories"],
+[aria-labelledby="ask-title"] > div,
+section[aria-labelledby="ask-title"] form {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--color-border);
+}
+
+/* Soften the contained Markdown editor */
+.markdown-codemirror {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+  background-color: var(--color-surface);
+}
+.markdown-codemirror:focus-within {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+/* Soften inputs and textareas */
+input[type="text"],
+input[type="search"],
+input:not([type]),
+textarea {
+  border-radius: var(--radius-input);
+  transition:
+    border-color var(--duration-150) var(--ease-out),
+    background-color var(--duration-150) var(--ease-out),
+    box-shadow var(--duration-150) var(--ease-out);
+}
+input[type="text"]:focus-visible,
+input[type="search"]:focus-visible,
+input:not([type]):focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+/* Soften the resize-handle grip */
+[role="separator"] > div {
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Soften the theme menu dropdown */
+[role="menu"] {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Soften the note-toolbar error overlay */
+.note-toolbar-error {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
 }

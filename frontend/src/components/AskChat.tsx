@@ -42,7 +42,7 @@ function SourceList({
         {sources.map((source) => (
           <button
             aria-label={`Open cited note: ${source.title}`}
-            className="flex cursor-pointer items-center justify-between gap-2 rounded-md bg-bg px-3 py-2 text-left transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            className="flex cursor-pointer items-center justify-between gap-2 rounded-card bg-bg px-3 py-2 text-left transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             key={source.note_id}
             onClick={() => onSourceSelect(source.note_id)}
             type="button"

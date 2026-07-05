@@ -28,7 +28,7 @@ export function NoteToolbar({ actions, error, status, toolbarControls }: NoteToo
         </div>
       </div>
       {error ? (
-        <div className="absolute left-3 top-full z-20 max-w-[min(36rem,calc(100%-1.5rem))] rounded-md border border-error/20 bg-bg px-2.5 py-1.5 text-xs text-error shadow-elevated">
+        <div className="note-toolbar-error absolute left-3 top-full z-20 max-w-[min(36rem,calc(100%-1.5rem))] rounded-md border border-error/20 bg-bg px-2.5 py-1.5 text-xs text-error shadow-elevated">
           {error}
         </div>
       ) : null}
