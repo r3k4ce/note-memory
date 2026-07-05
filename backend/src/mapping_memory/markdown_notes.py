@@ -96,9 +96,6 @@ def write_markdown_note(
     next_path = vault_path / next_relative_path
     previous_path = vault_path / previous_relative_path if previous_relative_path else None
 
-    if previous_path is not None and previous_path != next_path and previous_path.exists():
-        previous_path.unlink()
-
     next_path.write_text(
         serialize_markdown_note(
             title=title,
@@ -108,6 +105,9 @@ def write_markdown_note(
             body=body,
         )
     )
+    if previous_path is not None and previous_path != next_path and previous_path.exists():
+        previous_path.unlink()
+
     return next_relative_path
 
 

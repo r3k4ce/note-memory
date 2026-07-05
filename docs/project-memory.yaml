@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-05T18:10:57Z"
+    time_local: "2026-07-05T15:10:57-03:00"
+    summary: "Fixed Markdown vault sync data-safety review issues."
+    changed:
+      - "Startup vault sync now returns Markdown-imported or updated note IDs and best-effort reindexes those notes into Chroma without failing app startup."
+      - "Markdown note deletion now happens before the SQLite delete transaction commits, and title renames write the replacement before unlinking the old file."
+      - "Ignored live data/vault contents, added data/vault/.gitkeep, and removed tracked runtime vault Markdown notes."
+    verification:
+      - "Ran uv run python -m pytest tests/test_markdown_notes.py tests/test_notes.py tests/test_notes_api.py --no-cov from backend/: 65 passed with existing Starlette deprecation warnings."
+      - "Ran ./scripts/check.sh from repository root with uv cache escalation: backend format/lint/typecheck/tests and frontend tests/lint/build passed."
   - time_utc: "2026-07-05T17:44:20Z"
     time_local: "2026-07-05T14:44:21-03:00"
     summary: "Moved note edit actions into the shared workspace toolbar."

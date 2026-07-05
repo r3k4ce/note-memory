@@ -109,10 +109,10 @@ def list_categories(sqlite_path: Path) -> list[CategoryRead]:
     return [_category_from_row(row) for row in rows]
 
 
-def sync_markdown_vault(sqlite_path: Path, vault_path: Path) -> None:
+def sync_markdown_vault(sqlite_path: Path, vault_path: Path) -> list[int]:
     vault_path.mkdir(parents=True, exist_ok=True)
     _write_missing_markdown_files(sqlite_path, vault_path)
-    _import_newer_markdown_files(sqlite_path, vault_path)
+    return _import_newer_markdown_files(sqlite_path, vault_path)
 
 
 def update_category(sqlite_path: Path, category_id: int, name: str) -> CategoryRead | None:
@@ -469,10 +469,9 @@ def delete_note(sqlite_path: Path, note_id: int, *, vault_path: Path | None = No
             return False
 
         rebuild_notes_fts(connection)
+        if vault_path is not None:
+            delete_markdown_note(vault_path, row["markdown_path"])
         connection.commit()
-
-    if vault_path is not None:
-        delete_markdown_note(vault_path, row["markdown_path"])
 
     return True
 
@@ -608,20 +607,27 @@ def _write_missing_markdown_files(sqlite_path: Path, vault_path: Path) -> None:
         connection.commit()
 
 
-def _import_newer_markdown_files(sqlite_path: Path, vault_path: Path) -> None:
+def _import_newer_markdown_files(sqlite_path: Path, vault_path: Path) -> list[int]:
     known_notes = _known_markdown_notes(sqlite_path)
     known_paths = set(known_notes)
+    changed_note_ids: list[int] = []
     for markdown_path in sorted(vault_path.glob("*.md")):
         relative_path = markdown_path.name
         if relative_path not in known_paths:
-            _import_new_markdown_file(sqlite_path, markdown_path)
+            note_id = _import_new_markdown_file(sqlite_path, markdown_path)
+            if note_id is not None:
+                changed_note_ids.append(note_id)
             continue
 
         note_id, updated_at = known_notes[relative_path]
         file_updated_at = datetime.fromtimestamp(markdown_path.stat().st_mtime, tz=UTC)
         note_updated_at = datetime.fromisoformat(updated_at)
         if file_updated_at > note_updated_at:
-            _import_existing_markdown_file(sqlite_path, note_id, markdown_path)
+            imported_note_id = _import_existing_markdown_file(sqlite_path, note_id, markdown_path)
+            if imported_note_id is not None:
+                changed_note_ids.append(imported_note_id)
+
+    return changed_note_ids
 
 
 def _known_markdown_notes(sqlite_path: Path) -> dict[str, tuple[int, str]]:
@@ -636,13 +642,13 @@ def _known_markdown_notes(sqlite_path: Path) -> dict[str, tuple[int, str]]:
     return {row["markdown_path"]: (row["id"], row["updated_at"]) for row in rows}
 
 
-def _import_new_markdown_file(sqlite_path: Path, markdown_path: Path) -> None:
+def _import_new_markdown_file(sqlite_path: Path, markdown_path: Path) -> int | None:
     parsed = parse_markdown_note(markdown_path.read_text())
     body = parsed.body
     if not body.strip():
-        return
+        return None
 
-    create_note(
+    note = create_note(
         sqlite_path,
         body,
         ai_title=parsed.title or _fallback_title(body),
@@ -651,19 +657,20 @@ def _import_new_markdown_file(sqlite_path: Path, markdown_path: Path) -> None:
         category_id=_category_id_for_name(sqlite_path, parsed.category),
         markdown_path=markdown_path.name,
     )
+    return note.id
 
 
 def _import_existing_markdown_file(
     sqlite_path: Path,
     note_id: int,
     markdown_path: Path,
-) -> None:
+) -> int | None:
     parsed = parse_markdown_note(markdown_path.read_text())
     body = parsed.body
     if not body.strip():
-        return
+        return None
 
-    update_note(
+    note = update_note(
         sqlite_path,
         note_id,
         original_text=body,
@@ -672,6 +679,7 @@ def _import_existing_markdown_file(
         tags=parsed.tags,
         category_id=_category_id_for_name(sqlite_path, parsed.category),
     )
+    return note.id if note is not None else None
 
 
 def _category_id_for_name(sqlite_path: Path, category_name: str) -> int | None:

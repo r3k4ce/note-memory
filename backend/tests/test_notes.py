@@ -158,6 +158,29 @@ def test_delete_note_rebuilds_fts_for_existing_note(
     assert len(calls) == 1
 
 
+def test_delete_note_rolls_back_sqlite_when_markdown_delete_fails(
+    sqlite_path: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    note = create_note(
+        sqlite_path,
+        "Searchable delete rollback note CD-30954.",
+        vault_path=tmp_path / "vault",
+    )
+
+    def delete_markdown_note(*args, **kwargs) -> None:
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("mapping_memory.notes.delete_markdown_note", delete_markdown_note)
+
+    with pytest.raises(OSError, match="permission denied"):
+        delete_note(sqlite_path, note.id, vault_path=tmp_path / "vault")
+
+    assert get_note(sqlite_path, note.id) is not None
+    assert [result.id for result in search_notes_exact(sqlite_path, "CD-30954")] == [note.id]
+
+
 def test_delete_note_returns_false_for_missing_note(sqlite_path: Path) -> None:
     assert delete_note(sqlite_path, 999999) is False
 

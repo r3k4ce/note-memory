@@ -3,6 +3,7 @@ from mapping_memory.markdown_notes import (
     markdown_filename,
     parse_markdown_note,
     serialize_markdown_note,
+    write_markdown_note,
 )
 
 
@@ -60,3 +61,40 @@ def test_markdown_filename_uses_slugged_title_and_id() -> None:
 
 def test_markdown_filename_falls_back_to_note_id_for_blank_title() -> None:
     assert markdown_filename(note_id=7, title="   ") == "note-7.md"
+
+
+def test_write_markdown_note_keeps_previous_file_when_replacement_write_fails(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+    previous_path = vault_path / "old-title-1.md"
+    previous_path.write_text("existing vault copy")
+    original_write_text = type(previous_path).write_text
+
+    def write_text(path, value: str, *args, **kwargs):
+        if path.name == "new-title-1.md":
+            raise OSError("disk full")
+        return original_write_text(path, value, *args, **kwargs)
+
+    monkeypatch.setattr(type(previous_path), "write_text", write_text)
+
+    try:
+        write_markdown_note(
+            vault_path,
+            note_id=1,
+            title="New title",
+            summary="New summary.",
+            tags=[],
+            category="",
+            body="New body",
+            previous_relative_path=previous_path.name,
+        )
+    except OSError:
+        pass
+    else:
+        raise AssertionError("replacement write should fail")
+
+    assert previous_path.read_text() == "existing vault copy"
+    assert not (vault_path / "new-title-1.md").exists()

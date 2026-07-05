@@ -285,6 +285,92 @@ def test_create_app_imports_newer_markdown_file_from_vault(
     assert notes_response.json()[0]["category"]["name"] == "Imported"
 
 
+def test_create_app_reindexes_markdown_imported_from_vault(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    reindexed_notes: list[Any] = []
+
+    def reindex_note_for_retrieval(note: Any, *, settings: Settings) -> None:
+        reindexed_notes.append(note)
+
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        reindex_note_for_retrieval,
+        raising=False,
+    )
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+    (vault_path / "external-note.md").write_text(
+        "---\n"
+        "title: External note\n"
+        "summary: External summary.\n"
+        "tags:\n"
+        "- Work\n"
+        "category: Imported\n"
+        "---\n"
+        "\n"
+        "External body text",
+    )
+    app = create_app(
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            vault_path=vault_path,
+            openai_api_key=None,
+        )
+    )
+
+    with TestClient(app) as client:
+        notes_response = client.get("/notes")
+
+    assert notes_response.status_code == 200
+    assert len(reindexed_notes) == 1
+    assert reindexed_notes[0].id == notes_response.json()[0]["id"]
+    assert reindexed_notes[0].original_text == "External body text"
+
+
+def test_create_app_continues_when_startup_markdown_reindex_fails(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    def reindex_note_for_retrieval(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("provider failure with sensitive details")
+
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        reindex_note_for_retrieval,
+        raising=False,
+    )
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+    (vault_path / "external-note.md").write_text(
+        "---\n"
+        "title: External note\n"
+        "summary: External summary.\n"
+        "tags: []\n"
+        "category: ''\n"
+        "---\n"
+        "\n"
+        "External body text",
+    )
+    app = create_app(
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            vault_path=vault_path,
+            openai_api_key=None,
+        )
+    )
+
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        notes_response = client.get("/notes")
+
+    assert notes_response.status_code == 200
+    assert notes_response.json()[0]["original_text"] == "External body text"
+    assert "Retrieval reindexing unavailable after vault sync" in caplog.text
+    assert "provider failure" not in caplog.text
+
+
 def test_post_notes_organize_returns_ai_metadata_for_body_draft(
     tmp_path: Path,
     monkeypatch,
