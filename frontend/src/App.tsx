@@ -12,7 +12,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Columns3,
   FileText,
   Folder,
   FolderOpen,
@@ -236,6 +235,7 @@ export default function App() {
   const isBrowseTab = sidebarTab === "browse";
   const isSearchTab = sidebarTab === "search";
   const isSearchActive = activeSearchQuery !== null;
+  const isTextAreaPaneFocused = leftPaneWidth === 0 && rightPaneWidth === 0;
   const sortedCategories = useMemo(() => sortCategories(categories), [categories]);
   const uncategorizedNotes = useMemo(
     () => notes.filter((note) => note.category === null),
@@ -313,7 +313,13 @@ export default function App() {
     [leftPaneWidth, rightPaneWidth, updateLeftPaneWidth, updateRightPaneWidth],
   );
 
-  const focusTextAreaPane = useCallback(() => {
+  const toggleTextAreaFocus = useCallback(() => {
+    if (isTextAreaPaneFocused) {
+      setLeftPaneWidth(lastLeftPaneWidthRef.current || LEFT_PANE_DEFAULT_WIDTH);
+      setRightPaneWidth(lastRightPaneWidthRef.current || RIGHT_PANE_DEFAULT_WIDTH);
+      return;
+    }
+
     if (leftPaneWidth > 0) {
       lastLeftPaneWidthRef.current = leftPaneWidth;
     }
@@ -323,12 +329,7 @@ export default function App() {
 
     setLeftPaneWidth(0);
     setRightPaneWidth(0);
-  }, [leftPaneWidth, rightPaneWidth]);
-
-  const showAllPanes = useCallback(() => {
-    setLeftPaneWidth(lastLeftPaneWidthRef.current || LEFT_PANE_DEFAULT_WIDTH);
-    setRightPaneWidth(lastRightPaneWidthRef.current || RIGHT_PANE_DEFAULT_WIDTH);
-  }, []);
+  }, [isTextAreaPaneFocused, leftPaneWidth, rightPaneWidth]);
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
     if (!hasUnsavedSelectedNoteEdit) {
@@ -1534,19 +1535,10 @@ export default function App() {
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg">
         <div className="flex h-8 shrink-0 items-center justify-end gap-1 px-3 py-1">
           <button
-            aria-label="Show all panes"
+            aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
             className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-            onClick={showAllPanes}
-            title="Show all panes"
-            type="button"
-          >
-            <Columns3 aria-hidden="true" size={13} strokeWidth={2} />
-          </button>
-          <button
-            aria-label="Focus text area"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-            onClick={focusTextAreaPane}
-            title="Focus text area"
+            onClick={toggleTextAreaFocus}
+            title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
             type="button"
           >
             <Maximize2 aria-hidden="true" size={13} strokeWidth={2} />

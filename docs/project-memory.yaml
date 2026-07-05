@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-05T15:51:03Z"
+    time_local: "2026-07-05T12:51:03-03:00"
+    summary: "Replaced the middle workspace's two pane layout buttons with one Focus Mode toggle."
+    changed:
+      - "Removed the separate Show all panes button from frontend/src/App.tsx while keeping the maximize icon button in the top-right middle pane."
+      - "Changed the remaining button to toggle both sidebars closed and restore their previous widths, with labels switching between Focus Mode and Exit."
+      - "Updated App tests for the single-button Focus Mode and Exit behavior."
+    verification:
+      - "Ran npm run test -- App.test.tsx --run before implementation: failed on the old Show all panes and Focus text area controls."
+      - "Ran npm run test -- App.test.tsx --run after implementation: 29 passing."
+      - "Ran ./scripts/check.sh from the repository root after rerunning with uv cache escalation: backend checks/187 tests and frontend 104 tests/lint/build passed."
   - time_utc: "2026-07-05T04:52:14Z"
     time_local: "2026-07-05T01:52:14-03:00"
     summary: "Expanded edit-mode Markdown live preview coverage for common CommonMark and GFM syntax."

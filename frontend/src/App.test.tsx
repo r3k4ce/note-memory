@@ -168,8 +168,8 @@ describe("App sidebar navigation", () => {
 
     expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize notes assistant" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show all panes" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Focus text area" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show all panes" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
   });
 
   test("focuses the text area while keeping resize handles available, then restores panes", async () => {
@@ -182,17 +182,19 @@ describe("App sidebar navigation", () => {
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
     const assistant = screen.getByRole("complementary", { name: "Notes assistant pane" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Focus text area" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus Mode" }));
 
     expect(sidebar).toHaveStyle({ width: "0px" });
     expect(assistant).toHaveStyle({ width: "0px" });
     expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize notes assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Exit" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show all panes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
 
     expect(sidebar).toHaveStyle({ width: "288px" });
     expect(assistant).toHaveStyle({ width: "384px" });
+    expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
   });
 
   test("collapses and restores the notes sidebar by dragging its separator", async () => {
