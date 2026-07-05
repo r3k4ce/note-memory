@@ -1,4 +1,12 @@
 entries:
+  - time_utc: "2026-07-05T02:04:09Z"
+    time_local: "2026-07-04T23:04:09-03:00"
+    summary: "Added a no-op CodeMirror live preview extension boundary."
+    changed:
+      - "Created frontend/src/editor/markdownLivePreview.ts exporting a small EditorView.editorAttributes extension with a stable cm-markdown-live-preview class hook."
+      - "Wired the extension into MarkdownPane's shared edit-mode CodeMirror extensions without changing read preview, Markdown persistence, or note save/edit/delete behavior."
+    verification:
+      - "Ran npm run typecheck, npm run test (56 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T01:57:50Z"
     time_local: "2026-07-04T21:57:50-04:00"
     summary: "Ignored the .superpowers agentic tooling directory in .gitignore."

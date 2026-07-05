@@ -6,6 +6,7 @@ import { tags } from "@lezer/highlight";
 import type { RefObject } from "react";
 
 import { MarkdownPreview } from "./MarkdownPreview";
+import { markdownLivePreviewExtension } from "../editor/markdownLivePreview";
 import { THEME_MODE, type ThemeId } from "../hooks/useTheme";
 
 export type MarkdownPaneHandle = {
@@ -76,7 +77,7 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.punctuation, color: "var(--color-text-muted)" },
 ]);
 
-const markdownEditorExtensions = [markdown(), markdownEditorTheme, syntaxHighlighting(markdownHighlightStyle)];
+const markdownEditorExtensions = [markdown(), markdownEditorTheme, syntaxHighlighting(markdownHighlightStyle), markdownLivePreviewExtension];
 
 const workspaceMarkdownEditorTheme = EditorView.theme({
   "&": {
