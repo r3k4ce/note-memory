@@ -36,17 +36,17 @@ describe("ThemeMenu", () => {
     fireEvent.click(screen.getByLabelText("Browse themes"));
 
     expect(screen.getByRole("menu")).toBeInTheDocument();
-    expect(screen.getByRole("menuitemradio", { name: /Midnight/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitemradio", { name: /Forest/ })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitemradio", { name: /Daylight/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitemradio", { name: /Solarized/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: /Cocoa/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: /Matcha/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitemradio", { name: /Biscuit/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitemradio", { name: /Honey/ })).not.toBeInTheDocument();
   });
 
   test("selecting a variant updates the theme and closes the menu", () => {
     render(<ThemeMenu />);
     fireEvent.click(screen.getByLabelText("Browse themes"));
 
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /Forest/ }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Matcha/ }));
 
     expect(document.documentElement.dataset.theme).toBe("forest");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
@@ -81,9 +81,9 @@ describe("ThemeMenu", () => {
     render(<ThemeMenu />);
     fireEvent.click(screen.getByLabelText("Browse themes"));
 
-    const active = screen.getByRole("menuitemradio", { name: /Midnight/ });
+    const active = screen.getByRole("menuitemradio", { name: /Cocoa/ });
     expect(active).toHaveAttribute("aria-checked", "true");
-    const inactive = screen.getByRole("menuitemradio", { name: /Forest/ });
+    const inactive = screen.getByRole("menuitemradio", { name: /Matcha/ });
     expect(inactive).toHaveAttribute("aria-checked", "false");
   });
 
@@ -92,8 +92,8 @@ describe("ThemeMenu", () => {
     fireEvent.click(screen.getByLabelText("Switch to light theme"));
     fireEvent.click(screen.getByLabelText("Browse themes"));
 
-    expect(screen.getByRole("menuitemradio", { name: /Daylight/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitemradio", { name: /Solarized/ })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitemradio", { name: /Midnight/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: /Biscuit/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: /Honey/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitemradio", { name: /Cocoa/ })).not.toBeInTheDocument();
   });
 });

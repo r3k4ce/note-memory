@@ -72,7 +72,7 @@ function AssistantBubble({ content, onSourceSelect, sources }: AssistantBubblePr
 function UserBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[78%] rounded-md bg-accent px-3 py-2.5 text-[13px] leading-relaxed text-black">
+      <div className="max-w-[78%] rounded-md bg-accent px-3 py-2.5 text-[13px] leading-relaxed text-accent-fg">
         <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
@@ -190,7 +190,7 @@ export function AskChat({
             {submitDisabledMessage ?? `Enter to send · Shift+Enter for newline · ${APP_SHORTCUTS.ask.label} to focus`}
           </span>
           <button
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSendDisabled}
             type="submit"
           >

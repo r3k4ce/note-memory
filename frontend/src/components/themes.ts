@@ -8,8 +8,8 @@ type ThemeMeta = {
 };
 
 export const THEMES: Record<ThemeId, ThemeMeta> = {
-  dark: { label: "Midnight", icon: Moon },
-  forest: { label: "Forest", icon: TreePine },
-  light: { label: "Daylight", icon: Sun },
-  solarized: { label: "Solarized", icon: CloudSun },
+  dark: { label: "Cocoa", icon: Moon },
+  forest: { label: "Matcha", icon: TreePine },
+  light: { label: "Biscuit", icon: Sun },
+  solarized: { label: "Honey", icon: CloudSun },
 };
