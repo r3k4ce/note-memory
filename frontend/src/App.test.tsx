@@ -551,8 +551,8 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
 
-    expect(screen.getByText("No sources selected")).toBeInTheDocument();
-    expect(screen.getByText("Select at least one source for Ask.")).toBeInTheDocument();
+    expect(screen.getByText("No notes selected")).toBeInTheDocument();
+    expect(screen.getByText("Pick at least one note for Bun.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mock ask" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
@@ -703,7 +703,7 @@ describe("App sidebar navigation", () => {
 
     expect(screen.queryByText("Search results", { selector: "span" })).not.toBeInTheDocument();
     expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("Searching...", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Bun is searching...", { selector: "span" })).toBeInTheDocument();
 
     search.resolve([]);
   });
@@ -732,7 +732,7 @@ describe("App sidebar navigation", () => {
     await waitFor(() => {
       expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
     });
-    expect(screen.getByText("1 found")).toBeInTheDocument();
+    expect(screen.getByText("1 match")).toBeInTheDocument();
 
     const resultCard = screen.getByRole("button", { name: /Work note/ });
 
@@ -794,7 +794,7 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
 
-    expect(screen.getByText("No sources selected")).toBeInTheDocument();
+    expect(screen.getByText("No notes selected")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).not.toBeChecked();
   });
 
@@ -882,8 +882,8 @@ describe("App sidebar navigation", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     expect(await screen.findByText("Results for “missing”", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("No results")).toBeInTheDocument();
-    expect(screen.getByText("No results found")).toBeInTheDocument();
+    expect(screen.getByText("No matches")).toBeInTheDocument();
+    expect(screen.getByText("No crumbs found.")).toBeInTheDocument();
   });
 
   test("shows failed search status while preserving the error body", async () => {
@@ -901,7 +901,7 @@ describe("App sidebar navigation", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     expect(await screen.findByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("Search failed")).toBeInTheDocument();
+    expect(screen.getByText("Search hit a snag")).toBeInTheDocument();
     expect(screen.getByText("Search service unavailable.")).toBeInTheDocument();
   });
 

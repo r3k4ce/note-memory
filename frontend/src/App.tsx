@@ -576,7 +576,7 @@ export default function App() {
           setDraftCategoryId(savedNote.category?.id ?? null);
         }
       } catch (error) {
-        setCategoryError(getErrorMessage(error, "Could not move note."));
+        setCategoryError(getErrorMessage(error, "Couldn't move the note."));
       } finally {
         clearNoteDrag();
       }
@@ -620,7 +620,7 @@ export default function App() {
         } catch (error) {
           if (searchRequestId.current === requestId) {
             setSearchResults([]);
-            setSearchError(getErrorMessage(error, "Could not search notes."));
+            setSearchError(getErrorMessage(error, "Couldn't search your notes."));
           }
         } finally {
           if (searchRequestId.current === requestId) {
@@ -662,7 +662,7 @@ export default function App() {
           return;
         }
 
-        setListError(getErrorMessage(error, "Could not load notes."));
+        setListError(getErrorMessage(error, "Couldn't open your notebook."));
         setNotes([]);
         setCategories([]);
         setSelectedNoteId(null);
@@ -718,7 +718,7 @@ export default function App() {
       } catch (error) {
         if (!ignore) {
           setSelectedNote(null);
-          setDetailError(getErrorMessage(error, "Could not load note detail."));
+          setDetailError(getErrorMessage(error, "Couldn't open this note."));
         }
       } finally {
         if (!ignore) {
@@ -760,7 +760,7 @@ export default function App() {
     } catch (error) {
       if (searchRequestId.current === requestId) {
         setSearchResults([]);
-        setSearchError(getErrorMessage(error, "Could not search notes."));
+        setSearchError(getErrorMessage(error, "Couldn't search your notes."));
       }
     } finally {
       if (searchRequestId.current === requestId) {
@@ -793,7 +793,7 @@ export default function App() {
     const pendingMessage: ChatMessage = {
       id: pendingMessageId,
       role: "assistant",
-      content: "Reading notes...",
+      content: "Bun is reading...",
       sources: [],
     };
 
@@ -829,7 +829,7 @@ export default function App() {
               ? {
                   id: pendingMessageId,
                   role: "error",
-                  content: getErrorMessage(error, "Could not reach your notes."),
+                  content: getErrorMessage(error, "Bun couldn't reach your notes."),
                 }
               : message,
           ),
@@ -865,7 +865,7 @@ export default function App() {
       setSelectedNoteId(null);
       setExpandedFolderKeys((currentKeys) => new Set(currentKeys).add(categoryFilterKey(category.id)));
     } catch (error) {
-      setCategoryError(getErrorMessage(error, "Could not create category."));
+      setCategoryError(getErrorMessage(error, "Couldn't create the category."));
     } finally {
       setIsSavingCategory(false);
     }
@@ -908,7 +908,7 @@ export default function App() {
       setEditingCategoryId(null);
       setCategoryEditDraft("");
     } catch (error) {
-      setCategoryError(getErrorMessage(error, "Could not rename category."));
+      setCategoryError(getErrorMessage(error, "Couldn't rename the category."));
     } finally {
       setIsUpdatingCategory(false);
     }
@@ -968,7 +968,7 @@ export default function App() {
         setCategoryEditDraft("");
       }
     } catch (error) {
-      setCategoryError(getErrorMessage(error, "Could not delete category."));
+      setCategoryError(getErrorMessage(error, "Couldn't delete the category."));
     } finally {
       setDeletingCategoryId(null);
     }
@@ -1004,7 +1004,7 @@ export default function App() {
       setReadMode(false);
       setWorkspaceMode("edit-selected");
     } catch (error) {
-      setSaveError(getErrorMessage(error, "Could not save note."));
+      setSaveError(getErrorMessage(error, "Couldn't save the note."));
     } finally {
       setIsSaving(false);
     }
@@ -1087,7 +1087,7 @@ export default function App() {
       setReadMode(false);
       setWorkspaceMode("edit-selected");
     } catch (error) {
-      setEditError(getErrorMessage(error, "Could not save note changes."));
+      setEditError(getErrorMessage(error, "Couldn't save your changes."));
     } finally {
       setIsSavingEdit(false);
     }
@@ -1111,24 +1111,24 @@ export default function App() {
       setSelectedNote(null);
       setDetailError(null);
       setEditError(null);
-        setIsSelectedNoteEditDirty(false);
+      setIsSelectedNoteEditDirty(false);
       setWorkspaceMode("new");
     } catch (error) {
-      setDeleteError(getErrorMessage(error, "Could not delete note."));
+      setDeleteError(getErrorMessage(error, "Couldn't delete the note."));
     } finally {
       setIsDeleting(false);
     }
   }
 
   const searchStatus = isSearching
-    ? "Searching..."
+    ? "Bun is searching..."
     : searchError
-      ? "Search failed"
+      ? "Search hit a snag"
       : searchResults.length === 0
-        ? "No results"
+        ? "No matches"
         : searchResults.length === 1
-          ? "1 found"
-          : `${searchResults.length} found`;
+          ? "1 match"
+          : `${searchResults.length} matches`;
   const toolbarControls = (
     <>
       <button
@@ -1388,14 +1388,14 @@ export default function App() {
           {isBrowseTab && isLoadingNotes ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-              Loading...
+              Opening your notebook...
             </div>
           ) : null}
 
           {isSearchTab && isSearching ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-              Searching...
+              Bun is searching...
             </div>
           ) : null}
 
@@ -1415,7 +1415,7 @@ export default function App() {
             </div>
           ) : null}
           {isSearchTab && isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-text-muted">No results found</p>
+            <p className="px-2 py-6 text-center text-xs text-text-muted">No crumbs found.</p>
           ) : null}
 
           {isSearchTab && isSearchActive ? (
@@ -1661,7 +1661,7 @@ export default function App() {
           pendingMessageId={askPendingMessageId}
           isSubmitDisabled={isAskNoteScopeEmpty}
           scopeLabel={askChatScopeLabel}
-          submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one source for Ask." : undefined}
+          submitDisabledMessage={isAskNoteScopeEmpty ? "Pick at least one note for Bun." : undefined}
         />
       </aside>
     </div>

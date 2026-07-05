@@ -105,7 +105,7 @@ export function formatAskNoteScopeSelectedCount(scope: AskNoteScope, totalNotes:
 
   const selectedCount = getAskNoteScopeSelectedCount(scope, totalNotes);
   if (selectedCount === 0) {
-    return "No sources selected";
+    return "No notes selected";
   }
 
   return selectedCount === 1 ? "1 note selected" : `${selectedCount} notes selected`;
