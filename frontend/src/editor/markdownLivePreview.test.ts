@@ -32,6 +32,14 @@ function lineWithText(editor: EditorView, text: string) {
   return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-line")).find((line) => line.textContent === text);
 }
 
+function linesWithText(editor: EditorView, text: string) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-line")).filter((line) => line.textContent === text);
+}
+
+function fencedCodeLanguageLabels(editor: EditorView) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-fenced-code-language"));
+}
+
 describe("markdownLivePreviewExtension", () => {
   test("conceals inactive ATX heading markers without changing the document", () => {
     const editor = createEditor("# One\n\n## Two\n\n### Three\n\nplain");
@@ -115,5 +123,118 @@ describe("markdownLivePreviewExtension", () => {
     });
 
     expect(lineWithText(editor, "> quote")).toHaveClass("cm-md-blockquote-line");
+  });
+
+  test("conceals inactive inline code delimiters without changing the document", () => {
+    const editor = createEditor("Use `code` here\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const codeLine = lineWithText(editor, "Use code here");
+    expect(codeLine).toBeInTheDocument();
+    expect(codeLine?.querySelector(".cm-md-inline-code")).toHaveTextContent("code");
+    expect(editor.state.doc.toString()).toBe("Use `code` here\n\nplain");
+  });
+
+  test("reveals inline code delimiters when the line is active", () => {
+    const editor = createEditor("Use `code` here\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(6),
+    });
+
+    expect(lineWithText(editor, "Use `code` here")).toBeInTheDocument();
+  });
+
+  test("reveals inline code delimiters when a selection overlaps the line", () => {
+    const editor = createEditor("Use `code` here\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.range(0, 14),
+    });
+
+    expect(lineWithText(editor, "Use `code` here")).toBeInTheDocument();
+  });
+
+  test("does not conceal backticks inside fenced code blocks", () => {
+    const editor = createEditor("```\n`not inline`\n```\n\nUse `code` here\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "`not inline`")).toBeInTheDocument();
+    expect(lineWithText(editor, "Use code here")).toBeInTheDocument();
+    expect(editor.state.doc.toString()).toBe("```\n`not inline`\n```\n\nUse `code` here\n\nplain");
+  });
+
+  test("conceals inactive fenced code markers and styles the code body", () => {
+    const doc = '```python\nimport random\n\nprint("hello, world!")\n```\n\nplain';
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "```python")).toBeUndefined();
+    expect(lineWithText(editor, "```")).toBeUndefined();
+    expect(lineWithText(editor, "import random")).toHaveClass("cm-md-fenced-code-line", "cm-md-fenced-code-first-line");
+    expect(lineWithText(editor, 'print("hello, world!")')).toHaveClass(
+      "cm-md-fenced-code-line",
+      "cm-md-fenced-code-last-line",
+    );
+    expect(linesWithText(editor, "")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ className: expect.stringContaining("cm-md-fenced-code-line") })]),
+    );
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(1);
+    expect(fencedCodeLanguageLabels(editor)[0]).toHaveTextContent("python");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("shows only the first fenced code info token as the language label", () => {
+    const editor = createEditor("```js title=demo\nconsole.log(1)\n```\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(1);
+    expect(fencedCodeLanguageLabels(editor)[0]).toHaveTextContent("js");
+    expect(fencedCodeLanguageLabels(editor)[0]).not.toHaveTextContent("title=demo");
+  });
+
+  test("does not show a fenced code language label without an info string", () => {
+    const editor = createEditor("```\nplain\n```\n\ntext");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(0);
+  });
+
+  test("reveals fenced code markers when the cursor is inside the code block", () => {
+    const editor = createEditor('```python\nimport random\n\nprint("hello, world!")\n```\n\nplain');
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(17),
+    });
+
+    expect(lineWithText(editor, "```python")).toBeInTheDocument();
+    expect(lineWithText(editor, "```")).toBeInTheDocument();
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(0);
+  });
+
+  test("reveals fenced code markers when a selection overlaps the code block", () => {
+    const editor = createEditor('```python\nimport random\n\nprint("hello, world!")\n```\n\nplain');
+
+    editor.dispatch({
+      selection: EditorSelection.range(5, 20),
+    });
+
+    expect(lineWithText(editor, "```python")).toBeInTheDocument();
+    expect(lineWithText(editor, "```")).toBeInTheDocument();
   });
 });

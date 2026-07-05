@@ -1,4 +1,40 @@
 entries:
+  - time_utc: "2026-07-05T03:28:53Z"
+    time_local: "2026-07-05T00:28:53-03:00"
+    summary: "Added inactive fenced-code language labels to the editor live preview."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts with a small CodeMirror widget that shows the first CodeInfo token as a subtle language pill on inactive fenced code blocks."
+      - "Kept raw fences and info strings visible when selection overlaps the fenced block, and omitted the pill for unlabeled fences."
+      - "Updated focused editor tests for python labels, first-token info labels, unlabeled fences, and active-block reveal behavior."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (74 passing), npm run lint, and npm run build from frontend/."
+  - time_utc: "2026-07-05T03:22:26Z"
+    time_local: "2026-07-05T00:22:26-03:00"
+    summary: "Expanded fenced-code syntax highlighting to CodeMirror's popular language registry."
+    changed:
+      - "Replaced the Python-only Markdown code language registry with @codemirror/language-data while keeping small py and md fence aliases that the upstream registry does not match by name."
+      - "Expanded focused language matching tests to cover JavaScript, TypeScript, JSX, TSX, HTML, CSS, JSON, Python, Bash, SQL, YAML, and Markdown aliases."
+      - "Removed @codemirror/lang-python as a direct dependency; it remains available transitively through @codemirror/language-data."
+    verification:
+      - "Ran npm run test -- src/editor/markdownCodeLanguages.test.ts, npm run test -- src/editor/markdownCodeLanguages.test.ts src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (72 passing), npm run lint, and npm run build from frontend/."
+  - time_utc: "2026-07-05T03:11:53Z"
+    time_local: "2026-07-05T00:11:53-03:00"
+    summary: "Added inactive fenced-code block live preview with Python syntax highlighting support."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts so inactive FencedCode nodes hide opening and closing fence lines, style CodeText lines as a rendered code block, and reveal raw fences when selection overlaps the block."
+      - "Added a shared Markdown code language list with @codemirror/lang-python and wired MarkdownPane to use it for fenced-code parsing and token highlighting."
+      - "Updated focused editor tests, added Python alias coverage, and documented edit-mode live-preview coverage in README.md."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts src/editor/markdownCodeLanguages.test.ts, npm run typecheck, npm run test (72 passing), npm run lint, and npm run build from frontend/."
+  - time_utc: "2026-07-05T02:51:30Z"
+    time_local: "2026-07-04T23:51:30-03:00"
+    summary: "Concealed inactive inline Markdown code delimiters in the CodeMirror live-preview extension."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts so syntax-tree InlineCode nodes hide only their opening and closing CodeMark delimiter ranges while preserving the underlying Markdown document."
+      - "Styled inactive inline code content with a rendered-like CodeMirror mark and kept raw backticks visible whenever the cursor or selection overlaps the same line."
+      - "Updated focused editor tests for inactive concealment, line-level reveal, fenced-code exclusion, inline-code styling, and unchanged document text."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (68 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T02:39:36Z"
     time_local: "2026-07-04T23:39:36-03:00"
     summary: "Concealed inactive Markdown blockquote markers in the CodeMirror live-preview extension."

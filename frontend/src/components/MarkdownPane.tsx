@@ -6,6 +6,7 @@ import { tags } from "@lezer/highlight";
 import type { RefObject } from "react";
 
 import { MarkdownPreview } from "./MarkdownPreview";
+import { markdownCodeLanguages } from "../editor/markdownCodeLanguages";
 import { markdownLivePreviewExtension } from "../editor/markdownLivePreview";
 import { THEME_MODE, type ThemeId } from "../hooks/useTheme";
 
@@ -72,12 +73,22 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.url, color: "var(--color-accent)" },
   { tag: tags.emphasis, color: "var(--color-text-primary)", fontStyle: "italic" },
   { tag: tags.strong, color: "var(--color-text-primary)", fontWeight: "600" },
+  { tag: tags.keyword, color: "var(--color-accent)", fontWeight: "600" },
+  { tag: tags.string, color: "var(--color-text-primary)" },
+  { tag: tags.number, color: "var(--color-accent)" },
+  { tag: tags.comment, color: "var(--color-text-muted)", fontStyle: "italic" },
+  { tag: tags.operator, color: "var(--color-text-secondary)" },
   { tag: [tags.monospace, tags.processingInstruction], color: "var(--color-text-secondary)", fontFamily: codeFont },
   { tag: [tags.list, tags.quote, tags.contentSeparator, tags.meta], color: "var(--color-text-muted)" },
   { tag: tags.punctuation, color: "var(--color-text-muted)" },
 ]);
 
-const markdownEditorExtensions = [markdown(), markdownEditorTheme, syntaxHighlighting(markdownHighlightStyle), markdownLivePreviewExtension];
+const markdownEditorExtensions = [
+  markdown({ codeLanguages: markdownCodeLanguages }),
+  markdownEditorTheme,
+  syntaxHighlighting(markdownHighlightStyle),
+  markdownLivePreviewExtension,
+];
 
 const workspaceMarkdownEditorTheme = EditorView.theme({
   "&": {
