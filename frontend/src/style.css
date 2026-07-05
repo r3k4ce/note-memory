@@ -314,3 +314,19 @@ textarea:focus-visible {
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-soft);
 }
+
+/* Note list slip — small cozy card surface */
+.note-slip {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+  transition:
+    background-color var(--duration-150) var(--ease-out),
+    box-shadow var(--duration-150) var(--ease-out);
+}
+.note-slip:hover {
+  background-color: var(--color-surface-hover);
+}
+.note-slip[aria-selected="true"] {
+  background-color: var(--color-surface-raised);
+}

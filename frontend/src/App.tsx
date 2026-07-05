@@ -1419,7 +1419,7 @@ export default function App() {
           ) : null}
 
           {isSearchTab && isSearchActive ? (
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-2">
               {visibleNotes.map((note) => (
                 <NoteCard
                   askScopeSelected={isNoteSelectedForAsk(askNoteScope, note.id)}
@@ -1537,17 +1537,13 @@ export default function App() {
                     </div>
 
                     {isExpanded ? (
-                      <div className="ml-4 flex flex-col gap-0.5 pl-1.5" role="group">
+                      <div className="ml-4 flex flex-col gap-1.5 pl-1.5" role="group">
                         {folder.notes.length > 0 ? (
                           folder.notes.map((note) => (
                             <div className="relative" key={note.id}>
                               <button
                                 aria-selected={note.id === selectedNoteId}
-                                className={`group flex w-full cursor-grab items-center gap-1.5 rounded-md px-2 py-1.5 pr-8 text-left transition-colors active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-                                  note.id === selectedNoteId
-                                    ? "bg-surface"
-                                    : "hover:bg-surface-hover"
-                                }`}
+                                className="note-slip group flex w-full cursor-grab items-center gap-1.5 px-2.5 py-2 pr-8 text-left transition-shadow active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
                                 draggable
                                 onClick={() => selectNote(note.id)}
                                 onDragEnd={clearNoteDrag}
@@ -1570,12 +1566,6 @@ export default function App() {
                                 >
                                   {note.ai_title}
                                 </span>
-                                <time
-                                  className="shrink-0 text-[10px] tabular-nums text-text-muted"
-                                  dateTime={note.date_added}
-                                >
-                                  {note.date_added.slice(5, 10)}
-                                </time>
                               </button>
                               <input
                                 aria-label={`Use ${note.ai_title} for Ask`}

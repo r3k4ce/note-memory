@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-05T18:20:00Z"
+    time_local: "2026-07-05T15:20:00-03:00"
+    summary: "Polished Notebun note list cards into small cozy note slips."
+    changed:
+      - "Added .note-slip CSS class with paper-like surface background, rounded corners, soft shadow, and hover/selected transitions using existing theme tokens."
+      - "Removed the inline date from Browse-mode note rows and gave them the slip treatment with larger gap spacing."
+      - "Polished Search-mode result cards with the same slip surface and added aria-selected attribute for consistent selection styling."
+      - "Updated the compact note rows test to assert the date is no longer rendered."
+    verification:
+      - "Ran npm run lint, npm run typecheck, npm run build, and npm run test from frontend/: all 120 tests passed."
   - time_utc: "2026-07-05T18:10:57Z"
     time_local: "2026-07-05T15:10:57-03:00"
     summary: "Fixed Markdown vault sync data-safety review issues."

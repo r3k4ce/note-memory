@@ -80,11 +80,8 @@ export function NoteCard({
   return (
     <div className="relative">
       <button
-        className={`group w-full rounded-md p-2.5 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-          selected
-            ? "bg-surface"
-            : "hover:bg-surface-hover"
-        }`}
+        aria-selected={selected}
+        className="note-slip group w-full p-3 pr-9 text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
         onClick={() => onSelect(note.id)}
         type="button"
       >
