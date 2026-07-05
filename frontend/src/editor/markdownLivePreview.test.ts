@@ -40,6 +40,10 @@ function fencedCodeLanguageLabels(editor: EditorView) {
   return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-fenced-code-language"));
 }
 
+function taskCheckboxes(editor: EditorView) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-task-checkbox"));
+}
+
 describe("markdownLivePreviewExtension", () => {
   test("conceals inactive ATX heading markers without changing the document", () => {
     const editor = createEditor("# One\n\n## Two\n\n### Three\n\nplain");
@@ -351,5 +355,84 @@ describe("markdownLivePreviewExtension", () => {
 
     expect(lineWithText(editor, "```python")).toBeInTheDocument();
     expect(lineWithText(editor, "```")).toBeInTheDocument();
+  });
+
+  test("replaces inactive unchecked task markers with a visual checkbox without changing the document", () => {
+    const doc = "- [ ] task\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, " task");
+    expect(line).toBeInTheDocument();
+    expect(taskCheckboxes(editor)).toHaveLength(1);
+    expect(taskCheckboxes(editor)[0]).toHaveClass("cm-md-task-checkbox-unchecked");
+    expect(taskCheckboxes(editor)[0]).not.toHaveClass("cm-md-task-checkbox-checked");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("replaces inactive checked task markers with a visual checkbox without changing the document", () => {
+    const doc = "- [x] done\n- [X] also done\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const checkboxes = taskCheckboxes(editor);
+    expect(checkboxes).toHaveLength(2);
+    expect(checkboxes[0]).toHaveClass("cm-md-task-checkbox-checked");
+    expect(checkboxes[1]).toHaveClass("cm-md-task-checkbox-checked");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("clicking a task checkbox visual does not change the document", () => {
+    const doc = "- [ ] task\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    taskCheckboxes(editor)[0].click();
+
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals task markers when the task line is active", () => {
+    const editor = createEditor("- [ ] task\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(3),
+    });
+
+    expect(lineWithText(editor, "- [ ] task")).toBeInTheDocument();
+    expect(taskCheckboxes(editor)).toHaveLength(0);
+  });
+
+  test("reveals task markers when a selection overlaps the task line", () => {
+    const editor = createEditor("- [x] task\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.range(0, 10),
+    });
+
+    expect(lineWithText(editor, "- [x] task")).toBeInTheDocument();
+    expect(taskCheckboxes(editor)).toHaveLength(0);
+  });
+
+  test("does not replace bracket text that is not a task marker", () => {
+    const doc = "- [x]task\n- [ ]\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "- [x]task")).toBeInTheDocument();
+    expect(taskCheckboxes(editor)).toHaveLength(1);
+    expect(editor.state.doc.toString()).toBe(doc);
   });
 });

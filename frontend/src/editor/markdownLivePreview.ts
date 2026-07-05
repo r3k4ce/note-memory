@@ -46,6 +46,23 @@ type FencedCodeNode = SyntaxRange & {
   };
 };
 
+class TaskCheckboxWidget extends WidgetType {
+  constructor(private readonly checked: boolean) {
+    super();
+  }
+
+  eq(widget: WidgetType) {
+    return widget instanceof TaskCheckboxWidget && widget.checked === this.checked;
+  }
+
+  toDOM() {
+    const checkbox = document.createElement("span");
+    checkbox.className = `cm-md-task-checkbox cm-md-task-checkbox-${this.checked ? "checked" : "unchecked"}`;
+    checkbox.setAttribute("aria-hidden", "true");
+    return checkbox;
+  }
+}
+
 class FencedCodeLanguageWidget extends WidgetType {
   constructor(private readonly language: string) {
     super();
@@ -292,12 +309,47 @@ function addInactiveFencedCodeDecorations(
   decorations.push(Decoration.replace({}).range(closingLine.from, closingLine.to));
 }
 
+function addInactiveTaskCheckboxDecorations(
+  view: EditorView,
+  from: number,
+  to: number,
+  decorations: ReturnType<Decoration["range"]>[],
+  taskLines: Set<number>,
+) {
+  let position = from;
+
+  while (position <= to) {
+    const line = view.state.doc.lineAt(position);
+    if (!taskLines.has(line.from) && !lineOverlapsSelection(view, line.from, line.to)) {
+      const match = /^([ \t]*)- \[([ xX])\](?=$|[ \t])/.exec(line.text);
+      if (match) {
+        taskLines.add(line.from);
+        const markerFrom = line.from + match[1].length;
+        const markerTo = line.from + match[0].length;
+        decorations.push(
+          Decoration.replace({
+            widget: new TaskCheckboxWidget(match[2].toLowerCase() === "x"),
+          }).range(markerFrom, markerTo),
+        );
+      }
+    }
+
+    if (line.to >= to || line.number === view.state.doc.lines) {
+      break;
+    }
+    position = line.to + 1;
+  }
+}
+
 function buildMarkdownLivePreviewDecorations(view: EditorView) {
   const decorations: ReturnType<Decoration["range"]>[] = [];
   const blockquoteLines = new Set<number>();
+  const taskLines = new Set<number>();
   const tree = syntaxTree(view.state);
 
   for (const { from, to } of view.visibleRanges) {
+    addInactiveTaskCheckboxDecorations(view, from, to, decorations, taskLines);
+
     tree.iterate({
       from,
       to,
@@ -432,6 +484,33 @@ const headingLineTheme = EditorView.theme({
     color: "var(--color-accent)",
     textDecoration: "underline",
     textUnderlineOffset: "0.16em",
+  },
+  ".cm-md-task-checkbox": {
+    border: "1px solid var(--color-border-strong)",
+    borderRadius: "0.2rem",
+    boxSizing: "border-box",
+    display: "inline-block",
+    height: "0.9em",
+    marginRight: "0.38rem",
+    pointerEvents: "none",
+    position: "relative",
+    top: "0.1em",
+    width: "0.9em",
+  },
+  ".cm-md-task-checkbox-checked": {
+    backgroundColor: "var(--color-accent)",
+    borderColor: "var(--color-accent)",
+  },
+  ".cm-md-task-checkbox-checked::after": {
+    borderBottom: "0.13em solid var(--color-bg)",
+    borderRight: "0.13em solid var(--color-bg)",
+    content: "''",
+    height: "0.48em",
+    left: "0.28em",
+    position: "absolute",
+    top: "0.1em",
+    transform: "rotate(45deg)",
+    width: "0.22em",
   },
   ".cm-line.cm-md-fenced-code-marker-line": {
     fontSize: "0",

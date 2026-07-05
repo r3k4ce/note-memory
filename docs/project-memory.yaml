@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-05T04:14:20Z"
+    time_local: "2026-07-05T01:14:20-03:00"
+    summary: "Added visual-only Markdown task checkbox live preview in the CodeMirror editor."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts with a non-interactive CodeMirror widget that visually replaces inactive - [ ], - [x], and - [X] task markers while preserving raw Markdown."
+      - "Kept raw task marker syntax visible whenever the cursor or selection overlaps the task line, and avoided enabling GFM parsing or changing read-mode rendering."
+      - "Updated focused editor tests for unchecked and checked task visuals, click non-mutation, active/selection reveal, non-task bracket preservation, and unchanged document text."
+    verification:
+      - "Ran npm run test -- markdownLivePreview.test.ts, npm run typecheck, npm run test (89 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T04:02:15Z"
     time_local: "2026-07-05T01:02:15-03:00"
     summary: "Concealed inactive inline Markdown link syntax in the CodeMirror live-preview extension."
