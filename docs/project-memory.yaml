@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-05T04:52:14Z"
+    time_local: "2026-07-05T01:52:14-03:00"
+    summary: "Expanded edit-mode Markdown live preview coverage for common CommonMark and GFM syntax."
+    changed:
+      - "Enabled CodeMirror's GFM-capable Markdown parser in edit mode while keeping read-mode rendering and raw note persistence unchanged."
+      - "Extended frontend/src/editor/markdownLivePreview.ts with visual-only concealment for combined bold-italic, strikethrough, list markers, horizontal rules, image placeholders, rendered table widgets, and simple footnotes."
+      - "Updated focused editor tests and README live-preview coverage wording."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts before implementation: failed on the planned concealment gaps."
+      - "Ran npm run typecheck, npm run test (104 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T04:32:00Z"
     time_local: "2026-07-05T01:32:00-03:00"
     summary: "Standardized CodeMirror live-preview reveal behavior around active lines."

@@ -39,12 +39,20 @@ type LinkNode = SyntaxRange & {
   };
 };
 
+type ImageNode = SyntaxRange & {
+  node: {
+    getChildren: (type: string) => SyntaxRange[];
+  };
+};
+
 type FencedCodeNode = SyntaxRange & {
   node: {
     getChild: (type: string) => SyntaxRange | null;
     getChildren: (type: string) => SyntaxRange[];
   };
 };
+
+type TableNode = SyntaxRange;
 
 type DecorationRange = ReturnType<Decoration["range"]>;
 
@@ -86,6 +94,145 @@ class FencedCodeLanguageWidget extends WidgetType {
     return wrapper;
   }
 }
+
+class ListMarkerWidget extends WidgetType {
+  constructor(private readonly marker: string) {
+    super();
+  }
+
+  eq(widget: WidgetType) {
+    return widget instanceof ListMarkerWidget && widget.marker === this.marker;
+  }
+
+  toDOM() {
+    const marker = document.createElement("span");
+    marker.className = "cm-md-list-marker";
+    marker.setAttribute("aria-hidden", "true");
+    marker.textContent = this.marker;
+    return marker;
+  }
+}
+
+class HorizontalRuleWidget extends WidgetType {
+  eq(widget: WidgetType) {
+    return widget instanceof HorizontalRuleWidget;
+  }
+
+  toDOM() {
+    const rule = document.createElement("span");
+    rule.className = "cm-md-horizontal-rule";
+    rule.setAttribute("aria-hidden", "true");
+    return rule;
+  }
+}
+
+class ImagePlaceholderWidget extends WidgetType {
+  constructor(private readonly altText: string) {
+    super();
+  }
+
+  eq(widget: WidgetType) {
+    return widget instanceof ImagePlaceholderWidget && widget.altText === this.altText;
+  }
+
+  toDOM() {
+    const placeholder = document.createElement("span");
+    placeholder.className = "cm-md-image-placeholder";
+
+    const icon = document.createElement("span");
+    icon.className = "cm-md-image-placeholder-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "IMG";
+    placeholder.append(icon);
+
+    const label = document.createElement("span");
+    label.className = "cm-md-image-placeholder-label";
+    label.textContent = this.altText || "Image";
+    placeholder.append(label);
+
+    return placeholder;
+  }
+}
+
+class FootnoteReferenceWidget extends WidgetType {
+  constructor(private readonly label: string) {
+    super();
+  }
+
+  eq(widget: WidgetType) {
+    return widget instanceof FootnoteReferenceWidget && widget.label === this.label;
+  }
+
+  toDOM() {
+    const reference = document.createElement("sup");
+    reference.className = "cm-md-footnote-ref";
+    reference.textContent = this.label;
+    return reference;
+  }
+}
+
+class FootnoteDefinitionWidget extends WidgetType {
+  constructor(private readonly label: string) {
+    super();
+  }
+
+  eq(widget: WidgetType) {
+    return widget instanceof FootnoteDefinitionWidget && widget.label === this.label;
+  }
+
+  toDOM() {
+    const definition = document.createElement("span");
+    definition.className = "cm-md-footnote-definition";
+    definition.textContent = `${this.label} `;
+    return definition;
+  }
+}
+
+class MarkdownTableWidget extends WidgetType {
+  constructor(private readonly table: MarkdownTable) {
+    super();
+  }
+
+  eq(widget: WidgetType) {
+    return widget instanceof MarkdownTableWidget && JSON.stringify(widget.table) === JSON.stringify(this.table);
+  }
+
+  toDOM() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-md-table";
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    this.table.header.forEach((cell) => {
+      const th = document.createElement("th");
+      th.textContent = cell;
+      headerRow.append(th);
+    });
+    thead.append(headerRow);
+    table.append(thead);
+
+    const tbody = document.createElement("tbody");
+    this.table.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      row.forEach((cell) => {
+        const td = document.createElement("td");
+        td.textContent = cell;
+        tr.append(td);
+      });
+      tbody.append(tr);
+    });
+    table.append(tbody);
+    wrapper.append(table);
+
+    return wrapper;
+  }
+}
+
+type MarkdownTable = {
+  header: string[];
+  rows: string[][];
+};
 
 function headingLineClass(level: number) {
   return `cm-md-heading-line cm-md-heading-${level}`;
@@ -136,6 +283,11 @@ function blockquoteMarkerEnd(view: EditorView, markerStart: number, lineTo: numb
   return markerEnd;
 }
 
+function inactiveLine(view: EditorView, position: number) {
+  const line = view.state.doc.lineAt(position);
+  return lineOverlapsSelection(view, line) ? null : line;
+}
+
 function addInactiveInlineCodeDecorations(
   view: EditorView,
   inlineCodeNode: InlineCodeNode,
@@ -174,8 +326,8 @@ function addInactiveFormattedTextDecorations(
   if (
     line.to < formattedTextNode.to ||
     lineOverlapsSelection(view, line) ||
-    formattedTextNode.node.getChildren("Emphasis").length > 0 ||
-    formattedTextNode.node.getChildren("StrongEmphasis").length > 0
+    formattedTextNode.node.getChildren("Emphasis").length > 1 ||
+    formattedTextNode.node.getChildren("StrongEmphasis").length > 1
   ) {
     return;
   }
@@ -198,6 +350,31 @@ function addInactiveFormattedTextDecorations(
     closingMark.from,
     closingMark,
     className,
+  );
+}
+
+function addInactiveStrikethroughDecorations(
+  view: EditorView,
+  strikethroughNode: FormattedTextNode,
+  decorations: DecorationRange[],
+) {
+  const line = view.state.doc.lineAt(strikethroughNode.from);
+  if (line.to < strikethroughNode.to || lineOverlapsSelection(view, line)) {
+    return;
+  }
+
+  const marks = strikethroughNode.node.getChildren("StrikethroughMark");
+  if (marks.length !== 2) {
+    return;
+  }
+
+  addDelimitedConcealmentDecorations(
+    decorations,
+    marks[0],
+    marks[0].to,
+    marks[1].from,
+    marks[1],
+    "cm-md-strikethrough",
   );
 }
 
@@ -236,6 +413,29 @@ function addInactiveLinkDecorations(
       "cm-md-link",
     );
   }
+}
+
+function addInactiveImageDecorations(
+  view: EditorView,
+  imageNode: ImageNode,
+  decorations: DecorationRange[],
+) {
+  const line = view.state.doc.lineAt(imageNode.from);
+  if (line.to < imageNode.to || lineOverlapsSelection(view, line)) {
+    return;
+  }
+
+  const linkMarks = imageNode.node.getChildren("LinkMark");
+  if (linkMarks.length !== 4) {
+    return;
+  }
+
+  const altText = view.state.sliceDoc(linkMarks[0].to, linkMarks[1].from).trim();
+  decorations.push(
+    Decoration.replace({
+      widget: new ImagePlaceholderWidget(altText),
+    }).range(imageNode.from, imageNode.to),
+  );
 }
 
 function addDelimitedConcealmentDecorations(
@@ -332,6 +532,109 @@ function addInactiveFencedCodeDecorations(
   }
 }
 
+function taskMarkerMatch(lineText: string) {
+  return /^([ \t]*)- \[([ xX])\](?=$|[ \t])/.exec(lineText);
+}
+
+function taskMarkerLike(lineText: string) {
+  return /^([ \t]*)- \[[ xX]\]/.test(lineText);
+}
+
+function addInactiveListMarkerDecoration(
+  view: EditorView,
+  listMark: SyntaxRange,
+  decorations: DecorationRange[],
+  taskLines: Set<number>,
+) {
+  const line = inactiveLine(view, listMark.from);
+  if (!line || taskLines.has(line.from) || taskMarkerLike(line.text)) {
+    return;
+  }
+
+  const markerText = view.state.sliceDoc(listMark.from, listMark.to);
+  const marker = /^\d+[.)]$/.test(markerText) ? markerText : "•";
+  decorations.push(
+    Decoration.replace({
+      widget: new ListMarkerWidget(marker),
+    }).range(listMark.from, listMark.to),
+  );
+}
+
+function addInactiveHorizontalRuleDecoration(
+  view: EditorView,
+  horizontalRule: SyntaxRange,
+  decorations: DecorationRange[],
+) {
+  const line = inactiveLine(view, horizontalRule.from);
+  if (!line) {
+    return;
+  }
+
+  decorations.push(
+    Decoration.replace({
+      widget: new HorizontalRuleWidget(),
+    }).range(line.from, line.to),
+  );
+}
+
+function parseMarkdownTable(source: string): MarkdownTable | null {
+  const lines = source.split("\n").filter((line) => line.trim().length > 0);
+  if (lines.length < 2) {
+    return null;
+  }
+
+  const header = parseTableRow(lines[0]);
+  const delimiter = parseTableRow(lines[1]);
+  if (header.length === 0 || header.length !== delimiter.length || !delimiter.every(isTableDelimiterCell)) {
+    return null;
+  }
+
+  return {
+    header,
+    rows: lines.slice(2).map((line) => {
+      const row = parseTableRow(line);
+      return header.map((_, index) => row[index] ?? "");
+    }),
+  };
+}
+
+function parseTableRow(line: string) {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+
+function isTableDelimiterCell(cell: string) {
+  return /^:?-{3,}:?$/.test(cell.trim());
+}
+
+function addInactiveTableDecoration(view: EditorView, tableNode: TableNode, decorations: DecorationRange[]) {
+  if (selectionOverlapsRange(view, tableNode.from, tableNode.to)) {
+    return;
+  }
+
+  const table = parseMarkdownTable(view.state.sliceDoc(tableNode.from, tableNode.to));
+  if (!table) {
+    return;
+  }
+
+  const firstLine = view.state.doc.lineAt(tableNode.from);
+  decorations.push(
+    Decoration.replace({
+      widget: new MarkdownTableWidget(table),
+    }).range(firstLine.from, firstLine.to),
+  );
+
+  let position = firstLine.to + 1;
+  while (position <= tableNode.to) {
+    const line = view.state.doc.lineAt(position);
+    decorations.push(Decoration.replace({}).range(line.from, line.to));
+    if (line.to >= tableNode.to || line.number === view.state.doc.lines) {
+      break;
+    }
+    position = line.to + 1;
+  }
+}
+
 function addInactiveTaskCheckboxDecorations(
   view: EditorView,
   from: number,
@@ -344,7 +647,7 @@ function addInactiveTaskCheckboxDecorations(
   while (position <= to) {
     const line = view.state.doc.lineAt(position);
     if (!taskLines.has(line.from) && !lineOverlapsSelection(view, line)) {
-      const match = /^([ \t]*)- \[([ xX])\](?=$|[ \t])/.exec(line.text);
+      const match = taskMarkerMatch(line.text);
       if (match) {
         taskLines.add(line.from);
         const markerFrom = line.from + match[1].length;
@@ -364,14 +667,76 @@ function addInactiveTaskCheckboxDecorations(
   }
 }
 
+function addInactiveFootnoteDecorations(
+  view: EditorView,
+  from: number,
+  to: number,
+  decorations: DecorationRange[],
+  footnoteLines: Set<number>,
+) {
+  let position = from;
+
+  while (position <= to) {
+    const line = view.state.doc.lineAt(position);
+    if (!footnoteLines.has(line.from) && !lineOverlapsSelection(view, line)) {
+      if (!addFootnoteDefinitionDecoration(line, decorations, footnoteLines)) {
+        addFootnoteReferenceDecorations(line, decorations);
+      }
+    }
+
+    if (line.to >= to || line.number === view.state.doc.lines) {
+      break;
+    }
+    position = line.to + 1;
+  }
+}
+
+function addFootnoteDefinitionDecoration(
+  line: { from: number; text: string },
+  decorations: DecorationRange[],
+  footnoteLines: Set<number>,
+) {
+  const match = /^\[\^([^\]\s]+)\]:[ \t]*/.exec(line.text);
+  if (!match) {
+    return false;
+  }
+
+  footnoteLines.add(line.from);
+  decorations.push(
+    Decoration.replace({
+      widget: new FootnoteDefinitionWidget(match[1]),
+    }).range(line.from, line.from + match[0].length),
+  );
+  return true;
+}
+
+function addFootnoteReferenceDecorations(
+  line: { from: number; text: string },
+  decorations: DecorationRange[],
+) {
+  const referencePattern = /\[\^([^\]\s]+)\]/g;
+  for (const match of line.text.matchAll(referencePattern)) {
+    if (match.index === undefined) {
+      continue;
+    }
+    decorations.push(
+      Decoration.replace({
+        widget: new FootnoteReferenceWidget(match[1]),
+      }).range(line.from + match.index, line.from + match.index + match[0].length),
+    );
+  }
+}
+
 function buildMarkdownLivePreviewDecorations(view: EditorView) {
   const decorations: DecorationRange[] = [];
   const blockquoteLines = new Set<number>();
+  const footnoteLines = new Set<number>();
   const taskLines = new Set<number>();
   const tree = syntaxTree(view.state);
 
   for (const { from, to } of view.visibleRanges) {
     addInactiveTaskCheckboxDecorations(view, from, to, decorations, taskLines);
+    addInactiveFootnoteDecorations(view, from, to, decorations, footnoteLines);
 
     tree.iterate({
       from,
@@ -408,11 +773,16 @@ function buildMarkdownLivePreviewDecorations(view: EditorView) {
 
         if (node.name === "StrongEmphasis") {
           addInactiveFormattedTextDecorations(view, node, decorations, "cm-md-strong", 2);
-          return false;
+          return;
         }
 
         if (node.name === "Emphasis") {
           addInactiveFormattedTextDecorations(view, node, decorations, "cm-md-emphasis", 1);
+          return;
+        }
+
+        if (node.name === "Strikethrough") {
+          addInactiveStrikethroughDecorations(view, node, decorations);
           return false;
         }
 
@@ -421,8 +791,28 @@ function buildMarkdownLivePreviewDecorations(view: EditorView) {
           return;
         }
 
+        if (node.name === "Image") {
+          addInactiveImageDecorations(view, node, decorations);
+          return false;
+        }
+
         if (node.name === "FencedCode") {
           addInactiveFencedCodeDecorations(view, node, decorations);
+          return false;
+        }
+
+        if (node.name === "ListMark") {
+          addInactiveListMarkerDecoration(view, node, decorations, taskLines);
+          return;
+        }
+
+        if (node.name === "HorizontalRule") {
+          addInactiveHorizontalRuleDecoration(view, node, decorations);
+          return false;
+        }
+
+        if (node.name === "Table") {
+          addInactiveTableDecoration(view, node, decorations);
           return false;
         }
 
@@ -507,6 +897,75 @@ const headingLineTheme = EditorView.theme({
     color: "var(--color-accent)",
     textDecoration: "underline",
     textUnderlineOffset: "0.16em",
+  },
+  ".cm-md-strikethrough": {
+    textDecoration: "line-through",
+  },
+  ".cm-md-list-marker": {
+    color: "var(--color-text-muted)",
+    display: "inline-block",
+    minWidth: "1.2em",
+  },
+  ".cm-md-horizontal-rule": {
+    borderTop: "1px solid var(--color-border-strong)",
+    display: "inline-block",
+    transform: "translateY(-0.28em)",
+    width: "100%",
+  },
+  ".cm-md-image-placeholder": {
+    alignItems: "center",
+    backgroundColor: "var(--color-surface-raised)",
+    border: "1px solid var(--color-border)",
+    borderRadius: "0.35rem",
+    color: "var(--color-text-secondary)",
+    display: "inline-flex",
+    gap: "0.45rem",
+    maxWidth: "100%",
+    padding: "0.18rem 0.5rem",
+  },
+  ".cm-md-image-placeholder-icon": {
+    color: "var(--color-text-muted)",
+    fontFamily: "ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
+    fontSize: "0.72em",
+    fontWeight: "700",
+  },
+  ".cm-md-image-placeholder-label": {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  ".cm-md-footnote-ref": {
+    color: "var(--color-accent)",
+    fontSize: "0.72em",
+    lineHeight: "0",
+    verticalAlign: "super",
+  },
+  ".cm-md-footnote-definition": {
+    color: "var(--color-accent)",
+    display: "inline-block",
+    fontSize: "0.8em",
+    fontWeight: "700",
+    marginRight: "0.45rem",
+  },
+  ".cm-md-table": {
+    display: "block",
+    overflowX: "auto",
+    padding: "0.2rem 0",
+  },
+  ".cm-md-table table": {
+    borderCollapse: "collapse",
+    color: "var(--color-text-secondary)",
+    fontSize: "0.92em",
+    width: "100%",
+  },
+  ".cm-md-table th": {
+    color: "var(--color-text-primary)",
+    fontWeight: "700",
+  },
+  ".cm-md-table th, .cm-md-table td": {
+    border: "1px solid var(--color-border)",
+    padding: "0.28rem 0.45rem",
+    textAlign: "left",
   },
   ".cm-md-task-checkbox": {
     border: "1px solid var(--color-border-strong)",

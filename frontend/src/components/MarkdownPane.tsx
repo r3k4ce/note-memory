@@ -1,5 +1,5 @@
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { tags } from "@lezer/highlight";
@@ -84,7 +84,7 @@ const markdownHighlightStyle = HighlightStyle.define([
 ]);
 
 const markdownEditorExtensions = [
-  markdown({ codeLanguages: markdownCodeLanguages }),
+  markdown({ base: markdownLanguage, codeLanguages: markdownCodeLanguages }),
   markdownEditorTheme,
   syntaxHighlighting(markdownHighlightStyle),
   markdownLivePreviewExtension,

@@ -1,6 +1,6 @@
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { markdownLivePreviewExtension } from "./markdownLivePreview";
@@ -21,7 +21,7 @@ function createEditor(doc: string) {
     parent,
     state: EditorState.create({
       doc,
-      extensions: [markdown(), markdownLivePreviewExtension],
+      extensions: [markdown({ base: markdownLanguage }), markdownLivePreviewExtension],
     }),
   });
 
@@ -42,6 +42,22 @@ function fencedCodeLanguageLabels(editor: EditorView) {
 
 function taskCheckboxes(editor: EditorView) {
   return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-task-checkbox"));
+}
+
+function listMarkers(editor: EditorView) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-list-marker"));
+}
+
+function horizontalRules(editor: EditorView) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-horizontal-rule"));
+}
+
+function imagePlaceholders(editor: EditorView) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-image-placeholder"));
+}
+
+function tableWidgets(editor: EditorView) {
+  return Array.from(editor.dom.querySelectorAll<HTMLElement>(".cm-md-table"));
 }
 
 describe("markdownLivePreviewExtension", () => {
@@ -194,6 +210,45 @@ describe("markdownLivePreviewExtension", () => {
     expect(editor.state.doc.toString()).toBe(doc);
   });
 
+  test("conceals inactive combined strong emphasis delimiters without changing the document", () => {
+    const doc = "This is ***bold and italic*** text\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, "This is bold and italic text");
+    expect(line).toBeInTheDocument();
+    expect(line?.querySelector(".cm-md-strong")).toHaveTextContent("bold and italic");
+    expect(line?.querySelector(".cm-md-emphasis")).toHaveTextContent("bold and italic");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("conceals inactive strikethrough delimiters without changing the document", () => {
+    const doc = "This has ~~strikethrough~~ text\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, "This has strikethrough text");
+    expect(line).toBeInTheDocument();
+    expect(line?.querySelector(".cm-md-strikethrough")).toHaveTextContent("strikethrough");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals strikethrough delimiters when the line is active", () => {
+    const editor = createEditor("This has ~~strikethrough~~ text\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(12),
+    });
+
+    expect(lineWithText(editor, "This has ~~strikethrough~~ text")).toBeInTheDocument();
+  });
+
   test("reveals emphasis and strong emphasis delimiters when the line is active", () => {
     const editor = createEditor("This is *italic* and **bold**\n\nplain");
 
@@ -263,18 +318,44 @@ describe("markdownLivePreviewExtension", () => {
   });
 
   test("does not conceal images, reference links, or autolinks", () => {
-    const doc = "![alt](image.png)\n\n[ref][id]\n\n<https://example.com>\n\nplain";
+    const doc = "[ref][id]\n\n<https://example.com>\n\nplain";
     const editor = createEditor(doc);
 
     editor.dispatch({
       selection: EditorSelection.cursor(editor.state.doc.length),
     });
 
-    expect(lineWithText(editor, "![alt](image.png)")).toBeInTheDocument();
     expect(lineWithText(editor, "[ref][id]")).toBeInTheDocument();
     expect(lineWithText(editor, "<https://example.com>")).toBeInTheDocument();
     expect(editor.dom.querySelector(".cm-md-link")).not.toBeInTheDocument();
     expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("replaces inactive image syntax with a placeholder without changing the document", () => {
+    const doc = "![Example image alt text](https://via.placeholder.com/600x300)\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "![Example image alt text](https://via.placeholder.com/600x300)")).toBeUndefined();
+    expect(imagePlaceholders(editor)).toHaveLength(1);
+    expect(imagePlaceholders(editor)[0]).toHaveTextContent("Example image alt text");
+    expect(imagePlaceholders(editor)[0].querySelector("img")).not.toBeInTheDocument();
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals image syntax when the image line is active", () => {
+    const doc = "![Example image alt text](https://via.placeholder.com/600x300)\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(4),
+    });
+
+    expect(lineWithText(editor, "![Example image alt text](https://via.placeholder.com/600x300)")).toBeInTheDocument();
+    expect(imagePlaceholders(editor)).toHaveLength(0);
   });
 
   test("does not conceal backticks inside fenced code blocks", () => {
@@ -460,5 +541,114 @@ describe("markdownLivePreviewExtension", () => {
     expect(lineWithText(editor, "- [x]task")).toBeInTheDocument();
     expect(taskCheckboxes(editor)).toHaveLength(1);
     expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("replaces inactive unordered and ordered list markers with visual markers", () => {
+    const doc = "- Apples\n  - Blood orange\n\n1. First step\n2. Second step\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(listMarkers(editor)).toHaveLength(4);
+    expect(listMarkers(editor)[0]).toHaveTextContent("•");
+    expect(listMarkers(editor)[1]).toHaveTextContent("•");
+    expect(listMarkers(editor)[2]).toHaveTextContent("1.");
+    expect(listMarkers(editor)[3]).toHaveTextContent("2.");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals list markers when the list line is active", () => {
+    const editor = createEditor("- Apples\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(2),
+    });
+
+    expect(lineWithText(editor, "- Apples")).toBeInTheDocument();
+    expect(listMarkers(editor)).toHaveLength(0);
+  });
+
+  test("replaces inactive horizontal rules with a visual separator", () => {
+    const doc = "Before\n\n---\n\nAfter";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "---")).toBeUndefined();
+    expect(horizontalRules(editor)).toHaveLength(1);
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals horizontal rules when the rule line is active", () => {
+    const editor = createEditor("Before\n\n---\n\nAfter");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(9),
+    });
+
+    expect(lineWithText(editor, "---")).toBeInTheDocument();
+    expect(horizontalRules(editor)).toHaveLength(0);
+  });
+
+  test("replaces inactive tables with a rendered table widget", () => {
+    const doc = "| Name | Role | Status |\n|---|---|---|\n| Adrian | Mapping Analyst | Active |\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(tableWidgets(editor)).toHaveLength(1);
+    expect(tableWidgets(editor)[0].querySelectorAll("thead th")).toHaveLength(3);
+    expect(tableWidgets(editor)[0]).toHaveTextContent("Name");
+    expect(tableWidgets(editor)[0]).toHaveTextContent("Adrian");
+    expect(lineWithText(editor, "|---|---|---|")).toBeUndefined();
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals the whole raw table when a table line is active", () => {
+    const doc = "| Name | Role | Status |\n|---|---|---|\n| Adrian | Mapping Analyst | Active |\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(28),
+    });
+
+    expect(tableWidgets(editor)).toHaveLength(0);
+    expect(lineWithText(editor, "| Name | Role | Status |")).toBeInTheDocument();
+    expect(lineWithText(editor, "|---|---|---|")).toBeInTheDocument();
+    expect(lineWithText(editor, "| Adrian | Mapping Analyst | Active |")).toBeInTheDocument();
+  });
+
+  test("conceals simple inactive footnote references and definitions", () => {
+    const doc = "Here is a sentence with a footnote.[^1]\n\n[^1]: This is the footnote text.\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "Here is a sentence with a footnote.1")).toBeInTheDocument();
+    expect(lineWithText(editor, "1 This is the footnote text.")).toBeInTheDocument();
+    expect(editor.dom.querySelectorAll(".cm-md-footnote-ref")).toHaveLength(1);
+    expect(editor.dom.querySelectorAll(".cm-md-footnote-definition")).toHaveLength(1);
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("keeps raw HTML blocks visible in edit-mode live preview", () => {
+    const doc = "<details>\n<summary>Click to expand</summary>\n\nText\n\n</details>";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "<details>")).toBeInTheDocument();
+    expect(lineWithText(editor, "<summary>Click to expand</summary>")).toBeInTheDocument();
+    expect(lineWithText(editor, "</details>")).toBeInTheDocument();
   });
 });

@@ -41,8 +41,8 @@ The choice persists in `localStorage`.
   visible Ask source checkboxes for all notes, categories, and individual notes.
 - **Center workspace:** write new Markdown notes, read selected notes, and edit
   the note body, title, summary, tags, and category in one workspace.
-  Edit-mode Markdown uses an Obsidian-lite live preview for inactive headings,
-  blockquotes, inline code, and fenced code blocks while preserving raw Markdown.
+  Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
+  Markdown and GFM syntax while preserving raw Markdown.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
   Ask source scope, and cited answers whose sources open saved notes.
 
