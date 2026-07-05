@@ -210,6 +210,69 @@ describe("markdownLivePreviewExtension", () => {
     expect(lineWithText(editor, "This is *italic* and **bold**")).toBeInTheDocument();
   });
 
+  test("conceals inactive inline link syntax without changing the document", () => {
+    const doc = "Open [docs](https://example.com) here\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, "Open docs here");
+    expect(line).toBeInTheDocument();
+    expect(line?.querySelector(".cm-md-link")).toHaveTextContent("docs");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("conceals inactive inline link titles with the URL syntax", () => {
+    const doc = 'Open [docs](https://example.com "Docs") here\n\nplain';
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, "Open docs here");
+    expect(line).toBeInTheDocument();
+    expect(line?.querySelector(".cm-md-link")).toHaveTextContent("docs");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals inline link syntax when the line is active", () => {
+    const editor = createEditor("Open [docs](https://example.com) here\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(8),
+    });
+
+    expect(lineWithText(editor, "Open [docs](https://example.com) here")).toBeInTheDocument();
+  });
+
+  test("reveals inline link syntax when a selection overlaps the line", () => {
+    const editor = createEditor("Open [docs](https://example.com) here\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.range(0, 32),
+    });
+
+    expect(lineWithText(editor, "Open [docs](https://example.com) here")).toBeInTheDocument();
+  });
+
+  test("does not conceal images, reference links, or autolinks", () => {
+    const doc = "![alt](image.png)\n\n[ref][id]\n\n<https://example.com>\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "![alt](image.png)")).toBeInTheDocument();
+    expect(lineWithText(editor, "[ref][id]")).toBeInTheDocument();
+    expect(lineWithText(editor, "<https://example.com>")).toBeInTheDocument();
+    expect(editor.dom.querySelector(".cm-md-link")).not.toBeInTheDocument();
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
   test("does not conceal backticks inside fenced code blocks", () => {
     const editor = createEditor("```\n`not inline`\n```\n\nUse `code` here\n\nplain");
 

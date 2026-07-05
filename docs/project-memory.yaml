@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-05T04:02:15Z"
+    time_local: "2026-07-05T01:02:15-03:00"
+    summary: "Concealed inactive inline Markdown link syntax in the CodeMirror live-preview extension."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts so single-line inline Link syntax-tree nodes with URL destinations hide the Markdown wrapper and destination while preserving the raw Markdown document."
+      - "Styled inactive link labels with the existing accent underline and kept raw link syntax visible whenever the cursor or selection overlaps the same line."
+      - "Updated focused editor tests for inactive link concealment, optional title concealment, active-line reveal, selection reveal, skipped image/reference/autolink forms, and unchanged document text."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (83 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T03:39:08Z"
     time_local: "2026-07-05T00:39:08-03:00"
     summary: "Concealed inactive Markdown strong and emphasis delimiters in the CodeMirror live-preview extension."

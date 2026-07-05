@@ -32,6 +32,13 @@ type FormattedTextNode = SyntaxRange & {
   };
 };
 
+type LinkNode = SyntaxRange & {
+  node: {
+    getChild: (type: string) => SyntaxRange | null;
+    getChildren: (type: string) => SyntaxRange[];
+  };
+};
+
 type FencedCodeNode = SyntaxRange & {
   node: {
     getChild: (type: string) => SyntaxRange | null;
@@ -177,6 +184,38 @@ function addInactiveFormattedTextDecorations(
   decorations.push(Decoration.replace({}).range(closingMark.from, closingMark.to));
 }
 
+function addInactiveLinkDecorations(
+  view: EditorView,
+  linkNode: LinkNode,
+  decorations: ReturnType<Decoration["range"]>[],
+) {
+  const line = view.state.doc.lineAt(linkNode.from);
+  if (line.to < linkNode.to || lineOverlapsSelection(view, line.from, line.to)) {
+    return;
+  }
+
+  const linkMarks = linkNode.node.getChildren("LinkMark");
+  const url = linkNode.node.getChild("URL");
+  if (linkMarks.length !== 4 || !url) {
+    return;
+  }
+
+  const openingLabelMark = linkMarks[0];
+  const closingLabelMark = linkMarks[1];
+  const openingDestinationMark = linkMarks[2];
+  const closingDestinationMark = linkMarks[3];
+  if (
+    openingLabelMark.to !== closingLabelMark.from &&
+    closingLabelMark.to === openingDestinationMark.from &&
+    openingDestinationMark.from <= url.from &&
+    url.to <= closingDestinationMark.from
+  ) {
+    decorations.push(Decoration.replace({}).range(openingLabelMark.from, openingLabelMark.to));
+    decorations.push(Decoration.mark({ class: "cm-md-link" }).range(openingLabelMark.to, closingLabelMark.from));
+    decorations.push(Decoration.replace({}).range(closingLabelMark.from, closingDestinationMark.to));
+  }
+}
+
 function codeTextLines(view: EditorView, codeText: SyntaxRange) {
   const lines = [];
   let position = view.state.doc.lineAt(codeText.from).from;
@@ -302,6 +341,11 @@ function buildMarkdownLivePreviewDecorations(view: EditorView) {
           return false;
         }
 
+        if (node.name === "Link") {
+          addInactiveLinkDecorations(view, node, decorations);
+          return;
+        }
+
         if (node.name === "FencedCode") {
           addInactiveFencedCodeDecorations(view, node, decorations);
           return false;
@@ -383,6 +427,11 @@ const headingLineTheme = EditorView.theme({
   },
   ".cm-md-strong": {
     fontWeight: "700",
+  },
+  ".cm-md-link": {
+    color: "var(--color-accent)",
+    textDecoration: "underline",
+    textUnderlineOffset: "0.16em",
   },
   ".cm-line.cm-md-fenced-code-marker-line": {
     fontSize: "0",
