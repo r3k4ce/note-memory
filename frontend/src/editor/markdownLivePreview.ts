@@ -19,6 +19,34 @@ function headingLineClass(level: number) {
   return `cm-md-heading-line cm-md-heading-${level}`;
 }
 
+function lineOverlapsSelection(view: EditorView, lineFrom: number, lineTo: number) {
+  return view.state.selection.ranges.some((range) => {
+    if (range.empty) {
+      return lineFrom <= range.head && range.head <= lineTo;
+    }
+
+    return range.from <= lineTo && range.to >= lineFrom;
+  });
+}
+
+function atxMarkerEnd(view: EditorView, markerStart: number, lineTo: number) {
+  let markerEnd = markerStart;
+
+  while (markerEnd < lineTo && view.state.sliceDoc(markerEnd, markerEnd + 1) === "#") {
+    markerEnd += 1;
+  }
+
+  while (markerEnd < lineTo) {
+    const character = view.state.sliceDoc(markerEnd, markerEnd + 1);
+    if (character !== " " && character !== "\t") {
+      break;
+    }
+    markerEnd += 1;
+  }
+
+  return markerEnd;
+}
+
 function buildHeadingDecorations(view: EditorView) {
   const decorations: ReturnType<Decoration["range"]>[] = [];
   const tree = syntaxTree(view.state);
@@ -32,6 +60,9 @@ function buildHeadingDecorations(view: EditorView) {
         if (atxLevel) {
           const line = view.state.doc.lineAt(node.from);
           decorations.push(Decoration.line({ class: headingLineClass(atxLevel) }).range(line.from));
+          if (!lineOverlapsSelection(view, line.from, line.to)) {
+            decorations.push(Decoration.replace({}).range(node.from, atxMarkerEnd(view, node.from, line.to)));
+          }
           return;
         }
 
@@ -56,7 +87,7 @@ const headingLineDecorations = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet) {
         this.decorations = buildHeadingDecorations(update.view);
       }
     }

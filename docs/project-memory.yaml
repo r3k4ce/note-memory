@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-05T02:31:52Z"
+    time_local: "2026-07-04T23:31:52-03:00"
+    summary: "Concealed inactive ATX heading markers in the CodeMirror live-preview extension."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts so inactive ATX heading lines visually replace the opening hash marker and following whitespace while preserving the underlying Markdown document."
+      - "Kept raw heading markers visible whenever the cursor or selection overlaps the heading line, and preserved existing heading line styling and Setext heading behavior."
+      - "Updated focused editor tests for #, ##, and ### concealment, active-line reveal, selection reveal, non-heading preservation, and unchanged document text."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (61 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T02:15:25Z"
     time_local: "2026-07-04T23:15:25-03:00"
     summary: "Styled Markdown heading lines in the CodeMirror live-preview extension."
