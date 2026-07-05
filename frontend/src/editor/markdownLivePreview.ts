@@ -47,8 +47,22 @@ function atxMarkerEnd(view: EditorView, markerStart: number, lineTo: number) {
   return markerEnd;
 }
 
-function buildHeadingDecorations(view: EditorView) {
+function blockquoteMarkerEnd(view: EditorView, markerStart: number, lineTo: number) {
+  let markerEnd = markerStart + 1;
+
+  if (markerEnd < lineTo) {
+    const character = view.state.sliceDoc(markerEnd, markerEnd + 1);
+    if (character === " " || character === "\t") {
+      markerEnd += 1;
+    }
+  }
+
+  return markerEnd;
+}
+
+function buildMarkdownLivePreviewDecorations(view: EditorView) {
   const decorations: ReturnType<Decoration["range"]>[] = [];
+  const blockquoteLines = new Set<number>();
   const tree = syntaxTree(view.state);
 
   for (const { from, to } of view.visibleRanges) {
@@ -62,6 +76,20 @@ function buildHeadingDecorations(view: EditorView) {
           decorations.push(Decoration.line({ class: headingLineClass(atxLevel) }).range(line.from));
           if (!lineOverlapsSelection(view, line.from, line.to)) {
             decorations.push(Decoration.replace({}).range(node.from, atxMarkerEnd(view, node.from, line.to)));
+          }
+          return;
+        }
+
+        if (node.name === "QuoteMark") {
+          const line = view.state.doc.lineAt(node.from);
+          if (blockquoteLines.has(line.from)) {
+            return;
+          }
+
+          blockquoteLines.add(line.from);
+          decorations.push(Decoration.line({ class: "cm-md-blockquote-line" }).range(line.from));
+          if (!lineOverlapsSelection(view, line.from, line.to)) {
+            decorations.push(Decoration.replace({}).range(node.from, blockquoteMarkerEnd(view, node.from, line.to)));
           }
           return;
         }
@@ -83,12 +111,12 @@ const headingLineDecorations = ViewPlugin.fromClass(
     decorations: DecorationSet;
 
     constructor(view: EditorView) {
-      this.decorations = buildHeadingDecorations(view);
+      this.decorations = buildMarkdownLivePreviewDecorations(view);
     }
 
     update(update: ViewUpdate) {
       if (update.docChanged || update.viewportChanged || update.selectionSet) {
-        this.decorations = buildHeadingDecorations(update.view);
+        this.decorations = buildMarkdownLivePreviewDecorations(update.view);
       }
     }
   },
@@ -124,6 +152,11 @@ const headingLineTheme = EditorView.theme({
     color: "var(--color-text-secondary)",
     fontSize: "0.98em",
     letterSpacing: "0",
+  },
+  ".cm-line.cm-md-blockquote-line": {
+    borderLeft: "0.18rem solid var(--color-border-strong)",
+    color: "var(--color-text-secondary)",
+    paddingLeft: "0.7rem",
   },
 });
 

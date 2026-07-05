@@ -84,4 +84,36 @@ describe("markdownLivePreviewExtension", () => {
     expect(lineWithText(editor, "---")).not.toHaveClass("cm-md-heading-line");
     expect(lineWithText(editor, "plain")).not.toHaveClass("cm-md-heading-line");
   });
+
+  test("conceals inactive blockquote markers without changing the document", () => {
+    const editor = createEditor("> quote\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    expect(lineWithText(editor, "quote")).toHaveClass("cm-md-blockquote-line");
+    expect(lineWithText(editor, "plain")).not.toHaveClass("cm-md-blockquote-line");
+    expect(editor.state.doc.toString()).toBe("> quote\n\nplain");
+  });
+
+  test("reveals blockquote markers when the blockquote line is active", () => {
+    const editor = createEditor("> quote\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(3),
+    });
+
+    expect(lineWithText(editor, "> quote")).toHaveClass("cm-md-blockquote-line");
+  });
+
+  test("reveals blockquote markers when a selection overlaps the blockquote line", () => {
+    const editor = createEditor("> quote\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.range(0, 7),
+    });
+
+    expect(lineWithText(editor, "> quote")).toHaveClass("cm-md-blockquote-line");
+  });
 });

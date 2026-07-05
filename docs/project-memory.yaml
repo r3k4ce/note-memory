@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-05T02:39:36Z"
+    time_local: "2026-07-04T23:39:36-03:00"
+    summary: "Concealed inactive Markdown blockquote markers in the CodeMirror live-preview extension."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts so inactive blockquote lines hide the first leading > marker plus one following space or tab while preserving the underlying Markdown document."
+      - "Kept raw blockquote syntax visible whenever the cursor or selection overlaps the quote line, and added simple quote line styling through CodeMirror decorations."
+      - "Updated focused editor tests for inactive concealment, active-line reveal, selection reveal, plain-line preservation, and unchanged document text."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (64 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T02:31:52Z"
     time_local: "2026-07-04T23:31:52-03:00"
     summary: "Concealed inactive ATX heading markers in the CodeMirror live-preview extension."
