@@ -158,6 +158,58 @@ describe("markdownLivePreviewExtension", () => {
     expect(lineWithText(editor, "Use `code` here")).toBeInTheDocument();
   });
 
+  test("conceals inactive strong emphasis delimiters without changing the document", () => {
+    const doc = "This is **bold** and __strong__\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, "This is bold and strong");
+    expect(line).toBeInTheDocument();
+    expect(line?.querySelectorAll(".cm-md-strong")).toHaveLength(2);
+    expect(line?.querySelectorAll(".cm-md-strong")[0]).toHaveTextContent("bold");
+    expect(line?.querySelectorAll(".cm-md-strong")[1]).toHaveTextContent("strong");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("conceals inactive emphasis delimiters without changing the document", () => {
+    const doc = "This is *italic* and _emphasis_\n\nplain";
+    const editor = createEditor(doc);
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(editor.state.doc.length),
+    });
+
+    const line = lineWithText(editor, "This is italic and emphasis");
+    expect(line).toBeInTheDocument();
+    expect(line?.querySelectorAll(".cm-md-emphasis")).toHaveLength(2);
+    expect(line?.querySelectorAll(".cm-md-emphasis")[0]).toHaveTextContent("italic");
+    expect(line?.querySelectorAll(".cm-md-emphasis")[1]).toHaveTextContent("emphasis");
+    expect(editor.state.doc.toString()).toBe(doc);
+  });
+
+  test("reveals emphasis and strong emphasis delimiters when the line is active", () => {
+    const editor = createEditor("This is *italic* and **bold**\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(10),
+    });
+
+    expect(lineWithText(editor, "This is *italic* and **bold**")).toBeInTheDocument();
+  });
+
+  test("reveals emphasis and strong emphasis delimiters when a selection overlaps the line", () => {
+    const editor = createEditor("This is *italic* and **bold**\n\nplain");
+
+    editor.dispatch({
+      selection: EditorSelection.range(0, 29),
+    });
+
+    expect(lineWithText(editor, "This is *italic* and **bold**")).toBeInTheDocument();
+  });
+
   test("does not conceal backticks inside fenced code blocks", () => {
     const editor = createEditor("```\n`not inline`\n```\n\nUse `code` here\n\nplain");
 

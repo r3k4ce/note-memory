@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-05T03:39:08Z"
+    time_local: "2026-07-05T00:39:08-03:00"
+    summary: "Concealed inactive Markdown strong and emphasis delimiters in the CodeMirror live-preview extension."
+    changed:
+      - "Extended frontend/src/editor/markdownLivePreview.ts so simple Emphasis and StrongEmphasis syntax-tree nodes hide only their opening and closing EmphasisMark delimiter ranges while preserving the raw Markdown document."
+      - "Styled inactive emphasis content as italic and strong content as bold, while keeping raw delimiters visible whenever the cursor or selection overlaps the same line."
+      - "Updated focused editor tests for asterisk and underscore delimiter forms, line-level reveal, styling classes, and unchanged document text."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts, npm run typecheck, npm run test (78 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T03:28:53Z"
     time_local: "2026-07-05T00:28:53-03:00"
     summary: "Added inactive fenced-code language labels to the editor live preview."

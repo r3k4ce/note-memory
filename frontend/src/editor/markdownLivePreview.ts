@@ -26,6 +26,12 @@ type InlineCodeNode = SyntaxRange & {
   };
 };
 
+type FormattedTextNode = SyntaxRange & {
+  node: {
+    getChildren: (type: string) => SyntaxRange[];
+  };
+};
+
 type FencedCodeNode = SyntaxRange & {
   node: {
     getChild: (type: string) => SyntaxRange | null;
@@ -132,6 +138,41 @@ function addInactiveInlineCodeDecorations(
     decorations.push(
       Decoration.mark({ class: "cm-md-inline-code" }).range(openingMark.to, closingMark.from),
     );
+  }
+  decorations.push(Decoration.replace({}).range(closingMark.from, closingMark.to));
+}
+
+function addInactiveFormattedTextDecorations(
+  view: EditorView,
+  formattedTextNode: FormattedTextNode,
+  decorations: ReturnType<Decoration["range"]>[],
+  className: string,
+  markerLength: number,
+) {
+  const line = view.state.doc.lineAt(formattedTextNode.from);
+  if (
+    line.to < formattedTextNode.to ||
+    lineOverlapsSelection(view, line.from, line.to) ||
+    formattedTextNode.node.getChildren("Emphasis").length > 0 ||
+    formattedTextNode.node.getChildren("StrongEmphasis").length > 0
+  ) {
+    return;
+  }
+
+  const emphasisMarks = formattedTextNode.node.getChildren("EmphasisMark");
+  if (emphasisMarks.length !== 2) {
+    return;
+  }
+
+  const openingMark = emphasisMarks[0];
+  const closingMark = emphasisMarks[1];
+  if (openingMark.to - openingMark.from !== markerLength || closingMark.to - closingMark.from !== markerLength) {
+    return;
+  }
+
+  decorations.push(Decoration.replace({}).range(openingMark.from, openingMark.to));
+  if (openingMark.to < closingMark.from) {
+    decorations.push(Decoration.mark({ class: className }).range(openingMark.to, closingMark.from));
   }
   decorations.push(Decoration.replace({}).range(closingMark.from, closingMark.to));
 }
@@ -251,6 +292,16 @@ function buildMarkdownLivePreviewDecorations(view: EditorView) {
           return false;
         }
 
+        if (node.name === "StrongEmphasis") {
+          addInactiveFormattedTextDecorations(view, node, decorations, "cm-md-strong", 2);
+          return false;
+        }
+
+        if (node.name === "Emphasis") {
+          addInactiveFormattedTextDecorations(view, node, decorations, "cm-md-emphasis", 1);
+          return false;
+        }
+
         if (node.name === "FencedCode") {
           addInactiveFencedCodeDecorations(view, node, decorations);
           return false;
@@ -326,6 +377,12 @@ const headingLineTheme = EditorView.theme({
     color: "var(--color-text-primary)",
     fontFamily: "ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace",
     padding: "0.05rem 0.22rem",
+  },
+  ".cm-md-emphasis": {
+    fontStyle: "italic",
+  },
+  ".cm-md-strong": {
+    fontWeight: "700",
   },
   ".cm-line.cm-md-fenced-code-marker-line": {
     fontSize: "0",
