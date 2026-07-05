@@ -156,7 +156,7 @@ export function AskChat({
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
         <AssistantBubble
-          content={"Ask about your saved notes.\n\nBun cites the notes it uses."}
+          content={"Bun has nothing to read yet."}
           onSourceSelect={onSourceSelect}
           sources={[]}
         />
@@ -198,7 +198,7 @@ export function AskChat({
           <span className="min-w-0 flex-1 text-[11px] leading-relaxed text-text-muted">
             {submitDisabledMessage
               ?? (isPending
-                ? "Reading your notes…"
+                ? "Bun is reading your notes…"
                 : "Press Enter to send, Shift+Enter for a new line.")}
           </span>
           <button
@@ -207,7 +207,7 @@ export function AskChat({
             type="submit"
           >
             <Send size={13} strokeWidth={2} />
-            {isPending ? "Reading..." : "Send"}
+            {isPending ? "Reading…" : "Send"}
           </button>
         </div>
       </form>

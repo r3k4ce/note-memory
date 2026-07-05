@@ -107,7 +107,7 @@ export function NoteDetail({
       <div className="flex h-full items-center justify-center py-20">
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-          Loading note...
+          Opening your note...
         </div>
       </div>
     );
@@ -116,7 +116,7 @@ export function NoteDetail({
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 py-20">
-        <p className="text-sm font-medium text-text-primary">Could not load note</p>
+        <p className="text-sm font-medium text-text-primary">Couldn't open this note</p>
         <p className="text-xs text-error">{error}</p>
       </div>
     );
@@ -125,8 +125,8 @@ export function NoteDetail({
   if (!note) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-1.5 py-20">
-        <p className="text-sm font-medium text-text-secondary">No note selected</p>
-        <p className="text-xs text-text-muted">Select a note from the list, or start a new note.</p>
+        <p className="text-sm font-medium text-text-secondary">Pick a note to open</p>
+        <p className="text-xs text-text-muted">Choose a note from the list, or start a new one.</p>
       </div>
     );
   }
@@ -153,7 +153,7 @@ export function NoteDetail({
       const metadata = await onRegenerateDetails(bodyText);
       setDocumentText(updateNoteEditorDocumentMetadata(documentText, note, metadata));
     } catch (error) {
-      setValidationError(error instanceof Error ? error.message : "Could not regenerate details.");
+      setValidationError(error instanceof Error ? error.message : "Couldn't refresh the details.");
     } finally {
       setIsRegeneratingDetails(false);
     }
