@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-05T18:25:00Z"
+    time_local: "2026-07-05T15:25:00-03:00"
+    summary: "Polished the center Markdown workspace into cozy notebook pages."
+    changed:
+      - "Added soft paper-tone card surface to the workspace CodeMirror editor with margin, border, radius, shadow, and accent focus ring using existing theme tokens."
+      - "Replaced prose-invert with theme-aware prose color overrides via CSS custom properties so the read preview follows all four themes (Biscuit, Honey, Cocoa, Matcha)."
+      - "Added notebook-style prose content spacing: paragraph margins, heading rhythm, blockquote styling, inline code background, list item spacing, and hr styling."
+      - "Polished the read-mode Details disclosure into a card with hairline border, soft shadow, hidden marker, open-state divider, and pill-shaped tag chips."
+      - "Simplified the read-mode preview wrapper padding since the note-preview card now owns the padding."
+    verification:
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: all 120 tests passed."
   - time_utc: "2026-07-05T18:20:00Z"
     time_local: "2026-07-05T15:20:00-03:00"
     summary: "Polished Notebun note list cards into small cozy note slips."

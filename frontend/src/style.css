@@ -226,13 +226,16 @@ body {
 .markdown-codemirror-workspace {
   flex: 1;
   min-height: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  margin: clamp(0.5rem, 1.2vw, 0.75rem);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .markdown-codemirror-workspace:focus-within {
-  background: transparent;
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
 .markdown-codemirror-workspace .cm-editor,
@@ -329,4 +332,103 @@ textarea:focus-visible {
 }
 .note-slip[aria-selected="true"] {
   background-color: var(--color-surface-raised);
+}
+
+/* Read-mode preview — notebook page surface */
+.note-preview {
+  margin: clamp(0.5rem, 1.2vw, 0.75rem);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Theme-aware prose color tokens */
+.note-preview .prose {
+  --tw-prose-body: var(--color-text-secondary);
+  --tw-prose-headings: var(--color-text-primary);
+  --tw-prose-lead: var(--color-text-secondary);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-text-primary);
+  --tw-prose-counters: var(--color-text-muted);
+  --tw-prose-bullets: var(--color-text-muted);
+  --tw-prose-hr: var(--color-border);
+  --tw-prose-quotes: var(--color-text-secondary);
+  --tw-prose-quote-borders: var(--color-border-strong);
+  --tw-prose-captions: var(--color-text-muted);
+  --tw-prose-code: var(--color-text-primary);
+  --tw-prose-pre-code: var(--color-text-primary);
+  --tw-prose-pre-bg: var(--color-bg);
+  --tw-prose-th-borders: var(--color-border);
+  --tw-prose-td-borders: var(--color-border);
+}
+
+/* Prose content spacing — gentle notebook rhythm */
+.note-preview .prose :where(p):not(:where([class~="not-prose"] *)) {
+  margin-block: 0.85em;
+}
+.note-preview .prose :where(h1, h2, h3, h4) {
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+}
+.note-preview .prose :where(hr) {
+  margin-block: 2em;
+  border-color: var(--color-border);
+}
+.note-preview .prose :where(blockquote) {
+  font-style: normal;
+  border-left-width: 0.2rem;
+  padding-inline-start: 1rem;
+}
+.note-preview .prose :where(code):not(:where(pre code, [class~="not-prose"] *))::before,
+.note-preview .prose :where(code):not(:where(pre code, [class~="not-prose"] *))::after {
+  content: "";
+}
+.note-preview .prose :where(pre) {
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+}
+.note-preview .prose :where(ul > li, ol > li) {
+  margin-block: 0.35em;
+}
+
+/* Read-mode details card */
+.note-details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.note-details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.note-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.note-details[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.note-details-body {
+  padding: 0.75rem 0.9rem 0.9rem;
+}
+
+.note-tag {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  color: var(--color-text-secondary);
+  border-radius: 9999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 500;
 }
