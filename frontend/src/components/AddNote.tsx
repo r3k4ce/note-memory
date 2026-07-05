@@ -2,7 +2,9 @@ import type { RefObject } from "react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { Category } from "../types";
+import { getNoteEditorBody } from "../editor/noteEditorDocument";
 import { MarkdownPane, type MarkdownPaneHandle } from "./MarkdownPane";
+import { MarkdownPreview } from "./MarkdownPreview";
 
 type AddNoteProps = {
   captureRef: RefObject<MarkdownPaneHandle | null>;
@@ -10,10 +12,9 @@ type AddNoteProps = {
   draftText: string;
   error: string | null;
   isSaving: boolean;
-  onCategoryChange: (categoryId: number | null) => void;
   onDraftTextChange: (value: string) => void;
   onSave: () => void;
-  selectedCategoryId: number | null;
+  readMode?: boolean;
 };
 
 export function AddNote({
@@ -22,10 +23,9 @@ export function AddNote({
   draftText,
   error,
   isSaving,
-  onCategoryChange,
   onDraftTextChange,
   onSave,
-  selectedCategoryId,
+  readMode = false,
 }: AddNoteProps) {
   return (
     <div className="flex h-full min-h-0 flex-col" aria-labelledby="add-note-title">
@@ -34,27 +34,6 @@ export function AddNote({
       </h2>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-2.5">
         <div className="flex min-w-0 items-center gap-3">
-          {categories.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <label className="sr-only" htmlFor="capture-category">
-                Category
-              </label>
-              <select
-                className="max-w-48 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
-                disabled={isSaving}
-                id="capture-category"
-                onChange={(event) => onCategoryChange(event.target.value ? Number(event.target.value) : null)}
-                value={selectedCategoryId ?? ""}
-              >
-                <option value="">Uncategorized</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
           {error ? <p className="text-xs text-error">{error}</p> : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -71,15 +50,22 @@ export function AddNote({
           </button>
         </div>
       </div>
-      <MarkdownPane
-        disabled={isSaving}
-        editorHandleRef={captureRef}
-        mode="edit"
-        onChange={onDraftTextChange}
-        placeholder="Write in Markdown... AI will organize it with a title, summary, and tags after save."
-        value={draftText}
-        variant="workspace"
-      />
+      {readMode ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <MarkdownPreview source={getNoteEditorBody(draftText)} />
+        </div>
+      ) : (
+        <MarkdownPane
+          categoryNames={categories.map((category) => category.name)}
+          disabled={isSaving}
+          editorHandleRef={captureRef}
+          mode="edit"
+          onChange={onDraftTextChange}
+          placeholder="Write in Markdown..."
+          value={draftText}
+          variant="workspace"
+        />
+      )}
     </div>
   );
 }

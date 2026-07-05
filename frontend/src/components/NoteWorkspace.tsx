@@ -12,13 +12,12 @@ type NoteWorkspaceProps = {
 
   captureRef: RefObject<MarkdownPaneHandle | null>;
   categories: Category[];
-  draftCategoryId: number | null;
   draftText: string;
   isSaving: boolean;
   saveError: string | null;
-  onDraftCategoryChange: (categoryId: number | null) => void;
   onDraftTextChange: (value: string) => void;
   onSave: () => void;
+  readMode: boolean;
 
   note: Note | null;
   isLoading: boolean;
@@ -29,6 +28,12 @@ type NoteWorkspaceProps = {
   deleteError: string | null;
   onEdit: () => void;
   onCancelEdit: () => void;
+  onCreateCategoryName: (name: string) => Promise<Category>;
+  onRegenerateDetails: (bodyText: string) => Promise<{
+    ai_title: string;
+    short_summary: string;
+    tags: string[];
+  }>;
   onSaveEdit: (body: {
     original_text: string;
     ai_title: string;
@@ -39,19 +44,19 @@ type NoteWorkspaceProps = {
   isSavingEdit: boolean;
   editError: string | null;
   onEditDirtyChange: (isDirty: boolean) => void;
+  editResetKey: number;
 };
 
 export function NoteWorkspace({
   mode,
   captureRef,
   categories,
-  draftCategoryId,
   draftText,
   isSaving,
   saveError,
-  onDraftCategoryChange,
   onDraftTextChange,
   onSave,
+  readMode,
   note,
   isLoading,
   error,
@@ -61,10 +66,13 @@ export function NoteWorkspace({
   deleteError,
   onEdit,
   onCancelEdit,
+  onCreateCategoryName,
   onSaveEdit,
+  onRegenerateDetails,
   isSavingEdit,
   editError,
   onEditDirtyChange,
+  editResetKey,
 }: NoteWorkspaceProps) {
   if (mode === "new") {
     return (
@@ -75,17 +83,16 @@ export function NoteWorkspace({
           draftText={draftText}
           error={saveError}
           isSaving={isSaving}
-          onCategoryChange={onDraftCategoryChange}
           onDraftTextChange={onDraftTextChange}
           onSave={onSave}
-          selectedCategoryId={draftCategoryId}
+          readMode={readMode}
         />
       </div>
     );
   }
 
   return (
-    <div className={mode === "edit-selected" ? "h-full min-h-0 overflow-hidden px-6 py-5" : "h-full min-h-0 overflow-y-auto px-6 py-5"}>
+    <div className="h-full min-h-0 overflow-hidden">
       <NoteDetail
         categories={categories}
         deleteError={deleteError}
@@ -94,15 +101,18 @@ export function NoteWorkspace({
         isDeleting={isDeleting}
         isLoading={isLoading}
         isSavingEdit={isSavingEdit}
-        key={`${note?.id ?? "none"}:${mode}`}
+        key={`${note?.id ?? "none"}:${note?.updated_at ?? "none"}:${mode}:${editResetKey}`}
         mode={mode}
         note={note}
         onCancelEdit={onCancelEdit}
+        onCreateCategoryName={onCreateCategoryName}
         onDelete={onDelete}
         onEdit={onEdit}
         onEditDirtyChange={onEditDirtyChange}
+        onRegenerateDetails={onRegenerateDetails}
         onNewNote={onNewNote}
         onSaveEdit={onSaveEdit}
+        readMode={readMode}
       />
     </div>
   );

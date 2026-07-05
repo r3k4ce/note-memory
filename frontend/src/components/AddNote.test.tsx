@@ -19,22 +19,35 @@ vi.mock("./MarkdownPane", () => ({
   },
 }));
 
+vi.mock("./MarkdownPreview", () => ({
+  MarkdownPreview({ source }: { source: string }) {
+    return <div aria-label="Markdown preview">{source}</div>;
+  },
+}));
+
 afterEach(() => {
   cleanup();
 });
 
-function renderAddNote({ isSaving = false }: { isSaving?: boolean } = {}) {
+function renderAddNote({
+  draftText = "",
+  isSaving = false,
+  readMode = false,
+}: {
+  draftText?: string;
+  isSaving?: boolean;
+  readMode?: boolean;
+} = {}) {
   return render(
     <AddNote
       captureRef={createRef<MarkdownPaneHandle>()}
       categories={[]}
-      draftText=""
+      draftText={draftText}
       error={null}
       isSaving={isSaving}
-      onCategoryChange={vi.fn()}
       onDraftTextChange={vi.fn()}
       onSave={vi.fn()}
-      selectedCategoryId={null}
+      readMode={readMode}
     />,
   );
 }
@@ -45,12 +58,23 @@ describe("AddNote copy", () => {
 
     expect(screen.getByRole("heading", { name: "New note" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save note" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Write in Markdown... AI will organize it with a title, summary, and tags after save.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Write in Markdown...")).toBeInTheDocument();
   });
 
   test("uses saving copy while the note is being saved", () => {
     renderAddNote({ isSaving: true });
 
     expect(screen.getByRole("button", { name: "Saving..." })).toBeInTheDocument();
+  });
+
+  test("previews the unsaved draft in read mode", () => {
+    renderAddNote({
+      draftText: ["---", "title: Draft title", "---", "", "# Draft title"].join("\n"),
+      readMode: true,
+    });
+
+    expect(screen.queryByLabelText("Markdown source")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("# Draft title");
+    expect(screen.getByLabelText("Markdown preview")).not.toHaveTextContent("title: Draft title");
   });
 });

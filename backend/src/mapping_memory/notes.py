@@ -17,6 +17,11 @@ from mapping_memory.fts import (
     rebuild_notes_fts,
     row_matches_literal,
 )
+from mapping_memory.markdown_notes import (
+    delete_markdown_note,
+    parse_markdown_note,
+    write_markdown_note,
+)
 from mapping_memory.schemas import CategoryRead, NoteRead
 
 UNTITLED_NOTE_TITLE = "Untitled note"
@@ -104,6 +109,12 @@ def list_categories(sqlite_path: Path) -> list[CategoryRead]:
     return [_category_from_row(row) for row in rows]
 
 
+def sync_markdown_vault(sqlite_path: Path, vault_path: Path) -> None:
+    vault_path.mkdir(parents=True, exist_ok=True)
+    _write_missing_markdown_files(sqlite_path, vault_path)
+    _import_newer_markdown_files(sqlite_path, vault_path)
+
+
 def update_category(sqlite_path: Path, category_id: int, name: str) -> CategoryRead | None:
     category_name = name.strip()
     if not category_name:
@@ -141,7 +152,9 @@ def update_category(sqlite_path: Path, category_id: int, name: str) -> CategoryR
     return get_category(sqlite_path, category_id)
 
 
-def delete_category(sqlite_path: Path, category_id: int) -> list[int] | None:
+def delete_category(
+    sqlite_path: Path, category_id: int, *, vault_path: Path | None = None
+) -> list[int] | None:
     with closing(connect_db(sqlite_path)) as connection:
         row = connection.execute(
             "SELECT id FROM categories WHERE id = ?",
@@ -160,9 +173,31 @@ def delete_category(sqlite_path: Path, category_id: int) -> list[int] | None:
             (category_id,),
         ).fetchall()
         note_ids = [row["id"] for row in note_rows]
-        connection.execute("DELETE FROM notes WHERE category_id = ?", (category_id,))
+        timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
+        connection.execute(
+            """
+            UPDATE notes
+            SET category_id = NULL,
+                updated_at = ?
+            WHERE category_id = ?
+            """,
+            (timestamp, category_id),
+        )
         connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
         rebuild_notes_fts(connection)
+        if vault_path is not None:
+            for note_id in note_ids:
+                note_row = connection.execute(
+                    f"""
+                    SELECT {_note_select_columns()}
+                    FROM notes
+                    LEFT JOIN categories ON categories.id = notes.category_id
+                    WHERE notes.id = ?
+                    """,
+                    (note_id,),
+                ).fetchone()
+                if note_row is not None:
+                    _write_row_markdown(connection, vault_path, note_row)
         connection.commit()
 
     return note_ids
@@ -176,6 +211,8 @@ def create_note(
     short_summary: str | None = None,
     tags: list[str] | None = None,
     category_id: int | None = None,
+    vault_path: Path | None = None,
+    markdown_path: str | None = None,
 ) -> NoteRead:
     if not original_text.strip():
         raise ValueError("original_text must not be empty")
@@ -197,9 +234,10 @@ def create_note(
                 tags_json,
                 date_added,
                 updated_at,
-                category_id
+                category_id,
+                markdown_path
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 original_text,
@@ -209,6 +247,7 @@ def create_note(
                 timestamp,
                 timestamp,
                 category_id,
+                markdown_path,
             ),
         )
         note_id = cursor.lastrowid
@@ -223,6 +262,22 @@ def create_note(
             tags=note_tags,
             original_text=original_text,
         )
+        if vault_path is not None:
+            category_name = _category_name_for_id(connection, category_id)
+            next_markdown_path = write_markdown_note(
+                vault_path,
+                note_id=note_id,
+                title=note_title,
+                summary=note_summary,
+                tags=note_tags,
+                category=category_name or "",
+                body=original_text,
+                previous_relative_path=markdown_path,
+            )
+            connection.execute(
+                "UPDATE notes SET markdown_path = ? WHERE id = ?",
+                (next_markdown_path, note_id),
+            )
         connection.commit()
 
     note = get_note(sqlite_path, note_id)
@@ -241,6 +296,7 @@ def update_note(
     short_summary: str | None = None,
     tags: list[str] | None = None,
     category_id: int | None | _Unset = _UNSET,
+    vault_path: Path | None = None,
 ) -> NoteRead | None:
     if original_text is not None and not original_text.strip():
         raise ValueError("original_text must not be empty")
@@ -267,9 +323,11 @@ def update_note(
         note_title = ai_title if ai_title is not None else current_note.ai_title
         note_summary = short_summary if short_summary is not None else current_note.short_summary
         note_tags = tags if tags is not None else current_note.tags
-        note_category_id = row["note_category_id"] if category_id is _UNSET else category_id
+        note_category_id: int | None = row["note_category_id"]
         if not isinstance(category_id, _Unset):
             _ensure_category_exists(connection, category_id)
+            note_category_id = category_id
+        note_category_name = _category_name_for_id(connection, note_category_id)
 
         connection.execute(
             """
@@ -300,6 +358,21 @@ def update_note(
             tags=note_tags,
             original_text=note_original_text,
         )
+        if vault_path is not None:
+            next_markdown_path = write_markdown_note(
+                vault_path,
+                note_id=note_id,
+                title=note_title,
+                summary=note_summary,
+                tags=note_tags,
+                category=note_category_name or "",
+                body=note_original_text,
+                previous_relative_path=row["markdown_path"],
+            )
+            connection.execute(
+                "UPDATE notes SET markdown_path = ? WHERE id = ?",
+                (next_markdown_path, note_id),
+            )
         connection.commit()
 
     return get_note(sqlite_path, note_id)
@@ -385,14 +458,21 @@ def list_notes(
     return [_note_from_row(row) for row in rows]
 
 
-def delete_note(sqlite_path: Path, note_id: int) -> bool:
+def delete_note(sqlite_path: Path, note_id: int, *, vault_path: Path | None = None) -> bool:
     with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            "SELECT markdown_path FROM notes WHERE id = ?",
+            (note_id,),
+        ).fetchone()
         cursor = connection.execute("DELETE FROM notes WHERE id = ?", (note_id,))
         if cursor.rowcount == 0:
             return False
 
         rebuild_notes_fts(connection)
         connection.commit()
+
+    if vault_path is not None:
+        delete_markdown_note(vault_path, row["markdown_path"])
 
     return True
 
@@ -478,6 +558,7 @@ def _note_select_columns() -> str:
         notes.tags_json,
         notes.date_added,
         notes.updated_at,
+        notes.markdown_path,
         notes.category_id AS note_category_id,
         categories.id AS category_id,
         categories.name AS category_name,
@@ -508,6 +589,135 @@ def _note_from_row(row: Row) -> NoteRead:
         updated_at=row["updated_at"],
         category=category,
     )
+
+
+def _write_missing_markdown_files(sqlite_path: Path, vault_path: Path) -> None:
+    with closing(connect_db(sqlite_path)) as connection:
+        rows = connection.execute(
+            f"""
+            SELECT {_note_select_columns()}
+            FROM notes
+            LEFT JOIN categories ON categories.id = notes.category_id
+            ORDER BY notes.date_added DESC, notes.id DESC
+            """
+        ).fetchall()
+        for row in rows:
+            relative_path = row["markdown_path"]
+            if relative_path is None or not (vault_path / relative_path).exists():
+                _write_row_markdown(connection, vault_path, row)
+        connection.commit()
+
+
+def _import_newer_markdown_files(sqlite_path: Path, vault_path: Path) -> None:
+    known_notes = _known_markdown_notes(sqlite_path)
+    known_paths = set(known_notes)
+    for markdown_path in sorted(vault_path.glob("*.md")):
+        relative_path = markdown_path.name
+        if relative_path not in known_paths:
+            _import_new_markdown_file(sqlite_path, markdown_path)
+            continue
+
+        note_id, updated_at = known_notes[relative_path]
+        file_updated_at = datetime.fromtimestamp(markdown_path.stat().st_mtime, tz=UTC)
+        note_updated_at = datetime.fromisoformat(updated_at)
+        if file_updated_at > note_updated_at:
+            _import_existing_markdown_file(sqlite_path, note_id, markdown_path)
+
+
+def _known_markdown_notes(sqlite_path: Path) -> dict[str, tuple[int, str]]:
+    with closing(connect_db(sqlite_path)) as connection:
+        rows = connection.execute(
+            """
+            SELECT id, markdown_path, updated_at
+            FROM notes
+            WHERE markdown_path IS NOT NULL
+            """
+        ).fetchall()
+    return {row["markdown_path"]: (row["id"], row["updated_at"]) for row in rows}
+
+
+def _import_new_markdown_file(sqlite_path: Path, markdown_path: Path) -> None:
+    parsed = parse_markdown_note(markdown_path.read_text())
+    body = parsed.body
+    if not body.strip():
+        return
+
+    create_note(
+        sqlite_path,
+        body,
+        ai_title=parsed.title or _fallback_title(body),
+        short_summary=parsed.summary or body[:250],
+        tags=parsed.tags,
+        category_id=_category_id_for_name(sqlite_path, parsed.category),
+        markdown_path=markdown_path.name,
+    )
+
+
+def _import_existing_markdown_file(
+    sqlite_path: Path,
+    note_id: int,
+    markdown_path: Path,
+) -> None:
+    parsed = parse_markdown_note(markdown_path.read_text())
+    body = parsed.body
+    if not body.strip():
+        return
+
+    update_note(
+        sqlite_path,
+        note_id,
+        original_text=body,
+        ai_title=parsed.title or _fallback_title(body),
+        short_summary=parsed.summary or body[:250],
+        tags=parsed.tags,
+        category_id=_category_id_for_name(sqlite_path, parsed.category),
+    )
+
+
+def _category_id_for_name(sqlite_path: Path, category_name: str) -> int | None:
+    stripped_name = category_name.strip()
+    if not stripped_name:
+        return None
+
+    for category in list_categories(sqlite_path):
+        if category.name.lower() == stripped_name.lower():
+            return category.id
+
+    return create_category(sqlite_path, stripped_name).id
+
+
+def _category_name_for_id(connection: sqlite3.Connection, category_id: int | None) -> str | None:
+    if category_id is None:
+        return None
+
+    row = connection.execute(
+        "SELECT name FROM categories WHERE id = ?",
+        (category_id,),
+    ).fetchone()
+    return row["name"] if row is not None else None
+
+
+def _write_row_markdown(
+    connection: sqlite3.Connection,
+    vault_path: Path,
+    row: Row,
+) -> str:
+    category_name = row["category_name"] if row["category_name"] is not None else ""
+    relative_path = write_markdown_note(
+        vault_path,
+        note_id=row["id"],
+        title=row["ai_title"],
+        summary=row["short_summary"],
+        tags=json.loads(row["tags_json"]),
+        category=category_name,
+        body=row["original_text"],
+        previous_relative_path=row["markdown_path"],
+    )
+    connection.execute(
+        "UPDATE notes SET markdown_path = ? WHERE id = ?",
+        (relative_path, row["id"]),
+    )
+    return relative_path
 
 
 def _category_from_row(row: Row) -> CategoryRead:

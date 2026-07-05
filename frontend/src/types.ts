@@ -40,11 +40,15 @@ export type CategoryDeleteResponse = {
   id: number;
   deleted: boolean;
   deleted_note_ids: number[];
+  uncategorized_note_ids: number[];
   vector_cleanup: "deleted" | "failed";
 };
 
 export type NoteCreate = {
   original_text: string;
+  ai_title?: string;
+  short_summary?: string;
+  tags?: string[];
   category_id?: number | null;
 };
 
@@ -54,6 +58,12 @@ export type NoteUpdate = {
   short_summary?: string;
   tags?: string[];
   category_id?: number | null;
+};
+
+export type OrganizedNoteMetadata = {
+  ai_title: string;
+  short_summary: string;
+  tags: string[];
 };
 
 export type CategoryScopeRequest = {

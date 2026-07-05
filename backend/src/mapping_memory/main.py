@@ -21,6 +21,7 @@ from mapping_memory.notes import (
     get_note,
     list_categories,
     list_notes,
+    sync_markdown_vault,
     update_category,
     update_note,
 )
@@ -31,6 +32,8 @@ from mapping_memory.schemas import (
     CategoryUpdate,
     NoteCreate,
     NoteDeleteResponse,
+    NoteOrganizeRequest,
+    NoteOrganizeResponse,
     NoteRead,
     NoteUpdate,
 )
@@ -49,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_db(app_settings.sqlite_path)
+        sync_markdown_vault(app_settings.sqlite_path, app_settings.vault_path)
         yield
 
     app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
@@ -109,39 +113,51 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.delete("/categories/{category_id}", response_model=CategoryDeleteResponse)
     def delete_category_endpoint(category_id: int) -> CategoryDeleteResponse:
-        deleted_note_ids = delete_category(app_settings.sqlite_path, category_id)
-        if deleted_note_ids is None:
+        uncategorized_note_ids = delete_category(
+            app_settings.sqlite_path,
+            category_id,
+            vault_path=app_settings.vault_path,
+        )
+        if uncategorized_note_ids is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
         vector_cleanup = "deleted"
-        for note_id in deleted_note_ids:
+        for note_id in uncategorized_note_ids:
             try:
-                _delete_note_from_retrieval(note_id, settings=app_settings)
+                note = get_note(app_settings.sqlite_path, note_id)
+                if note is not None:
+                    _reindex_note_for_retrieval(note, settings=app_settings)
             except Exception:
                 logger.warning(
-                    "Retrieval cleanup unavailable; deleted category without full vector cleanup"
+                    "Retrieval cleanup unavailable; "
+                    "uncategorized category notes without full vector cleanup"
                 )
                 vector_cleanup = "failed"
 
         return CategoryDeleteResponse(
             id=category_id,
             deleted=True,
-            deleted_note_ids=deleted_note_ids,
+            deleted_note_ids=[],
+            uncategorized_note_ids=uncategorized_note_ids,
             vector_cleanup=vector_cleanup,
         )
 
     @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
     def create_note_endpoint(note: NoteCreate) -> NoteRead:
         _validate_category_id(note.category_id, settings=app_settings)
-        try:
-            metadata = organize_mapping_text(note.original_text, settings=app_settings)
-        except Exception:
-            logger.warning("AI organizer unavailable; saved note with fallback metadata")
+        provided_metadata = (
+            note.ai_title is not None or note.short_summary is not None or note.tags is not None
+        )
+        if provided_metadata:
             try:
                 created_note = create_note(
                     app_settings.sqlite_path,
                     note.original_text,
+                    ai_title=note.ai_title,
+                    short_summary=note.short_summary,
+                    tags=note.tags,
                     category_id=note.category_id,
+                    vault_path=app_settings.vault_path,
                 )
             except CategoryNotFoundError as error:
                 raise HTTPException(
@@ -150,19 +166,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ) from error
         else:
             try:
-                created_note = create_note(
-                    app_settings.sqlite_path,
-                    note.original_text,
-                    ai_title=metadata.title,
-                    short_summary=metadata.summary,
-                    tags=metadata.tags,
-                    category_id=note.category_id,
-                )
-            except CategoryNotFoundError as error:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=str(error),
-                ) from error
+                metadata = organize_mapping_text(note.original_text, settings=app_settings)
+            except Exception:
+                logger.warning("AI organizer unavailable; saved note with fallback metadata")
+                try:
+                    created_note = create_note(
+                        app_settings.sqlite_path,
+                        note.original_text,
+                        category_id=note.category_id,
+                        vault_path=app_settings.vault_path,
+                    )
+                except CategoryNotFoundError as error:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=str(error),
+                    ) from error
+            else:
+                try:
+                    created_note = create_note(
+                        app_settings.sqlite_path,
+                        note.original_text,
+                        ai_title=metadata.title,
+                        short_summary=metadata.summary,
+                        tags=metadata.tags,
+                        category_id=note.category_id,
+                        vault_path=app_settings.vault_path,
+                    )
+                except CategoryNotFoundError as error:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=str(error),
+                    ) from error
 
         try:
             _index_note_for_retrieval(created_note, settings=app_settings)
@@ -181,6 +215,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 detail=str(error),
             ) from error
 
+    @app.post("/notes/organize", response_model=NoteOrganizeResponse)
+    def organize_note_endpoint(note: NoteOrganizeRequest) -> NoteOrganizeResponse:
+        try:
+            metadata = organize_mapping_text(note.original_text, settings=app_settings)
+        except Exception as error:
+            logger.warning("AI organizer unavailable for note draft")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI organizer unavailable",
+            ) from error
+
+        return NoteOrganizeResponse(
+            ai_title=metadata.title,
+            short_summary=metadata.summary,
+            tags=metadata.tags,
+        )
+
     @app.patch("/notes/{note_id}", response_model=NoteRead)
     def update_note_endpoint(note_id: int, note_update: NoteUpdate) -> NoteRead:
         updates = note_update.model_dump(exclude_unset=True)
@@ -197,6 +248,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             updated_note = update_note(
                 app_settings.sqlite_path,
                 note_id,
+                vault_path=app_settings.vault_path,
                 **update_kwargs,
             )
         except CategoryNotFoundError as error:
@@ -218,7 +270,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.delete("/notes/{note_id}", response_model=NoteDeleteResponse)
     def delete_note_endpoint(note_id: int) -> NoteDeleteResponse:
-        if not delete_note(app_settings.sqlite_path, note_id):
+        if not delete_note(app_settings.sqlite_path, note_id, vault_path=app_settings.vault_path):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
 
         vector_cleanup = "deleted"

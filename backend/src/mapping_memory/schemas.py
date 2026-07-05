@@ -41,6 +41,9 @@ class CategoryRead(BaseModel):
 
 class NoteCreate(BaseModel):
     original_text: str
+    ai_title: str | None = None
+    short_summary: str | None = None
+    tags: list[str] | None = None
     category_id: int | None = None
 
     @field_validator("original_text")
@@ -50,6 +53,25 @@ class NoteCreate(BaseModel):
             raise ValueError("original_text must not be empty")
 
         return value
+
+    @field_validator("ai_title", "short_summary", mode="before")
+    @classmethod
+    def optional_text_field_must_not_be_blank(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("field must be a string")
+        stripped_value = value.strip()
+        if not stripped_value:
+            return None
+        return stripped_value
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def normalize_tags(cls, value: Any) -> list[str] | None:
+        if value is None:
+            return None
+        return NoteUpdate.normalize_tags(value)
 
     @field_validator("category_id")
     @classmethod
@@ -145,6 +167,24 @@ class NoteRead(BaseModel):
     category: CategoryRead | None = None
 
 
+class NoteOrganizeRequest(BaseModel):
+    original_text: str
+
+    @field_validator("original_text")
+    @classmethod
+    def original_text_must_not_be_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("original_text must not be empty")
+
+        return value
+
+
+class NoteOrganizeResponse(BaseModel):
+    ai_title: str
+    short_summary: str
+    tags: list[str]
+
+
 class NoteDeleteResponse(BaseModel):
     id: int
     deleted: bool
@@ -155,6 +195,7 @@ class CategoryDeleteResponse(BaseModel):
     id: int
     deleted: bool
     deleted_note_ids: list[int]
+    uncategorized_note_ids: list[int] = []
     vector_cleanup: Literal["deleted", "failed"]
 
 

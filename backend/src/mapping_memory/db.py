@@ -36,11 +36,13 @@ def init_db(sqlite_path: Path) -> None:
                 tags_json TEXT NOT NULL,
                 date_added TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                category_id INTEGER REFERENCES categories(id)
+                category_id INTEGER REFERENCES categories(id),
+                markdown_path TEXT
             )
             """
         )
         _migrate_notes_category_id(connection)
+        _migrate_notes_markdown_path(connection)
         init_notes_fts(connection)
         backfill_notes_fts_if_empty(connection)
         connection.commit()
@@ -52,3 +54,9 @@ def _migrate_notes_category_id(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE notes ADD COLUMN category_id INTEGER REFERENCES categories(id)"
         )
+
+
+def _migrate_notes_markdown_path(connection: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(notes)").fetchall()}
+    if "markdown_path" not in columns:
+        connection.execute("ALTER TABLE notes ADD COLUMN markdown_path TEXT")

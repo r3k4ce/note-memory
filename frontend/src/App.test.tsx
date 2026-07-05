@@ -59,6 +59,7 @@ vi.mock("./api", () => ({
   getNote: vi.fn().mockResolvedValue(notes[0]),
   listCategories: vi.fn().mockResolvedValue(categories),
   listNotes: vi.fn().mockResolvedValue(notes),
+  organizeNote: vi.fn(),
   searchNotes: vi.fn().mockResolvedValue([]),
   updateCategory: vi.fn(),
   updateNote: vi.fn(),
@@ -94,15 +95,18 @@ vi.mock("./components/NoteWorkspace", () => ({
     note,
     onEditDirtyChange,
     onEdit,
+    readMode,
   }: {
     mode: string;
     note: Note | null;
     onEditDirtyChange: (isDirty: boolean) => void;
     onEdit: () => void;
+    readMode: boolean;
   }) {
     return (
       <section aria-label="Note workspace" data-mode={mode}>
         <span>Workspace mode: {mode}</span>
+        <span>Read mode: {String(readMode)}</span>
         {note ? <span>Loaded note: {note.ai_title}</span> : null}
         <button onClick={onEdit} type="button">
           Mock edit
@@ -195,6 +199,28 @@ describe("App sidebar navigation", () => {
     expect(sidebar).toHaveStyle({ width: "288px" });
     expect(assistant).toHaveStyle({ width: "384px" });
     expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
+  });
+
+  test("toggles read mode from the top toolbar for new notes and selected notes", async () => {
+    render(<App />);
+
+    await expandCategory("Work");
+
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
+    expect(screen.getByText("Read mode: false")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Read Mode" }));
+    expect(screen.getByText("Read mode: true")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Mode" }));
+    expect(screen.getByText("Read mode: false")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Read mode: false")).toBeInTheDocument();
   });
 
   test("collapses and restores the notes sidebar by dragging its separator", async () => {
@@ -392,12 +418,13 @@ describe("App sidebar navigation", () => {
     expect(screen.queryByRole("button", { name: "Work" })).not.toBeInTheDocument();
   });
 
-  test("deletes categories and their notes from browse mode after confirmation", async () => {
+  test("deletes categories and uncategorizes their notes after confirmation", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(true);
     vi.mocked(deleteCategory).mockResolvedValueOnce({
       id: 1,
       deleted: true,
-      deleted_note_ids: [10],
+      deleted_note_ids: [],
+      uncategorized_note_ids: [10],
       vector_cleanup: "deleted",
     });
 
@@ -405,7 +432,7 @@ describe("App sidebar navigation", () => {
 
     await expandCategory("Work");
     fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
-    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Categories" }));
     const manager = screen.getByRole("region", { name: "Manage categories" });
@@ -414,10 +441,11 @@ describe("App sidebar navigation", () => {
     await waitFor(() => {
       expect(deleteCategory).toHaveBeenCalledWith(1);
     });
-    expect(confirm).toHaveBeenCalledWith('Delete "Work" and its 1 note? This cannot be undone.');
+    expect(confirm).toHaveBeenCalledWith('Delete "Work" and uncategorize its 1 note?');
     expect(screen.queryByRole("button", { name: "Work" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Work note/ })).not.toBeInTheDocument();
-    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Uncategorized" }));
+    expect(screen.getByRole("button", { name: /Work note/ })).toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
   });
 
   test("keeps category navigation separate from global search behavior", async () => {
@@ -545,7 +573,7 @@ describe("App sidebar navigation", () => {
     await expandCategory("Work");
 
     fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
-    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
 
     fireEvent.click(getSidebarNewNoteButton());
 
@@ -567,7 +595,7 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(noteRow);
 
-    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
     expect(noteRow).toHaveAttribute("aria-selected", "true");
   });
 
@@ -584,7 +612,7 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
 
-    expect(screen.getByText("Workspace mode: read-selected")).toBeInTheDocument();
+    expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
   });
 
   test("keeps search tab presentation while search text is typed but not submitted", async () => {

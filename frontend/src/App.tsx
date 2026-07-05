@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  BookOpen,
   FileText,
   Folder,
   FolderOpen,
@@ -31,6 +32,7 @@ import {
   getNote,
   listCategories,
   listNotes,
+  organizeNote,
   searchNotes,
   askQuestion,
   updateCategory,
@@ -53,6 +55,10 @@ import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspac
 import { NoteCard } from "./components/NoteCard";
 import { SearchBar } from "./components/SearchBar";
 import { ThemeMenu } from "./components/ThemeMenu";
+import {
+  createBlankNoteEditorDocument,
+  parseDraftNoteEditorDocument,
+} from "./editor/noteEditorDocument";
 import { APP_SHORTCUTS, useKeyboardShortcuts, type AppMode } from "./hooks/useKeyboardShortcuts";
 import type { MarkdownPaneHandle } from "./components/MarkdownPane";
 import type {
@@ -183,7 +189,7 @@ export default function App() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<CategoryFilter>("all");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("browse");
-  const [draftText, setDraftText] = useState("");
+  const [draftText, setDraftText] = useState(() => createBlankNoteEditorDocument());
   const [draftCategoryId, setDraftCategoryId] = useState<number | null>(null);
   const [categoryDraft, setCategoryDraft] = useState("");
   const [categoryEditDraft, setCategoryEditDraft] = useState("");
@@ -210,6 +216,8 @@ export default function App() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [workspaceMode, setWorkspaceMode] = useState<NoteWorkspaceMode>("new");
+  const [readMode, setReadMode] = useState(false);
+  const [editResetKey, setEditResetKey] = useState(0);
   const [isSelectedNoteEditDirty, setIsSelectedNoteEditDirty] = useState(false);
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
@@ -342,11 +350,14 @@ export default function App() {
   const handleModeChange = useCallback((nextMode: AppMode) => {
     if (nextMode === "capture") {
       setWorkspaceMode("new");
+      setReadMode(false);
     } else if (nextMode === "search") {
       setSidebarTab("search");
-      setWorkspaceMode("read-selected");
+      if (selectedNoteId !== null) {
+        setWorkspaceMode("edit-selected");
+      }
     }
-  }, []);
+  }, [selectedNoteId]);
 
   useKeyboardShortcuts(handleModeChange, { captureRef, searchRef, askRef });
 
@@ -354,7 +365,8 @@ export default function App() {
     setIsSelectedNoteEditDirty(false);
     setEditError(null);
     setSelectedNoteId(noteId);
-    setWorkspaceMode("read-selected");
+    setReadMode(false);
+    setWorkspaceMode("edit-selected");
   }, []);
 
   const selectNote = useCallback(
@@ -490,7 +502,8 @@ export default function App() {
       if (hasUnsavedSelectedNoteEdit) {
         setIsSelectedNoteEditDirty(false);
         setEditError(null);
-        setWorkspaceMode("read-selected");
+        setReadMode(false);
+        setWorkspaceMode("edit-selected");
       }
 
       draggedNoteIdRef.current = noteId;
@@ -903,7 +916,7 @@ export default function App() {
 
   async function handleDeleteCategory(category: Category, noteCount: number) {
     const noteLabel = noteCount === 1 ? "1 note" : `${noteCount} notes`;
-    if (!window.confirm(`Delete "${category.name}" and its ${noteLabel}? This cannot be undone.`)) {
+    if (!window.confirm(`Delete "${category.name}" and uncategorize its ${noteLabel}?`)) {
       return;
     }
 
@@ -913,12 +926,19 @@ export default function App() {
     try {
       const result = await deleteCategory(category.id);
       const deletedNoteIds = new Set(result.deleted_note_ids);
+      const uncategorizedNoteIds = new Set(result.uncategorized_note_ids);
       setCategories((currentCategories) =>
         currentCategories.filter((currentCategory) => currentCategory.id !== category.id),
       );
-      setNotes((currentNotes) => currentNotes.filter((note) => !deletedNoteIds.has(note.id)));
+      setNotes((currentNotes) =>
+        currentNotes
+          .filter((note) => !deletedNoteIds.has(note.id))
+          .map((note) => (uncategorizedNoteIds.has(note.id) ? { ...note, category: null } : note)),
+      );
       setSearchResults((currentResults) =>
-        currentResults.filter((result) => !deletedNoteIds.has(result.id)),
+        currentResults
+          .filter((result) => !deletedNoteIds.has(result.id))
+          .map((result) => (uncategorizedNoteIds.has(result.id) ? { ...result, category: null } : result)),
       );
       setExpandedFolderKeys((currentKeys) => {
         const nextKeys = new Set(currentKeys);
@@ -930,6 +950,9 @@ export default function App() {
       }
       if (draftCategoryId === category.id) {
         setDraftCategoryId(null);
+      }
+      if (selectedNote?.category?.id === category.id) {
+        setSelectedNote({ ...selectedNote, category: null });
       }
       if (selectedNoteId !== null && deletedNoteIds.has(selectedNoteId)) {
         setSelectedNoteId(null);
@@ -952,7 +975,8 @@ export default function App() {
   }
 
   async function handleSaveNote() {
-    if (!draftText.trim()) {
+    const parsedDraft = parseDraftNoteEditorDocument(draftText, categories);
+    if (!parsedDraft.update.original_text.trim()) {
       setSaveError("Enter note text before saving.");
       return;
     }
@@ -961,14 +985,24 @@ export default function App() {
     setSaveError(null);
 
     try {
-      const savedNote = await createNote(draftText, draftCategoryId);
+      let categoryId = parsedDraft.update.category_id ?? draftCategoryId;
+      if (parsedDraft.categoryNameToCreate) {
+        const category = await handleCreateCategoryFromEditor(parsedDraft.categoryNameToCreate);
+        categoryId = category.id;
+      }
+
+      const savedNote = await createNote({
+        ...parsedDraft.update,
+        category_id: categoryId,
+      });
       clearSearch();
       setNotes((currentNotes) => [savedNote, ...currentNotes.filter((note) => note.id !== savedNote.id)]);
       setSelectedCategoryFilter(savedNote.category?.id ?? "uncategorized");
-      setDraftText("");
+      setDraftText(createBlankNoteEditorDocument());
       setSelectedNote(savedNote);
       setSelectedNoteId(savedNote.id);
-      setWorkspaceMode("read-selected");
+      setReadMode(false);
+      setWorkspaceMode("edit-selected");
     } catch (error) {
       setSaveError(getErrorMessage(error, "Could not save note."));
     } finally {
@@ -987,6 +1021,7 @@ export default function App() {
     setDetailError(null);
     setDeleteError(null);
     setEditError(null);
+    setReadMode(false);
     setWorkspaceMode("new");
   }, [confirmDiscardSelectedNoteEdit]);
 
@@ -996,13 +1031,29 @@ export default function App() {
     }
 
     setEditError(null);
+    setReadMode(false);
     setWorkspaceMode("edit-selected");
   }, [selectedNote]);
 
   const handleCancelEditSelectedNote = useCallback(() => {
     setIsSelectedNoteEditDirty(false);
     setEditError(null);
-    setWorkspaceMode("read-selected");
+    setReadMode(false);
+    setWorkspaceMode("edit-selected");
+    setEditResetKey((currentKey) => currentKey + 1);
+  }, []);
+
+  const handleCreateCategoryFromEditor = useCallback(async (name: string) => {
+    const category = await createCategory(name);
+    setCategories((currentCategories) => sortCategories([...currentCategories, category]));
+    setExpandedFolderKeys((currentKeys) => new Set(currentKeys).add(categoryFilterKey(category.id)));
+    setCategoryError(null);
+
+    return category;
+  }, []);
+
+  const handleRegenerateSelectedNoteDetails = useCallback(async (bodyText: string) => {
+    return organizeNote(bodyText);
   }, []);
 
   async function handleSaveSelectedNoteEdit(body: {
@@ -1033,7 +1084,8 @@ export default function App() {
       setSelectedCategoryFilter(savedCategoryFilter);
       setDraftCategoryId(savedNote.category?.id ?? null);
       setIsSelectedNoteEditDirty(false);
-      setWorkspaceMode("read-selected");
+      setReadMode(false);
+      setWorkspaceMode("edit-selected");
     } catch (error) {
       setEditError(getErrorMessage(error, "Could not save note changes."));
     } finally {
@@ -1059,7 +1111,7 @@ export default function App() {
       setSelectedNote(null);
       setDetailError(null);
       setEditError(null);
-      setIsSelectedNoteEditDirty(false);
+        setIsSelectedNoteEditDirty(false);
       setWorkspaceMode("new");
     } catch (error) {
       setDeleteError(getErrorMessage(error, "Could not delete note."));
@@ -1535,6 +1587,19 @@ export default function App() {
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg">
         <div className="flex h-8 shrink-0 items-center justify-end gap-1 px-3 py-1">
           <button
+            aria-label={readMode ? "Edit Mode" : "Read Mode"}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            onClick={() => setReadMode((currentMode) => !currentMode)}
+            title={readMode ? "Edit Mode" : "Read Mode"}
+            type="button"
+          >
+            {readMode ? (
+              <Pencil aria-hidden="true" size={13} strokeWidth={2} />
+            ) : (
+              <BookOpen aria-hidden="true" size={13} strokeWidth={2} />
+            )}
+          </button>
+          <button
             aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
             className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             onClick={toggleTextAreaFocus}
@@ -1549,7 +1614,6 @@ export default function App() {
             captureRef={captureRef}
             categories={categories}
             deleteError={deleteError}
-            draftCategoryId={draftCategoryId}
             draftText={draftText}
             error={detailError}
             isDeleting={isDeleting}
@@ -1559,9 +1623,10 @@ export default function App() {
             mode={workspaceMode}
             note={selectedNote}
             editError={editError}
+            editResetKey={editResetKey}
             onCancelEdit={handleCancelEditSelectedNote}
+            onCreateCategoryName={handleCreateCategoryFromEditor}
             onDelete={handleDeleteNote}
-            onDraftCategoryChange={setDraftCategoryId}
             onDraftTextChange={(value) => {
               setDraftText(value);
               if (saveError) {
@@ -1571,8 +1636,10 @@ export default function App() {
             onEdit={handleEditSelectedNote}
             onEditDirtyChange={setIsSelectedNoteEditDirty}
             onNewNote={handleNewNote}
+            onRegenerateDetails={handleRegenerateSelectedNoteDetails}
             onSave={handleSaveNote}
             onSaveEdit={handleSaveSelectedNoteEdit}
+            readMode={readMode}
             saveError={saveError}
           />
         </div>

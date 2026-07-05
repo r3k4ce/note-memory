@@ -89,6 +89,7 @@ def test_notes_table_has_required_schema(tmp_path) -> None:
         ("date_added", "TEXT", 1, 0),
         ("updated_at", "TEXT", 1, 0),
         ("category_id", "INTEGER", 0, 0),
+        ("markdown_path", "TEXT", 0, 0),
     ]
     assert create_sql is not None
     assert "AUTOINCREMENT" in create_sql[0].upper()
@@ -143,8 +144,12 @@ def test_init_db_migrates_existing_notes_table_without_losing_notes(tmp_path) ->
         legacy_note = connection.execute(
             "SELECT original_text, category_id FROM notes WHERE id = 1"
         ).fetchone()
+        markdown_column = connection.execute(
+            "SELECT name FROM pragma_table_info('notes') WHERE name = 'markdown_path'"
+        ).fetchone()
 
     assert category_column == ("category_id",)
+    assert markdown_column == ("markdown_path",)
     assert legacy_note == ("Legacy note", None)
 
 

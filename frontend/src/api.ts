@@ -9,6 +9,7 @@ import type {
   Note,
   NoteCreate,
   NoteUpdate,
+  OrganizedNoteMetadata,
   SearchResult,
 } from "./types";
 
@@ -137,9 +138,7 @@ export function getNote(noteId: number): Promise<Note> {
   return requestJson<Note>(`/notes/${noteId}`);
 }
 
-export function createNote(originalText: string, categoryId: number | null): Promise<Note> {
-  const body: NoteCreate = { original_text: originalText, category_id: categoryId };
-
+export function createNote(body: NoteCreate): Promise<Note> {
   return requestJson<Note>("/notes", {
     method: "POST",
     body: JSON.stringify(body),
@@ -149,6 +148,15 @@ export function createNote(originalText: string, categoryId: number | null): Pro
 export function updateNote(noteId: number, body: NoteUpdate): Promise<Note> {
   return requestJson<Note>(`/notes/${noteId}`, {
     method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function organizeNote(originalText: string): Promise<OrganizedNoteMetadata> {
+  const body: NoteCreate = { original_text: originalText };
+
+  return requestJson<OrganizedNoteMetadata>("/notes/organize", {
+    method: "POST",
     body: JSON.stringify(body),
   });
 }

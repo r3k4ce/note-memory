@@ -6,6 +6,8 @@ import { tags } from "@lezer/highlight";
 import type { RefObject } from "react";
 
 import { MarkdownPreview } from "./MarkdownPreview";
+import { categoryCompletionExtension } from "../editor/categoryCompletion";
+import { frontmatterPreviewExtension } from "../editor/frontmatterPreview";
 import { markdownCodeLanguages } from "../editor/markdownCodeLanguages";
 import { markdownLivePreviewExtension } from "../editor/markdownLivePreview";
 import { THEME_MODE, type ThemeId } from "../hooks/useTheme";
@@ -19,6 +21,7 @@ export type MarkdownPaneProps = {
   value: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
+  categoryNames?: string[];
   id?: string;
   editorHandleRef?: RefObject<MarkdownPaneHandle | null>;
   placeholder?: string;
@@ -88,6 +91,7 @@ const markdownEditorExtensions = [
   markdownEditorTheme,
   syntaxHighlighting(markdownHighlightStyle),
   markdownLivePreviewExtension,
+  frontmatterPreviewExtension,
 ];
 
 const workspaceMarkdownEditorTheme = EditorView.theme({
@@ -111,6 +115,7 @@ const workspaceMarkdownEditorTheme = EditorView.theme({
 });
 
 export function MarkdownPane({
+  categoryNames = [],
   disabled = false,
   id,
   mode,
@@ -130,9 +135,10 @@ export function MarkdownPane({
 
   const editable = !disabled && Boolean(onChange);
   const isWorkspace = variant === "workspace";
+  const categoryExtensions = categoryNames.length > 0 ? [categoryCompletionExtension(categoryNames)] : [];
   const extensions = isWorkspace
-    ? [...markdownEditorExtensions, workspaceMarkdownEditorTheme]
-    : markdownEditorExtensions;
+    ? [...markdownEditorExtensions, ...categoryExtensions, workspaceMarkdownEditorTheme]
+    : [...markdownEditorExtensions, ...categoryExtensions];
 
   return (
     <CodeMirror

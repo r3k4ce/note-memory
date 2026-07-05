@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { Note } from "../types";
 import { NoteDetail } from "./NoteDetail";
@@ -23,6 +23,10 @@ vi.mock("./MarkdownPane", () => ({
     );
   },
 }));
+
+afterEach(() => {
+  cleanup();
+});
 
 const categories = [
   { id: 1, name: "Work", slug: "work", created_at: "2026-07-01", updated_at: "2026-07-01" },
@@ -63,31 +67,45 @@ function renderDetail(props: Partial<ComponentProps<typeof NoteDetail>> = {}) {
 }
 
 describe("NoteDetail selected-note editing", () => {
-  test("keeps edit fields controlled while aligning title, properties, body, and summary order", async () => {
+  test("edits saved-note fields through one frontmatter markdown document", async () => {
     const onSaveEdit = vi.fn().mockResolvedValue(undefined);
 
     renderDetail({ onSaveEdit });
 
-    const title = screen.getByLabelText("Title");
-    const category = screen.getByLabelText("Category");
-    const tags = screen.getByLabelText("Tags");
-    const body = screen.getByLabelText("Original text");
-    const summary = screen.getByLabelText("Summary");
+    const editor = screen.getByLabelText("Markdown source");
 
-    expect(title.compareDocumentPosition(category)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(category.compareDocumentPosition(body)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(summary.compareDocumentPosition(body)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(editor).toHaveValue(
+      [
+        "---",
+        "title: Initial title",
+        "summary: Initial summary",
+        "tags: alpha, beta",
+        "category: Work",
+        "---",
+        "",
+        "Initial body",
+      ].join("\n"),
+    );
 
     expect(screen.getByLabelText("Save changes")).toBeInTheDocument();
     expect(screen.getByLabelText("Cancel edit")).toBeInTheDocument();
     expect(screen.getByLabelText("New note")).toBeInTheDocument();
     expect(screen.getByLabelText("Delete note")).toBeInTheDocument();
 
-    fireEvent.change(title, { target: { value: "Updated title" } });
-    fireEvent.change(category, { target: { value: "2" } });
-    fireEvent.change(tags, { target: { value: "gamma, gamma, delta" } });
-    fireEvent.change(body, { target: { value: "Updated body" } });
-    fireEvent.change(summary, { target: { value: "Updated summary" } });
+    fireEvent.change(editor, {
+      target: {
+        value: [
+          "---",
+          "title: Updated title",
+          "summary: Updated summary",
+          "tags: gamma, gamma, delta",
+          "category: Personal",
+          "---",
+          "",
+          "Updated body",
+        ].join("\n"),
+      },
+    });
     fireEvent.click(screen.getByLabelText("Save changes"));
 
     expect(onSaveEdit).toHaveBeenCalledWith({
@@ -97,5 +115,42 @@ describe("NoteDetail selected-note editing", () => {
       tags: ["gamma", "delta"],
       category_id: 2,
     });
+  });
+
+  test("regenerates frontmatter from the current body draft without saving", async () => {
+    const onRegenerateDetails = vi.fn().mockResolvedValue({
+      ai_title: "AI title",
+      short_summary: "AI summary.",
+      tags: ["ai", "draft"],
+    });
+    const onSaveEdit = vi.fn().mockResolvedValue(undefined);
+
+    renderDetail({ onRegenerateDetails, onSaveEdit });
+
+    const editor = screen.getByLabelText("Markdown source");
+    fireEvent.change(editor, {
+      target: {
+        value: [
+          "---",
+          "title: Initial title",
+          "summary: Initial summary",
+          "tags: alpha, beta",
+          "category: Work",
+          "---",
+          "",
+          "Unsaved body",
+        ].join("\n"),
+      },
+    });
+    fireEvent.click(screen.getByLabelText("Regenerate details"));
+
+    await waitFor(() => {
+      expect(onRegenerateDetails).toHaveBeenCalledWith("Unsaved body");
+    });
+    expect((editor as HTMLTextAreaElement).value).toContain("title: AI title");
+    expect((editor as HTMLTextAreaElement).value).toContain("summary: AI summary.");
+    expect((editor as HTMLTextAreaElement).value).toContain("tags: ai, draft");
+    expect((editor as HTMLTextAreaElement).value).toContain("Unsaved body");
+    expect(onSaveEdit).not.toHaveBeenCalled();
   });
 });

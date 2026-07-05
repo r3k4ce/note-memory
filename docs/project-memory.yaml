@@ -1,4 +1,30 @@
 entries:
+  - time_utc: "2026-07-05T17:21:47Z"
+    time_local: "2026-07-05T14:21:47-03:00"
+    summary: "Streamlined note editing and added Obsidian-compatible Markdown vault storage."
+    changed:
+      - "Unified new-note drafts and selected-note editing around the same frontmatter Markdown document shape, with new drafts starting from editable title, summary, tags, and category frontmatter."
+      - "Added backend Markdown vault support with YAML frontmatter serialization/parsing, note file writes, title-based file renames, startup vault sync/import, and optional create-note metadata fields."
+      - "Changed category deletion to remove the category while uncategorizing affected notes instead of deleting user-owned notes, updating frontend state and API response shape with uncategorized_note_ids."
+      - "Documented VAULT_PATH/default data/vault behavior and added PyYAML as a direct backend dependency."
+    verification:
+      - "Ran backend focused red/green tests for Markdown serialization, note file writes, title rename, category uncategorization, and vault import."
+      - "Ran npm run test from frontend/: 119 passing."
+      - "Ran uv run python -m pytest from backend/: 196 passing with existing Starlette deprecation warnings."
+      - "Ran ./scripts/check.sh from repository root with uv cache escalation: backend format/lint/typecheck/tests and frontend tests/lint/build passed."
+  - time_utc: "2026-07-05T16:27:39Z"
+    time_local: "2026-07-05T13:27:39-03:00"
+    summary: "Opened selected notes directly in the unified Markdown editor."
+    changed:
+      - "Changed saved-note selection from read-first to edit-first, with a top-toolbar Read Mode toggle for saved notes and new-note drafts."
+      - "Moved saved-note title, summary, tags, and category editing into UI-only Markdown frontmatter that collapses in CodeMirror until the cursor enters it and is parsed back to existing note fields on save."
+      - "Added category-line CodeMirror autocomplete, on-save category creation for unknown frontmatter categories, and draft-only AI detail regeneration through POST /notes/organize."
+      - "Updated README and backend API docs for the new editor/read-mode behavior and organize endpoint."
+    verification:
+      - "Ran targeted red/green tests for backend organize endpoint, note editor document parsing, frontmatter collapse, category completion, NoteDetail, AddNote, and App read-mode behavior."
+      - "Ran npm run test -- src/editor/frontmatterPreview.test.ts src/editor/noteEditorDocument.test.ts src/editor/categoryCompletion.test.ts src/components/NoteDetail.test.tsx src/components/AddNote.test.tsx src/App.test.tsx from frontend/: 45 passing."
+      - "Ran npm run typecheck and npm run build from frontend/: passed."
+      - "Ran ./scripts/check.sh from the repository root with uv cache escalation: backend checks/189 tests and frontend 117 tests/lint/build passed."
   - time_utc: "2026-07-05T15:51:03Z"
     time_local: "2026-07-05T12:51:03-03:00"
     summary: "Replaced the middle workspace's two pane layout buttons with one Focus Mode toggle."

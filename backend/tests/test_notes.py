@@ -70,6 +70,34 @@ def test_create_note_persists_provided_metadata(sqlite_path: Path) -> None:
     assert tags_json == ('["routing", "retrieval"]',)
 
 
+def test_create_note_writes_markdown_file_to_vault(sqlite_path: Path, tmp_path: Path) -> None:
+    vault_path = tmp_path / "vault"
+
+    note = create_note(
+        sqlite_path,
+        "Raw note text\nwith exact spacing",
+        ai_title="Organized title",
+        short_summary="Organized summary.",
+        tags=["routing", "retrieval"],
+        vault_path=vault_path,
+    )
+
+    note_path = vault_path / f"organized-title-{note.id}.md"
+    assert note_path.read_text() == (
+        "---\n"
+        "title: Organized title\n"
+        "summary: Organized summary.\n"
+        "tags:\n"
+        "- routing\n"
+        "- retrieval\n"
+        "category: ''\n"
+        "---\n"
+        "\n"
+        "Raw note text\n"
+        "with exact spacing"
+    )
+
+
 def test_create_note_indexes_note_for_exact_search(sqlite_path: Path) -> None:
     note = create_note(
         sqlite_path,
@@ -199,6 +227,37 @@ def test_update_note_can_update_only_original_text(sqlite_path: Path) -> None:
     assert fetched_note == updated_note
 
 
+def test_update_note_renames_markdown_file_when_title_changes(
+    sqlite_path: Path,
+    tmp_path: Path,
+) -> None:
+    vault_path = tmp_path / "vault"
+    created_note = create_note(
+        sqlite_path,
+        "Original note text",
+        ai_title="Old title",
+        short_summary="Old summary.",
+        tags=["old"],
+        vault_path=vault_path,
+    )
+    old_path = vault_path / f"old-title-{created_note.id}.md"
+
+    updated_note = update_note(
+        sqlite_path,
+        created_note.id,
+        ai_title="New title",
+        short_summary="New summary.",
+        tags=["new"],
+        vault_path=vault_path,
+    )
+
+    assert updated_note is not None
+    assert not old_path.exists()
+    new_path = vault_path / f"new-title-{created_note.id}.md"
+    assert new_path.is_file()
+    assert "title: New title\n" in new_path.read_text()
+
+
 def test_update_note_refreshes_exact_search_for_updated_body(sqlite_path: Path) -> None:
     note = create_note(
         sqlite_path,
@@ -306,24 +365,27 @@ def test_update_category_rejects_duplicate_name(sqlite_path: Path) -> None:
         update_category(sqlite_path, category.id, " personal ")
 
 
-def test_delete_category_removes_category_notes_and_fts(sqlite_path: Path) -> None:
+def test_delete_category_uncategorizes_notes_and_keeps_fts(sqlite_path: Path) -> None:
     from mapping_memory.notes import create_category, delete_category, list_categories
 
     category = create_category(sqlite_path, "Work")
-    deleted_note = create_note(
+    uncategorized_note = create_note(
         sqlite_path, "Work note with categoryonlytoken", category_id=category.id
     )
     kept_note = create_note(sqlite_path, "Loose categoryonlytoken note")
 
-    deleted_note_ids = delete_category(sqlite_path, category.id)
+    affected_note_ids = delete_category(sqlite_path, category.id)
 
-    assert deleted_note_ids == [deleted_note.id]
+    assert affected_note_ids == [uncategorized_note.id]
     assert list_categories(sqlite_path) == []
-    assert get_note(sqlite_path, deleted_note.id) is None
+    fetched_uncategorized_note = get_note(sqlite_path, uncategorized_note.id)
+    assert fetched_uncategorized_note is not None
+    assert fetched_uncategorized_note.category is None
     assert get_note(sqlite_path, kept_note.id) is not None
-    assert [note.id for note in search_notes_exact(sqlite_path, "categoryonlytoken")] == [
-        kept_note.id
-    ]
+    assert {note.id for note in search_notes_exact(sqlite_path, "categoryonlytoken")} == {
+        uncategorized_note.id,
+        kept_note.id,
+    }
 
 
 def test_create_note_can_attach_category(sqlite_path: Path) -> None:

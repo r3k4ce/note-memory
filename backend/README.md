@@ -6,7 +6,7 @@
 uv sync --dev
 ```
 
-The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage.
+The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage.
 
 > [!WARNING]
 > **Privacy and work data.**
@@ -52,19 +52,22 @@ Rename a category:
 Invoke-RestMethod http://127.0.0.1:8000/categories/1 -Method Patch -ContentType "application/json" -Body '{"name":"Projects"}'
 ```
 
-Delete a category and its notes:
+Delete a category and uncategorize its notes:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/categories/1 -Method Delete
 ```
 
-Category deletion removes the SQLite category and all notes in it, refreshes SQLite FTS, and attempts Chroma chunk cleanup for each deleted note. Chroma cleanup failures are logged and returned in `vector_cleanup` without restoring the deleted category or notes.
+Category deletion removes the SQLite category, clears that category from affected notes and their Markdown frontmatter, refreshes SQLite FTS, and attempts Chroma reindexing for each affected note. Reindex failures are logged and returned in `vector_cleanup` without restoring the deleted category.
 
 Create a note:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "application/json" -Body '{"original_text":"My note","category_id":1}'
 ```
+
+The create body can also include `ai_title`, `short_summary`, and `tags` when the
+browser saves those fields from YAML frontmatter directly.
 
 List notes:
 
@@ -86,6 +89,14 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Patch -ContentType "appl
 ```
 
 Body and metadata updates refresh SQLite FTS and attempt Chroma reindexing. Chroma reindex failures are logged and do not roll back the saved note update.
+
+Regenerate draft metadata without saving a note:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/notes/organize -Method Post -ContentType "application/json" -Body '{"original_text":"Draft note body"}'
+```
+
+The organize endpoint returns `ai_title`, `short_summary`, and `tags` for the supplied body text. It does not write SQLite data or update retrieval indexes.
 
 Delete one note:
 

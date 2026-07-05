@@ -240,6 +240,121 @@ def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
     }
 
 
+def test_create_app_imports_newer_markdown_file_from_vault(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+    imported_path = vault_path / "external-note.md"
+    imported_path.write_text(
+        "---\n"
+        "title: External note\n"
+        "summary: External summary.\n"
+        "tags:\n"
+        "- Work\n"
+        "category: Imported\n"
+        "---\n"
+        "\n"
+        "External body text",
+    )
+    app = create_app(
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            vault_path=vault_path,
+            openai_api_key=None,
+        )
+    )
+
+    with TestClient(app) as client:
+        notes_response = client.get("/notes")
+        categories_response = client.get("/categories")
+
+    assert notes_response.status_code == 200
+    assert categories_response.status_code == 200
+    assert categories_response.json()[0]["name"] == "Imported"
+    assert notes_response.json()[0]["original_text"] == "External body text"
+    assert notes_response.json()[0]["ai_title"] == "External note"
+    assert notes_response.json()[0]["short_summary"] == "External summary."
+    assert notes_response.json()[0]["tags"] == ["work"]
+    assert notes_response.json()[0]["category"]["name"] == "Imported"
+
+
+def test_post_notes_organize_returns_ai_metadata_for_body_draft(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+
+    def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
+        calls.append(original_text)
+        assert settings.openai_organizer_model == "test-model"
+        return OrganizerMetadata(
+            title="Regenerated title",
+            summary="Regenerated summary.",
+            tags=["regenerated", "draft"],
+        )
+
+    monkeypatch.setattr(
+        "mapping_memory.main.organize_mapping_text",
+        organize_mapping_text,
+        raising=False,
+    )
+    app = create_app(
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            openai_api_key=SecretStr("test-key"),
+            openai_organizer_model="test-model",
+        )
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/notes/organize", json={"original_text": "Edited body draft"})
+
+    assert response.status_code == 200
+    assert calls == ["Edited body draft"]
+    assert response.json() == {
+        "ai_title": "Regenerated title",
+        "short_summary": "Regenerated summary.",
+        "tags": ["regenerated", "draft"],
+    }
+
+
+def test_post_notes_organize_reports_ai_failure_without_saving_note(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
+        raise RuntimeError("provider failure with sensitive details")
+
+    monkeypatch.setattr(
+        "mapping_memory.main.organize_mapping_text",
+        organize_mapping_text,
+        raising=False,
+    )
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+    )
+
+    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+        response = client.post("/notes/organize", json={"original_text": "Body to organize"})
+        notes_response = client.get("/notes")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "AI organizer unavailable"}
+    assert notes_response.status_code == 200
+    assert notes_response.json() == []
+    assert "AI organizer unavailable for note draft" in caplog.text
+    assert "Body to organize" not in caplog.text
+    assert "provider failure" not in caplog.text
+
+
 def test_patch_note_updates_metadata_and_get_returns_updated_note(
     tmp_path: Path,
     monkeypatch,
@@ -779,25 +894,22 @@ def test_categories_api_renames_category_and_rejects_duplicates(tmp_path: Path) 
     assert missing_response.json() == {"detail": "Category not found"}
 
 
-def test_categories_api_deletes_category_notes_and_chroma_chunks(
+def test_categories_api_deletes_category_and_uncategorizes_notes(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    deleted_chunks: list[int] = []
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def delete_chunks_for_note(self, note_id: int) -> None:
-            deleted_chunks.append(note_id)
+    reindexed_note_ids: list[int] = []
 
     monkeypatch.setattr(
         "mapping_memory.main._index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda note, **kwargs: reindexed_note_ids.append(note.id),
+        raising=False,
+    )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
     with TestClient(app) as client:
@@ -810,40 +922,41 @@ def test_categories_api_deletes_category_notes_and_chroma_chunks(
         kept_note_response = client.post("/notes", json={"original_text": "Loose note"})
         delete_response = client.delete(f"/categories/{category_id}")
         categories_response = client.get("/categories")
-        deleted_note_fetch = client.get(f"/notes/{deleted_note_response.json()['id']}")
+        uncategorized_note_fetch = client.get(f"/notes/{deleted_note_response.json()['id']}")
         kept_note_fetch = client.get(f"/notes/{kept_note_response.json()['id']}")
 
     assert delete_response.status_code == 200
     assert delete_response.json() == {
         "id": category_id,
         "deleted": True,
-        "deleted_note_ids": [deleted_note_response.json()["id"]],
+        "deleted_note_ids": [],
+        "uncategorized_note_ids": [deleted_note_response.json()["id"]],
         "vector_cleanup": "deleted",
     }
-    assert deleted_chunks == [deleted_note_response.json()["id"]]
+    assert reindexed_note_ids == [deleted_note_response.json()["id"]]
     assert categories_response.json() == []
-    assert deleted_note_fetch.status_code == 404
+    assert uncategorized_note_fetch.status_code == 200
+    assert uncategorized_note_fetch.json()["category"] is None
     assert kept_note_fetch.status_code == 200
 
 
-def test_categories_api_delete_reports_failed_chroma_cleanup(
+def test_categories_api_delete_reports_failed_reindex(
     tmp_path: Path,
     monkeypatch,
     caplog,
 ) -> None:
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def delete_chunks_for_note(self, note_id: int) -> None:
-            raise RuntimeError("provider failure with sensitive details")
-
     monkeypatch.setattr(
         "mapping_memory.main._index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("provider failure with sensitive details")
+        ),
+        raising=False,
+    )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
@@ -853,13 +966,15 @@ def test_categories_api_delete_reports_failed_chroma_cleanup(
             json={"original_text": "Work note", "category_id": category_response.json()["id"]},
         )
         delete_response = client.delete(f"/categories/{category_response.json()['id']}")
-        deleted_note_fetch = client.get(f"/notes/{note_response.json()['id']}")
+        uncategorized_note_fetch = client.get(f"/notes/{note_response.json()['id']}")
 
     assert delete_response.status_code == 200
     assert delete_response.json()["vector_cleanup"] == "failed"
-    assert deleted_note_fetch.status_code == 404
+    assert uncategorized_note_fetch.status_code == 200
+    assert uncategorized_note_fetch.json()["category"] is None
     assert (
-        "Retrieval cleanup unavailable; deleted category without full vector cleanup" in caplog.text
+        "Retrieval cleanup unavailable; uncategorized category notes without full vector cleanup"
+        in caplog.text
     )
     assert "provider failure" not in caplog.text
 

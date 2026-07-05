@@ -39,16 +39,19 @@ The choice persists in `localStorage`.
   for creating/renaming/deleting categories, a browse category tree with nested
   notes that can be dragged between categories, search match snippets, and
   visible Ask source checkboxes for all notes, categories, and individual notes.
-- **Center workspace:** write new Markdown notes, read selected notes, and edit
-  the note body, title, summary, tags, and category in one workspace.
+- **Center workspace:** write new Markdown notes and open selected notes in the
+  same full-height Markdown editor. Title, summary, tags, and category are
+  edited through an Obsidian-compatible YAML frontmatter block, with a subtle
+  Read Mode toolbar button for in-place rendered preview.
   Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
   Markdown and GFM syntax while preserving raw Markdown.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
   Ask source scope, and cited answers whose sources open saved notes.
 
-The backend stores notes locally, asks an LLM for title, summary, and tags when
-configured, indexes note chunks for retrieval, and exposes search and Ask
-endpoints that return sourced results from your own note collection.
+The backend stores notes locally in SQLite and mirrors them as Markdown files
+with YAML frontmatter, asks an LLM for title, summary, and tags when configured,
+indexes note chunks for retrieval, and exposes search and Ask endpoints that
+return sourced results from your own note collection.
 
 ## Local-first storage
 
@@ -191,14 +194,15 @@ Walk through these once after a clean install:
 - [ ] Left sidebar Search tab returns live local results while typing, full hybrid results on Enter, and note cards with `Exact`, `Fuzzy`, `Semantic`, or `Hybrid` match chips and matched snippets when available
 - [ ] Left sidebar Browse tab starts with collapsed category folders, supports dragging notes between categories, and has a collapsed category manager for create/rename/delete
 - [ ] Left sidebar Ask source checkboxes switch between all notes, category-selected notes, individual notes, and no selected notes
-- [ ] Center workspace creates notes, opens selected notes, and edits the saved Markdown body plus metadata
-- [ ] Saved note detail renders the note body as Markdown in single-pane read mode
+- [ ] Center workspace creates notes, opens selected notes in the same editor surface, and edits the saved Markdown body plus YAML metadata frontmatter
+- [ ] Read Mode renders new-note drafts and saved-note bodies as Markdown in place
 - [ ] Right sidebar Ask/chat persists recent in-session turns and cites saved-note sources
 - [ ] `uv run python -m mapping_memory.reindex` rebuilds Chroma from SQLite when run from `backend/` with `OPENAI_API_KEY`
 
 ## Where local data is stored
 
-- Notes (canonical): `data/mapping_memory.sqlite`
+- Note database and local index: `data/mapping_memory.sqlite`
+- Markdown vault: `data/vault/`
 - Vector index (derived): `data/chroma/`
 
 Both paths are relative to the repository root by default and are listed in
