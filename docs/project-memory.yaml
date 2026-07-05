@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-05T21:50:22Z"
+    time_local: "2026-07-05T18:50:22-03:00"
+    summary: "Polished Bun messages and cited sources."
+    changed:
+      - "Added asymmetric rounded-2xl chat bubble shapes with a small tail toward the sender for UserBubble and AssistantBubble, plus shadow-sm depth, using existing theme tokens."
+      - "Styled the pending Bun placeholder text as italic and text-text-muted so it reads as a loading placeholder instead of a real answer."
+      - "Added TriangleAlert icon to ErrorBubble with stronger border-error/60 and text-error for clearer error visibility."
+      - "Added Quote, FileText, and ArrowUpRight icons to the SourceList header and each source button, strengthened source title to text-text-primary, bumped date size to text-[11px], and added a border-border edge."
+      - "Polished bubble padding to px-3.5 for parity across UserBubble, AssistantBubble, and ErrorBubble."
+    verification:
+      - "Ran npm run typecheck, npm run lint, npm run build, and npm run test from frontend/: all 120 tests passed."
   - time_utc: "2026-07-05T18:25:00Z"
     time_local: "2026-07-05T15:25:00-03:00"
     summary: "Polished the center Markdown workspace into cozy notebook pages."

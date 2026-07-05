@@ -1,6 +1,6 @@
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { ArrowUpRight, FileText, Quote, Send, Sparkles, TriangleAlert } from "lucide-react";
 
 import type { AskSource, ChatMessage } from "../types";
 
@@ -17,6 +17,7 @@ type AskChatProps = {
 
 type AssistantBubbleProps = {
   content: string;
+  isPending?: boolean;
   onSourceSelect: (noteId: number) => void;
   sources: AskSource[];
 };
@@ -34,22 +35,27 @@ function SourceList({
 
   return (
     <div className="mt-3 pt-3" aria-label="Supporting sources">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-        Sources · {sources.length}
-      </p>
+      <div className="flex items-center gap-1.5">
+        <Quote size={11} strokeWidth={2} className="text-text-muted" aria-hidden="true" />
+        <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+          Sources · {sources.length}
+        </p>
+      </div>
       <div className="mt-2 flex flex-col gap-1.5">
         {sources.map((source) => (
           <button
             aria-label={`Open cited note: ${source.title}`}
-            className="flex cursor-pointer items-center justify-between gap-2 rounded-card bg-bg px-3 py-2 text-left transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+            className="flex cursor-pointer items-center gap-2 rounded-card border border-border bg-bg px-3 py-2 text-left transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
             key={source.note_id}
             onClick={() => onSourceSelect(source.note_id)}
             type="button"
           >
-            <span className="min-w-0 truncate text-[13px] font-medium text-text-secondary">{source.title}</span>
-            <time className="shrink-0 text-[10px] tabular-nums text-text-muted" dateTime={source.date_added}>
+            <FileText size={12} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">{source.title}</span>
+            <time className="shrink-0 text-[11px] tabular-nums text-text-muted" dateTime={source.date_added}>
               {source.date_added.slice(0, 10)}
             </time>
+            <ArrowUpRight size={12} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
           </button>
         ))}
       </div>
@@ -57,11 +63,11 @@ function SourceList({
   );
 }
 
-function AssistantBubble({ content, onSourceSelect, sources }: AssistantBubbleProps) {
+function AssistantBubble({ content, isPending, onSourceSelect, sources }: AssistantBubbleProps) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[86%] rounded-md bg-surface px-3 py-2.5 text-[13px] leading-relaxed text-text-secondary">
-        <p className="whitespace-pre-wrap">{content}</p>
+      <div className="max-w-[86%] rounded-2xl rounded-tl-md bg-surface px-3.5 py-2.5 text-[13px] leading-relaxed text-text-secondary shadow-sm">
+        <p className={isPending ? "whitespace-pre-wrap italic text-text-muted" : "whitespace-pre-wrap"}>{content}</p>
         <SourceList onSourceSelect={onSourceSelect} sources={sources} />
       </div>
     </div>
@@ -71,7 +77,7 @@ function AssistantBubble({ content, onSourceSelect, sources }: AssistantBubblePr
 function UserBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[78%] rounded-md bg-accent px-3 py-2.5 text-[13px] leading-relaxed text-accent-fg">
+      <div className="max-w-[78%] rounded-2xl rounded-br-md bg-accent px-3.5 py-2.5 text-[13px] leading-relaxed text-accent-fg shadow-sm">
         <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
@@ -81,8 +87,11 @@ function UserBubble({ content }: { content: string }) {
 function ErrorBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[86%] rounded-md border border-error/40 bg-error-muted px-3 py-2.5 text-[13px] leading-relaxed text-text-primary">
-        <p className="whitespace-pre-wrap">{content}</p>
+      <div className="max-w-[86%] rounded-2xl rounded-tl-md border border-error/60 bg-error-muted px-3.5 py-2.5 text-[13px] leading-relaxed text-error shadow-sm">
+        <div className="flex items-start gap-2">
+          <TriangleAlert size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-error" aria-hidden="true" />
+          <p className="whitespace-pre-wrap">{content}</p>
+        </div>
       </div>
     </div>
   );
@@ -160,6 +169,7 @@ export function AskChat({
             return (
               <AssistantBubble
                 content={message.content}
+                isPending={message.id === pendingMessageId}
                 key={message.id}
                 onSourceSelect={onSourceSelect}
                 sources={message.sources}
