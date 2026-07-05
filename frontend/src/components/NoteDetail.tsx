@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 
 import {
@@ -10,6 +10,7 @@ import {
 import type { Category, Note, OrganizedNoteMetadata } from "../types";
 import { MarkdownPane } from "./MarkdownPane";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { NoteToolbar, TOOLBAR_ACCENT_BUTTON_CLASS, TOOLBAR_BUTTON_CLASS } from "./NoteToolbar";
 import type { NoteWorkspaceMode } from "./NoteWorkspace";
 
 type NoteDetailProps = {
@@ -37,6 +38,7 @@ type NoteDetailProps = {
     category_id: number | null;
   }) => Promise<void>;
   readMode?: boolean;
+  toolbarControls: ReactNode;
 };
 
 function noteToDocument(note: Note): string {
@@ -81,6 +83,7 @@ export function NoteDetail({
   onRegenerateDetails,
   onSaveEdit,
   readMode = false,
+  toolbarControls,
 }: NoteDetailProps) {
   const [documentText, setDocumentText] = useState(() => (note ? noteToDocument(note) : ""));
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -131,6 +134,7 @@ export function NoteDetail({
   const actionsDisabled = isDeleting || isSavingEdit || isRegeneratingDetails;
   const parsedDocument = parseNoteEditorDocument(documentText, note, categories);
   const previewBody = readMode ? parsedDocument.update.original_text : "";
+  const currentError = validationError ?? editError ?? deleteError;
 
   async function handleRegenerateDetails() {
     if (!note || !onRegenerateDetails) {
@@ -188,9 +192,67 @@ export function NoteDetail({
 
   return (
     <article className="flex h-full min-h-0 w-full flex-col">
-      <header className="flex shrink-0 flex-col gap-2 px-5 py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
+      <NoteToolbar
+        actions={
+          readMode ? null : (
+            <>
+              <button
+                aria-label={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
+                className={TOOLBAR_BUTTON_CLASS}
+                disabled={actionsDisabled || !onRegenerateDetails}
+                onClick={() => void handleRegenerateDetails()}
+                title={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
+                type="button"
+              >
+                <RefreshCw aria-hidden="true" size={13} strokeWidth={2} />
+              </button>
+              <button
+                aria-label={isSavingEdit ? "Saving changes" : "Save changes"}
+                className={TOOLBAR_ACCENT_BUTTON_CLASS}
+                disabled={actionsDisabled}
+                onClick={() => void handleSaveEdit()}
+                title={isSavingEdit ? "Saving changes" : "Save changes"}
+                type="button"
+              >
+                <Save aria-hidden="true" size={13} strokeWidth={2} />
+              </button>
+              <button
+                aria-label="Cancel edit"
+                className={TOOLBAR_BUTTON_CLASS}
+                disabled={actionsDisabled}
+                onClick={onCancelEdit}
+                title="Cancel edit"
+                type="button"
+              >
+                <X aria-hidden="true" size={13} strokeWidth={2} />
+              </button>
+              <button
+                aria-label="New note"
+                className={TOOLBAR_BUTTON_CLASS}
+                disabled={actionsDisabled}
+                onClick={onNewNote}
+                title="New note"
+                type="button"
+              >
+                <Plus aria-hidden="true" size={13} strokeWidth={2} />
+              </button>
+              <button
+                aria-label={isDeleting ? "Deleting note" : "Delete note"}
+                className={`${TOOLBAR_BUTTON_CLASS} border border-error/20 text-error hover:bg-error-muted hover:text-error`}
+                disabled={actionsDisabled}
+                onClick={() => void onDelete(note.id)}
+                title={isDeleting ? "Deleting note" : "Delete note"}
+                type="button"
+              >
+                <Trash2 aria-hidden="true" size={13} strokeWidth={2} />
+              </button>
+            </>
+          )
+        }
+        error={currentError}
+        status={
+          readMode ? null : (
+            <>
             <span className="truncate text-[11px] text-text-muted">
               {parsedDocument.update.original_text.trim()
                 ? `${parsedDocument.update.original_text.length} chars`
@@ -199,63 +261,13 @@ export function NoteDetail({
             <span className="rounded bg-surface px-2 py-0.5 text-[11px] text-text-secondary">
               {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
             </span>
-          </div>
+            </>
+          )
+        }
+        toolbarControls={toolbarControls}
+      />
 
-          <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-            <button
-              aria-label={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface disabled:opacity-40"
-              disabled={actionsDisabled || !onRegenerateDetails || readMode}
-              onClick={() => void handleRegenerateDetails()}
-              title={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
-              type="button"
-            >
-              <RefreshCw size={14} strokeWidth={2} />
-            </button>
-            <button
-              aria-label={isSavingEdit ? "Saving changes" : "Save changes"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-accent text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={actionsDisabled || readMode}
-              onClick={() => void handleSaveEdit()}
-              title={isSavingEdit ? "Saving changes" : "Save changes"}
-              type="button"
-            >
-              <Save size={14} strokeWidth={2} />
-            </button>
-            <button
-              aria-label="Cancel edit"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={onCancelEdit}
-              title="Cancel edit"
-              type="button"
-            >
-              <X size={14} strokeWidth={2} />
-            </button>
-            <button
-              aria-label="New note"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={onNewNote}
-              title="New note"
-              type="button"
-            >
-              <Plus size={14} strokeWidth={2} />
-            </button>
-            <button
-              aria-label={isDeleting ? "Deleting note" : "Delete note"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-error/20 text-error transition-colors hover:bg-error-muted disabled:opacity-40"
-              disabled={actionsDisabled}
-              onClick={() => void onDelete(note.id)}
-              title={isDeleting ? "Deleting note" : "Delete note"}
-              type="button"
-            >
-              <Trash2 size={14} strokeWidth={2} />
-            </button>
-          </div>
-        </div>
-
-        {readMode ? <details className="rounded-md bg-surface px-3 py-2 text-sm text-text-secondary">
+      {readMode ? <details className="mx-5 mt-2 shrink-0 rounded-md bg-surface px-3 py-2 text-sm text-text-secondary">
           <summary className="cursor-pointer text-[11px] font-medium uppercase tracking-wide text-text-muted">
             Details
           </summary>
@@ -270,11 +282,6 @@ export function NoteDetail({
             </div>
           ) : null}
         </details> : null}
-
-        {validationError ? <p className="text-xs text-error">{validationError}</p> : null}
-        {editError ? <p className="text-xs text-error">{editError}</p> : null}
-        {deleteError ? <p className="text-xs text-error">{deleteError}</p> : null}
-      </header>
 
       {readMode ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">

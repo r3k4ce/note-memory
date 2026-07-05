@@ -1,10 +1,12 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
+import { Save } from "lucide-react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { Category } from "../types";
 import { getNoteEditorBody } from "../editor/noteEditorDocument";
 import { MarkdownPane, type MarkdownPaneHandle } from "./MarkdownPane";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { NoteToolbar, TOOLBAR_ACCENT_BUTTON_CLASS } from "./NoteToolbar";
 
 type AddNoteProps = {
   captureRef: RefObject<MarkdownPaneHandle | null>;
@@ -15,6 +17,7 @@ type AddNoteProps = {
   onDraftTextChange: (value: string) => void;
   onSave: () => void;
   readMode?: boolean;
+  toolbarControls: ReactNode;
 };
 
 export function AddNote({
@@ -26,30 +29,38 @@ export function AddNote({
   onDraftTextChange,
   onSave,
   readMode = false,
+  toolbarControls,
 }: AddNoteProps) {
+  const statusText = draftText.trim() ? `${draftText.length} chars` : `${APP_SHORTCUTS.capture.label} to focus`;
+
   return (
     <div className="flex h-full min-h-0 flex-col" aria-labelledby="add-note-title">
       <h2 className="sr-only" id="add-note-title">
         New note
       </h2>
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-5 py-2.5">
-        <div className="flex min-w-0 items-center gap-3">
-          {error ? <p className="text-xs text-error">{error}</p> : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[11px] text-text-muted">
-            {draftText.trim() ? `${draftText.length} chars` : `${APP_SHORTCUTS.capture.label} to focus`}
-          </span>
+      <NoteToolbar
+        actions={
+          readMode ? null : (
           <button
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={isSaving ? "Saving..." : "Save note"}
+            className={TOOLBAR_ACCENT_BUTTON_CLASS}
             disabled={isSaving}
             onClick={onSave}
+            title={isSaving ? "Saving..." : "Save note"}
             type="button"
           >
-            {isSaving ? "Saving..." : "Save note"}
+            <Save aria-hidden="true" size={13} strokeWidth={2} />
           </button>
-        </div>
-      </div>
+          )
+        }
+        error={error}
+        status={
+          readMode ? null : (
+            <span className="min-w-0 truncate text-[11px] text-text-muted">{statusText}</span>
+          )
+        }
+        toolbarControls={toolbarControls}
+      />
       {readMode ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <MarkdownPreview source={getNoteEditorBody(draftText)} />

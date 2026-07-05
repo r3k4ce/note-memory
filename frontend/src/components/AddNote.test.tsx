@@ -48,6 +48,7 @@ function renderAddNote({
       onDraftTextChange={vi.fn()}
       onSave={vi.fn()}
       readMode={readMode}
+      toolbarControls={null}
     />,
   );
 }
@@ -57,7 +58,12 @@ describe("AddNote copy", () => {
     renderAddNote();
 
     expect(screen.getByRole("heading", { name: "New note" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save note" })).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toHaveTextContent(
+      "Alt+1 to focus",
+    );
+    expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toContainElement(
+      screen.getByRole("button", { name: "Save note" }),
+    );
     expect(screen.getByPlaceholderText("Write in Markdown...")).toBeInTheDocument();
   });
 
@@ -73,6 +79,7 @@ describe("AddNote copy", () => {
       readMode: true,
     });
 
+    expect(screen.queryByRole("button", { name: "Save note" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Markdown source")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("# Draft title");
     expect(screen.getByLabelText("Markdown preview")).not.toHaveTextContent("title: Draft title");

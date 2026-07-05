@@ -61,6 +61,7 @@ function renderDetail(props: Partial<ComponentProps<typeof NoteDetail>> = {}) {
     onEditDirtyChange: vi.fn(),
     onNewNote: vi.fn(),
     onSaveEdit: vi.fn().mockResolvedValue(undefined),
+    toolbarControls: null,
   };
 
   return render(<NoteDetail {...defaultProps} {...props} />);
@@ -91,6 +92,11 @@ describe("NoteDetail selected-note editing", () => {
     expect(screen.getByLabelText("Cancel edit")).toBeInTheDocument();
     expect(screen.getByLabelText("New note")).toBeInTheDocument();
     expect(screen.getByLabelText("Delete note")).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toHaveTextContent("12 chars");
+    expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toHaveTextContent("Work");
+    expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toContainElement(
+      screen.getByLabelText("Save changes"),
+    );
 
     fireEvent.change(editor, {
       target: {
@@ -152,5 +158,16 @@ describe("NoteDetail selected-note editing", () => {
     expect((editor as HTMLTextAreaElement).value).toContain("tags: ai, draft");
     expect((editor as HTMLTextAreaElement).value).toContain("Unsaved body");
     expect(onSaveEdit).not.toHaveBeenCalled();
+  });
+
+  test("hides edit actions in read mode while keeping note details", () => {
+    renderDetail({ readMode: true });
+
+    expect(screen.queryByLabelText("Regenerate details")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Save changes")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Cancel edit")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New note")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Delete note")).not.toBeInTheDocument();
+    expect(screen.getByText("Details")).toBeInTheDocument();
   });
 });

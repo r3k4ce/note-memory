@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-05T17:44:20Z"
+    time_local: "2026-07-05T14:44:21-03:00"
+    summary: "Moved note edit actions into the shared workspace toolbar."
+    changed:
+      - "Added a compact NoteToolbar used by new-note and selected-note views, with edit actions, status metadata, read mode, and focus mode controls in one top bar."
+      - "Removed the local edit/new-note action rows so the Markdown editor starts directly under the toolbar, while read mode hides edit actions and keeps selected-note details unchanged."
+      - "Changed note save/edit/delete validation errors to render as a small overlay below the toolbar instead of taking editor layout height."
+    verification:
+      - "Ran npm run test -- AddNote.test.tsx NoteDetail.test.tsx App.test.tsx from frontend/: 36 passing."
+      - "Ran npm run lint from frontend/: passed."
+      - "Ran npm run build from frontend/: passed."
+      - "Ran ./scripts/check.sh from repository root with uv cache escalation: backend format/lint/typecheck/tests and frontend tests/lint/build passed."
   - time_utc: "2026-07-05T17:21:47Z"
     time_local: "2026-07-05T14:21:47-03:00"
     summary: "Streamlined note editing and added Obsidian-compatible Markdown vault storage."

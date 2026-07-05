@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -96,15 +97,18 @@ vi.mock("./components/NoteWorkspace", () => ({
     onEditDirtyChange,
     onEdit,
     readMode,
+    toolbarControls,
   }: {
     mode: string;
     note: Note | null;
     onEditDirtyChange: (isDirty: boolean) => void;
     onEdit: () => void;
     readMode: boolean;
+    toolbarControls: ReactNode;
   }) {
     return (
       <section aria-label="Note workspace" data-mode={mode}>
+        {toolbarControls}
         <span>Workspace mode: {mode}</span>
         <span>Read mode: {String(readMode)}</span>
         {note ? <span>Loaded note: {note.ai_title}</span> : null}

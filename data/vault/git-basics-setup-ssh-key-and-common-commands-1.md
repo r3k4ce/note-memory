@@ -1,10 +1,20 @@
 ---
-title: '#git #programming'
-summary: "#git #programming \n# What is Git?\n\n- Git is a Distributed Version Control\
-  \ System (DVCS).\n- Records changes to files over time and allows recalling specific\
-  \ versions.\n- Enables reverting selected files or entire projects to previous states.\n\
-  - Facilita"
-tags: []
+title: 'Git basics: setup, SSH key, and common commands'
+summary: Git is a distributed version control system that tracks file changes over
+  time, helps compare versions, revert mistakes, and recover lost work. This note
+  also includes common Git setup commands, SSH key creation, and basic workflow commands
+  for cloning, staging, committing, and pushing.
+tags:
+- git
+- github
+- version control
+- dvcs
+- git config
+- ssh key
+- git commands
+- clone
+- commit
+- push
 category: Tutorials
 ---
 

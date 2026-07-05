@@ -1129,6 +1129,32 @@ export default function App() {
         : searchResults.length === 1
           ? "1 found"
           : `${searchResults.length} found`;
+  const toolbarControls = (
+    <>
+      <button
+        aria-label={readMode ? "Edit Mode" : "Read Mode"}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        onClick={() => setReadMode((currentMode) => !currentMode)}
+        title={readMode ? "Edit Mode" : "Read Mode"}
+        type="button"
+      >
+        {readMode ? (
+          <Pencil aria-hidden="true" size={13} strokeWidth={2} />
+        ) : (
+          <BookOpen aria-hidden="true" size={13} strokeWidth={2} />
+        )}
+      </button>
+      <button
+        aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        onClick={toggleTextAreaFocus}
+        title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
+        type="button"
+      >
+        <Maximize2 aria-hidden="true" size={13} strokeWidth={2} />
+      </button>
+    </>
+  );
 
   return (
     <div className="flex h-screen bg-bg text-text-primary">
@@ -1585,30 +1611,6 @@ export default function App() {
       />
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg">
-        <div className="flex h-8 shrink-0 items-center justify-end gap-1 px-3 py-1">
-          <button
-            aria-label={readMode ? "Edit Mode" : "Read Mode"}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-            onClick={() => setReadMode((currentMode) => !currentMode)}
-            title={readMode ? "Edit Mode" : "Read Mode"}
-            type="button"
-          >
-            {readMode ? (
-              <Pencil aria-hidden="true" size={13} strokeWidth={2} />
-            ) : (
-              <BookOpen aria-hidden="true" size={13} strokeWidth={2} />
-            )}
-          </button>
-          <button
-            aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-            onClick={toggleTextAreaFocus}
-            title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
-            type="button"
-          >
-            <Maximize2 aria-hidden="true" size={13} strokeWidth={2} />
-          </button>
-        </div>
         <div className="min-h-0 flex-1 overflow-hidden">
           <NoteWorkspace
             captureRef={captureRef}
@@ -1641,6 +1643,7 @@ export default function App() {
             onSaveEdit={handleSaveSelectedNoteEdit}
             readMode={readMode}
             saveError={saveError}
+            toolbarControls={toolbarControls}
           />
         </div>
       </main>

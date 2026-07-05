@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import type { Category, Note } from "../types";
 import { AddNote } from "./AddNote";
@@ -9,6 +9,7 @@ export type NoteWorkspaceMode = "new" | "read-selected" | "edit-selected";
 
 type NoteWorkspaceProps = {
   mode: NoteWorkspaceMode;
+  toolbarControls: ReactNode;
 
   captureRef: RefObject<MarkdownPaneHandle | null>;
   categories: Category[];
@@ -49,6 +50,7 @@ type NoteWorkspaceProps = {
 
 export function NoteWorkspace({
   mode,
+  toolbarControls,
   captureRef,
   categories,
   draftText,
@@ -86,6 +88,7 @@ export function NoteWorkspace({
           onDraftTextChange={onDraftTextChange}
           onSave={onSave}
           readMode={readMode}
+          toolbarControls={toolbarControls}
         />
       </div>
     );
@@ -113,6 +116,7 @@ export function NoteWorkspace({
         onNewNote={onNewNote}
         onSaveEdit={onSaveEdit}
         readMode={readMode}
+        toolbarControls={toolbarControls}
       />
     </div>
   );
