@@ -46,6 +46,8 @@ type FencedCodeNode = SyntaxRange & {
   };
 };
 
+type DecorationRange = ReturnType<Decoration["range"]>;
+
 class TaskCheckboxWidget extends WidgetType {
   constructor(private readonly checked: boolean) {
     super();
@@ -89,17 +91,7 @@ function headingLineClass(level: number) {
   return `cm-md-heading-line cm-md-heading-${level}`;
 }
 
-function lineOverlapsSelection(view: EditorView, lineFrom: number, lineTo: number) {
-  return view.state.selection.ranges.some((range) => {
-    if (range.empty) {
-      return lineFrom <= range.head && range.head <= lineTo;
-    }
-
-    return range.from <= lineTo && range.to >= lineFrom;
-  });
-}
-
-function rangeOverlapsSelection(view: EditorView, from: number, to: number) {
+function selectionOverlapsRange(view: EditorView, from: number, to: number) {
   return view.state.selection.ranges.some((range) => {
     if (range.empty) {
       return from <= range.head && range.head <= to;
@@ -107,6 +99,10 @@ function rangeOverlapsSelection(view: EditorView, from: number, to: number) {
 
     return range.from <= to && range.to >= from;
   });
+}
+
+function lineOverlapsSelection(view: EditorView, line: SyntaxRange) {
+  return selectionOverlapsRange(view, line.from, line.to);
 }
 
 function atxMarkerEnd(view: EditorView, markerStart: number, lineTo: number) {
@@ -143,10 +139,10 @@ function blockquoteMarkerEnd(view: EditorView, markerStart: number, lineTo: numb
 function addInactiveInlineCodeDecorations(
   view: EditorView,
   inlineCodeNode: InlineCodeNode,
-  decorations: ReturnType<Decoration["range"]>[],
+  decorations: DecorationRange[],
 ) {
   const line = view.state.doc.lineAt(inlineCodeNode.from);
-  if (lineOverlapsSelection(view, line.from, line.to)) {
+  if (lineOverlapsSelection(view, line)) {
     return;
   }
 
@@ -157,26 +153,27 @@ function addInactiveInlineCodeDecorations(
 
   const openingMark = codeMarks[0];
   const closingMark = codeMarks[codeMarks.length - 1];
-  decorations.push(Decoration.replace({}).range(openingMark.from, openingMark.to));
-  if (openingMark.to < closingMark.from) {
-    decorations.push(
-      Decoration.mark({ class: "cm-md-inline-code" }).range(openingMark.to, closingMark.from),
-    );
-  }
-  decorations.push(Decoration.replace({}).range(closingMark.from, closingMark.to));
+  addDelimitedConcealmentDecorations(
+    decorations,
+    openingMark,
+    openingMark.to,
+    closingMark.from,
+    closingMark,
+    "cm-md-inline-code",
+  );
 }
 
 function addInactiveFormattedTextDecorations(
   view: EditorView,
   formattedTextNode: FormattedTextNode,
-  decorations: ReturnType<Decoration["range"]>[],
+  decorations: DecorationRange[],
   className: string,
   markerLength: number,
 ) {
   const line = view.state.doc.lineAt(formattedTextNode.from);
   if (
     line.to < formattedTextNode.to ||
-    lineOverlapsSelection(view, line.from, line.to) ||
+    lineOverlapsSelection(view, line) ||
     formattedTextNode.node.getChildren("Emphasis").length > 0 ||
     formattedTextNode.node.getChildren("StrongEmphasis").length > 0
   ) {
@@ -194,20 +191,23 @@ function addInactiveFormattedTextDecorations(
     return;
   }
 
-  decorations.push(Decoration.replace({}).range(openingMark.from, openingMark.to));
-  if (openingMark.to < closingMark.from) {
-    decorations.push(Decoration.mark({ class: className }).range(openingMark.to, closingMark.from));
-  }
-  decorations.push(Decoration.replace({}).range(closingMark.from, closingMark.to));
+  addDelimitedConcealmentDecorations(
+    decorations,
+    openingMark,
+    openingMark.to,
+    closingMark.from,
+    closingMark,
+    className,
+  );
 }
 
 function addInactiveLinkDecorations(
   view: EditorView,
   linkNode: LinkNode,
-  decorations: ReturnType<Decoration["range"]>[],
+  decorations: DecorationRange[],
 ) {
   const line = view.state.doc.lineAt(linkNode.from);
-  if (line.to < linkNode.to || lineOverlapsSelection(view, line.from, line.to)) {
+  if (line.to < linkNode.to || lineOverlapsSelection(view, line)) {
     return;
   }
 
@@ -227,10 +227,30 @@ function addInactiveLinkDecorations(
     openingDestinationMark.from <= url.from &&
     url.to <= closingDestinationMark.from
   ) {
-    decorations.push(Decoration.replace({}).range(openingLabelMark.from, openingLabelMark.to));
-    decorations.push(Decoration.mark({ class: "cm-md-link" }).range(openingLabelMark.to, closingLabelMark.from));
-    decorations.push(Decoration.replace({}).range(closingLabelMark.from, closingDestinationMark.to));
+    addDelimitedConcealmentDecorations(
+      decorations,
+      openingLabelMark,
+      openingLabelMark.to,
+      closingLabelMark.from,
+      { from: closingLabelMark.from, to: closingDestinationMark.to },
+      "cm-md-link",
+    );
   }
+}
+
+function addDelimitedConcealmentDecorations(
+  decorations: DecorationRange[],
+  openingMark: SyntaxRange,
+  contentFrom: number,
+  contentTo: number,
+  closingMark: SyntaxRange,
+  className: string,
+) {
+  decorations.push(Decoration.replace({}).range(openingMark.from, openingMark.to));
+  if (contentFrom < contentTo) {
+    decorations.push(Decoration.mark({ class: className }).range(contentFrom, contentTo));
+  }
+  decorations.push(Decoration.replace({}).range(closingMark.from, closingMark.to));
 }
 
 function codeTextLines(view: EditorView, codeText: SyntaxRange) {
@@ -264,12 +284,8 @@ function fencedCodeLanguage(view: EditorView, codeInfo: SyntaxRange | null) {
 function addInactiveFencedCodeDecorations(
   view: EditorView,
   fencedCodeNode: FencedCodeNode,
-  decorations: ReturnType<Decoration["range"]>[],
+  decorations: DecorationRange[],
 ) {
-  if (rangeOverlapsSelection(view, fencedCodeNode.from, fencedCodeNode.to)) {
-    return;
-  }
-
   const codeMarks = fencedCodeNode.node.getChildren("CodeMark");
   const codeInfo = fencedCodeNode.node.getChild("CodeInfo");
   const codeText = fencedCodeNode.node.getChild("CodeText");
@@ -279,19 +295,24 @@ function addInactiveFencedCodeDecorations(
 
   const openingLine = view.state.doc.lineAt(codeMarks[0].from);
   const closingLine = view.state.doc.lineAt(codeMarks[codeMarks.length - 1].from);
+  const openingLineIsActive = lineOverlapsSelection(view, openingLine);
+  const closingLineIsActive = lineOverlapsSelection(view, closingLine);
   const language = fencedCodeLanguage(view, codeInfo);
-  if (language) {
-    decorations.push(Decoration.line({ class: "cm-md-fenced-code-language-line" }).range(openingLine.from));
-    decorations.push(
-      Decoration.widget({
-        side: -1,
-        widget: new FencedCodeLanguageWidget(language),
-      }).range(openingLine.from),
-    );
-  } else {
-    decorations.push(Decoration.line({ class: "cm-md-fenced-code-marker-line" }).range(openingLine.from));
+
+  if (!openingLineIsActive) {
+    if (language) {
+      decorations.push(Decoration.line({ class: "cm-md-fenced-code-language-line" }).range(openingLine.from));
+      decorations.push(
+        Decoration.widget({
+          side: -1,
+          widget: new FencedCodeLanguageWidget(language),
+        }).range(openingLine.from),
+      );
+    } else {
+      decorations.push(Decoration.line({ class: "cm-md-fenced-code-marker-line" }).range(openingLine.from));
+    }
+    decorations.push(Decoration.replace({}).range(openingLine.from, openingLine.to));
   }
-  decorations.push(Decoration.replace({}).range(openingLine.from, openingLine.to));
 
   const bodyLines = codeTextLines(view, codeText);
   bodyLines.forEach((line, index) => {
@@ -305,22 +326,24 @@ function addInactiveFencedCodeDecorations(
     decorations.push(Decoration.line({ class: classes.join(" ") }).range(line.from));
   });
 
-  decorations.push(Decoration.line({ class: "cm-md-fenced-code-marker-line" }).range(closingLine.from));
-  decorations.push(Decoration.replace({}).range(closingLine.from, closingLine.to));
+  if (!closingLineIsActive) {
+    decorations.push(Decoration.line({ class: "cm-md-fenced-code-marker-line" }).range(closingLine.from));
+    decorations.push(Decoration.replace({}).range(closingLine.from, closingLine.to));
+  }
 }
 
 function addInactiveTaskCheckboxDecorations(
   view: EditorView,
   from: number,
   to: number,
-  decorations: ReturnType<Decoration["range"]>[],
+  decorations: DecorationRange[],
   taskLines: Set<number>,
 ) {
   let position = from;
 
   while (position <= to) {
     const line = view.state.doc.lineAt(position);
-    if (!taskLines.has(line.from) && !lineOverlapsSelection(view, line.from, line.to)) {
+    if (!taskLines.has(line.from) && !lineOverlapsSelection(view, line)) {
       const match = /^([ \t]*)- \[([ xX])\](?=$|[ \t])/.exec(line.text);
       if (match) {
         taskLines.add(line.from);
@@ -342,7 +365,7 @@ function addInactiveTaskCheckboxDecorations(
 }
 
 function buildMarkdownLivePreviewDecorations(view: EditorView) {
-  const decorations: ReturnType<Decoration["range"]>[] = [];
+  const decorations: DecorationRange[] = [];
   const blockquoteLines = new Set<number>();
   const taskLines = new Set<number>();
   const tree = syntaxTree(view.state);
@@ -358,7 +381,7 @@ function buildMarkdownLivePreviewDecorations(view: EditorView) {
         if (atxLevel) {
           const line = view.state.doc.lineAt(node.from);
           decorations.push(Decoration.line({ class: headingLineClass(atxLevel) }).range(line.from));
-          if (!lineOverlapsSelection(view, line.from, line.to)) {
+          if (!lineOverlapsSelection(view, line)) {
             decorations.push(Decoration.replace({}).range(node.from, atxMarkerEnd(view, node.from, line.to)));
           }
           return;
@@ -372,7 +395,7 @@ function buildMarkdownLivePreviewDecorations(view: EditorView) {
 
           blockquoteLines.add(line.from);
           decorations.push(Decoration.line({ class: "cm-md-blockquote-line" }).range(line.from));
-          if (!lineOverlapsSelection(view, line.from, line.to)) {
+          if (!lineOverlapsSelection(view, line)) {
             decorations.push(Decoration.replace({}).range(node.from, blockquoteMarkerEnd(view, node.from, line.to)));
           }
           return;

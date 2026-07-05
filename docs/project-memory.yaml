@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-05T04:32:00Z"
+    time_local: "2026-07-05T01:32:00-03:00"
+    summary: "Standardized CodeMirror live-preview reveal behavior around active lines."
+    changed:
+      - "Refactored frontend/src/editor/markdownLivePreview.ts to use shared selection and delimited-concealment helpers for existing visual-only Markdown decorations."
+      - "Changed inactive fenced-code marker reveal from whole-block overlap to line-level overlap while preserving raw Markdown and existing body styling."
+      - "Updated focused editor tests for line-level fenced-code reveal on body, opening fence, closing fence, and selection overlap cases."
+    verification:
+      - "Ran npm run test -- src/editor/markdownLivePreview.test.ts before implementation: failed on the old whole-block fenced-code reveal behavior."
+      - "Ran npm run typecheck, npm run test (91 passing), npm run lint, and npm run build from frontend/."
   - time_utc: "2026-07-05T04:14:20Z"
     time_local: "2026-07-05T01:14:20-03:00"
     summary: "Added visual-only Markdown task checkbox live preview in the CodeMirror editor."

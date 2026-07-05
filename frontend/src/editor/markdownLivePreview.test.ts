@@ -334,19 +334,44 @@ describe("markdownLivePreviewExtension", () => {
     expect(fencedCodeLanguageLabels(editor)).toHaveLength(0);
   });
 
-  test("reveals fenced code markers when the cursor is inside the code block", () => {
+  test("keeps fenced code markers concealed when the cursor is inside the code body", () => {
     const editor = createEditor('```python\nimport random\n\nprint("hello, world!")\n```\n\nplain');
 
     editor.dispatch({
       selection: EditorSelection.cursor(17),
     });
 
+    expect(lineWithText(editor, "```python")).toBeUndefined();
+    expect(lineWithText(editor, "```")).toBeUndefined();
+    expect(lineWithText(editor, "import random")).toHaveClass("cm-md-fenced-code-line", "cm-md-fenced-code-first-line");
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(1);
+  });
+
+  test("reveals the opening fenced code marker when its line is active", () => {
+    const editor = createEditor('```python\nimport random\n\nprint("hello, world!")\n```\n\nplain');
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(3),
+    });
+
     expect(lineWithText(editor, "```python")).toBeInTheDocument();
-    expect(lineWithText(editor, "```")).toBeInTheDocument();
+    expect(lineWithText(editor, "```")).toBeUndefined();
     expect(fencedCodeLanguageLabels(editor)).toHaveLength(0);
   });
 
-  test("reveals fenced code markers when a selection overlaps the code block", () => {
+  test("reveals the closing fenced code marker when its line is active", () => {
+    const editor = createEditor('```python\nimport random\n\nprint("hello, world!")\n```\n\nplain');
+
+    editor.dispatch({
+      selection: EditorSelection.cursor(51),
+    });
+
+    expect(lineWithText(editor, "```python")).toBeUndefined();
+    expect(lineWithText(editor, "```")).toBeInTheDocument();
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(1);
+  });
+
+  test("reveals only fenced code marker lines overlapped by a selection", () => {
     const editor = createEditor('```python\nimport random\n\nprint("hello, world!")\n```\n\nplain');
 
     editor.dispatch({
@@ -354,7 +379,8 @@ describe("markdownLivePreviewExtension", () => {
     });
 
     expect(lineWithText(editor, "```python")).toBeInTheDocument();
-    expect(lineWithText(editor, "```")).toBeInTheDocument();
+    expect(lineWithText(editor, "```")).toBeUndefined();
+    expect(fencedCodeLanguageLabels(editor)).toHaveLength(0);
   });
 
   test("replaces inactive unchecked task markers with a visual checkbox without changing the document", () => {
