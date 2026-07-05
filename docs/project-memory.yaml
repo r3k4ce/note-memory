@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-05T01:57:50Z"
+    time_local: "2026-07-04T21:57:50-04:00"
+    summary: "Ignored the .superpowers agentic tooling directory in .gitignore."
+    changed:
+      - "Added .superpowers/ to .gitignore alongside the existing .opencode/ rule so untracked agentic session and brainstorm state stays out of git status."
+      - "Confirmed via git check-ignore -v .superpowers/ and git log --all -- .superpowers that the directory was never tracked, so no history rewrite was required."
+    verification:
+      - "git check-ignore -v .superpowers/ and git check-ignore -v .superpowers/brainstorm/51777-1783196531/state: both match .gitignore:44:.superpowers/."
+      - "git status no longer lists .superpowers/ under Untracked files."
+      - "git ls-files | wc -l: 86 (unchanged)."
   - time_utc: "2026-07-04T20:47:35Z"
     time_local: "2026-07-04T17:47:35-03:00"
     summary: "Added RapidFuzz-backed live local search while preserving full semantic search on submit."
