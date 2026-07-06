@@ -6,6 +6,7 @@ import type { AskSource, ChatMessage } from "../types";
 
 type AskChatProps = {
   askRef: RefObject<HTMLTextAreaElement | null>;
+  hasNotes?: boolean;
   messages: ChatMessage[];
   onSourceSelect: (noteId: number) => void;
   onSubmit: (question: string) => void;
@@ -179,6 +180,7 @@ function ErrorBubble({ content }: { content: string }) {
 
 export function AskChat({
   askRef,
+  hasNotes = true,
   messages,
   onSourceSelect,
   onSubmit,
@@ -192,6 +194,9 @@ export function AskChat({
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
   const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
+  const emptyHelper = hasNotes
+    ? "Ask Bun about the notes selected in your notebook index."
+    : "Save your first note, then Bun can help answer questions about it.";
   const promptChips = [
     "What did I save today?",
     "Find decisions with sources",
@@ -254,6 +259,7 @@ export function AskChat({
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-muted">
               <Sparkles size={16} strokeWidth={2} className="text-accent" />
             </div>
+            <p className="max-w-[240px] text-xs leading-relaxed text-text-muted">{emptyHelper}</p>
             <div className="flex max-w-[260px] flex-wrap justify-center gap-1.5">
               {promptChips.map((prompt) => (
                 <button

@@ -125,7 +125,7 @@ export function NoteDetail({
   if (!note) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-1.5 py-20">
-        <p className="text-sm font-medium text-text-secondary">Pick a note to start reading</p>
+        <p className="text-sm font-medium text-text-secondary">Pick a note to open</p>
         <p className="text-xs text-text-muted">Choose a note from the sidebar, or start a new one.</p>
       </div>
     );

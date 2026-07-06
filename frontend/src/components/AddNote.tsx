@@ -72,7 +72,7 @@ export function AddNote({
           editorHandleRef={captureRef}
           mode="edit"
           onChange={onDraftTextChange}
-          placeholder="Write in Markdown..."
+          placeholder="Start writing your note in Markdown..."
           value={draftText}
           variant="workspace"
         />

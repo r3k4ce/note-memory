@@ -1127,7 +1127,7 @@ export default function App() {
     : searchError
       ? "Search hit a snag"
       : searchResults.length === 0
-        ? "No crumbs found"
+        ? "No matching notes"
         : searchResults.length === 1
           ? "1 match"
           : `${searchResults.length} matches`;
@@ -1409,15 +1409,19 @@ export default function App() {
           ) : null}
 
           {isBrowseTab && !isLoadingNotes && !listError && notes.length === 0 ? (
-            <div className="px-2 py-6 text-center">
-              <p className="text-xs text-text-muted">Your notebook is empty.</p>
-              <p className="mt-1 text-xs text-text-muted">
-                Press <kbd className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> to create your first note
+            <div className="mx-1.5 rounded-lg bg-surface p-4 text-center">
+              <p className="text-sm font-medium text-text-secondary">Start your notebook</p>
+              <p className="mt-1 text-xs text-text-muted">Create your first Markdown note, then Bun can help you find it later.</p>
+              <p className="mt-2 text-xs text-text-muted">
+                Press <kbd className="rounded bg-bg px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> to create your first note
               </p>
             </div>
           ) : null}
           {isSearchTab && isSearchActive && !isSearching && !searchError && searchResults.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-text-muted">No crumbs found.</p>
+            <div className="mx-1.5 rounded-lg bg-surface p-4 text-center">
+              <p className="text-sm font-medium text-text-secondary">No matching notes</p>
+              <p className="mt-1 text-xs text-text-muted">Try another phrase or browse your notebook index.</p>
+            </div>
           ) : null}
 
           {isSearchTab && isSearchActive ? (
@@ -1558,7 +1562,7 @@ export default function App() {
                             />
                           ))
                         ) : (
-                          <p className="px-2 py-2 text-xs text-text-muted">Nothing here yet</p>
+                          <p className="px-2 py-2 text-xs text-text-muted">No notes in this section yet.</p>
                         )}
                       </div>
                     ) : null}
@@ -1632,6 +1636,7 @@ export default function App() {
       >
         <AskChat
           askRef={askRef}
+          hasNotes={notes.length > 0}
           messages={askMessages}
           onSourceSelect={handleAskSourceSelect}
           onSubmit={handleAskSubmit}

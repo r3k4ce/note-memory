@@ -64,7 +64,7 @@ describe("AddNote copy", () => {
     expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toContainElement(
       screen.getByRole("button", { name: "Save note" }),
     );
-    expect(screen.getByPlaceholderText("Write in Markdown...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Start writing your note in Markdown...")).toBeInTheDocument();
   });
 
   test("uses saving copy while the note is being saved", () => {

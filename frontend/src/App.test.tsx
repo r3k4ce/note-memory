@@ -884,8 +884,9 @@ describe("App sidebar navigation", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     expect(await screen.findByText("Results for “missing”", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("No crumbs found")).toBeInTheDocument();
-    expect(screen.getByText("No crumbs found.")).toBeInTheDocument();
+    expect(screen.getByText("No matching notes", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getAllByText("No matching notes")).toHaveLength(2);
+    expect(screen.getByText("Try another phrase or browse your notebook index.")).toBeInTheDocument();
   });
 
   test("shows failed search status while preserving the error body", async () => {
