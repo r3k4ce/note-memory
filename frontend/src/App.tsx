@@ -1195,10 +1195,10 @@ export default function App() {
           >
             <button
               aria-selected={isBrowseTab}
-              className={`rounded px-2.5 py-2.5 text-[12px] font-medium transition-colors ${
+              className={`rounded px-3 py-3 text-[14px] transition-colors ${
                 isBrowseTab
-                  ? "bg-bg text-text-primary shadow-soft"
-                  : "text-text-muted hover:text-text-primary"
+                  ? "bg-bg text-accent shadow-soft font-semibold"
+                  : "text-text-muted hover:text-text-primary font-medium"
               }`}
               onClick={() => setSidebarTab("browse")}
               role="tab"
@@ -1208,10 +1208,10 @@ export default function App() {
             </button>
             <button
               aria-selected={isSearchTab}
-              className={`rounded px-2.5 py-2.5 text-[12px] font-medium transition-colors ${
+              className={`rounded px-3 py-3 text-[14px] transition-colors ${
                 isSearchTab
-                  ? "bg-bg text-text-primary shadow-soft"
-                  : "text-text-muted hover:text-text-primary"
+                  ? "bg-bg text-accent shadow-soft font-semibold"
+                  : "text-text-muted hover:text-text-primary font-medium"
               }`}
               onClick={() => setSidebarTab("search")}
               role="tab"
@@ -1250,7 +1250,7 @@ export default function App() {
             <div className="flex items-center justify-between gap-2">
               <button
                 aria-expanded={isCategoryManagerOpen}
-                className="inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-[13px] font-semibold text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+                className="inline-flex min-w-0 items-center gap-1 rounded-md px-2 py-1.5 text-[14px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                 onClick={() => {
                   setIsCategoryManagerOpen((current) => !current);
                   setCategoryError(null);
@@ -1258,9 +1258,9 @@ export default function App() {
                 type="button"
               >
                 {isCategoryManagerOpen ? (
-                  <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
+                  <ChevronDown aria-hidden="true" size={16} strokeWidth={2} />
                 ) : (
-                  <ChevronRight aria-hidden="true" size={14} strokeWidth={2} />
+                  <ChevronRight aria-hidden="true" size={16} strokeWidth={2} />
                 )}
                 Categories
               </button>
@@ -1443,13 +1443,13 @@ export default function App() {
                 <input
                   aria-label="Use all notes for Ask"
                   checked={askNoteScope.mode === "all"}
-                  className="ml-2.5 h-3.5 w-3.5 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                  className="ml-2.5 h-4 w-4 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                   onChange={handleToggleAllAskNotes}
                   type="checkbox"
                 />
                 <button
                   aria-selected={selectedCategoryFilter === "all"}
-                  className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                  className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                     selectedCategoryFilter === "all"
                       ? "bg-surface text-text-primary"
                       : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
@@ -1457,9 +1457,9 @@ export default function App() {
                   onClick={() => handleCategoryFilterChange("all")}
                   type="button"
                 >
-                  <FileText aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
+                  <FileText aria-hidden="true" className="shrink-0" size={16} strokeWidth={2} />
                   <span className="min-w-0 flex-1 truncate">All notes</span>
-                  <span aria-hidden="true" className="shrink-0 text-[11px] tabular-nums text-text-muted">
+                  <span aria-hidden="true" className="shrink-0 text-[12px] tabular-nums text-text-muted">
                     {notes.length}
                   </span>
                 </button>
@@ -1501,7 +1501,7 @@ export default function App() {
                       <button
                         aria-expanded={isExpanded}
                         aria-selected={isSelected}
-                        className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                        className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                           isDropTarget
                             ? "bg-accent-muted text-text-primary ring-1 ring-accent/40"
                             : isSelected
@@ -1519,20 +1519,20 @@ export default function App() {
                           <ChevronDown
                             aria-hidden="true"
                             className="shrink-0"
-                            size={14}
+                            size={16}
                             strokeWidth={2}
                           />
                         ) : (
                           <ChevronRight
                             aria-hidden="true"
                             className="shrink-0"
-                            size={14}
+                            size={16}
                             strokeWidth={2}
                           />
                         )}
-                        <FolderIcon aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
+                        <FolderIcon aria-hidden="true" className="shrink-0" size={16} strokeWidth={2} />
                         <span className="min-w-0 flex-1 truncate">{folder.label}</span>
-                        <span aria-hidden="true" className="shrink-0 text-[11px] tabular-nums text-text-muted">
+                        <span aria-hidden="true" className="shrink-0 text-[12px] tabular-nums text-text-muted">
                           {folder.notes.length}
                         </span>
                       </button>
