@@ -8,10 +8,10 @@ type NoteToolbarProps = {
 };
 
 export const TOOLBAR_BUTTON_CLASS =
-  "inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
 
 export const TOOLBAR_ACCENT_BUTTON_CLASS =
-  "inline-flex h-7 w-7 items-center justify-center rounded-md bg-accent text-black transition-colors hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-8 w-8 items-center justify-center rounded-md bg-accent text-black transition-colors hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
 
 export function NoteToolbar({ actions, error, status, toolbarControls }: NoteToolbarProps) {
   return (

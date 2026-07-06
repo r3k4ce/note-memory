@@ -1135,25 +1135,25 @@ export default function App() {
     <>
       <button
         aria-label={readMode ? "Edit Mode" : "Read Mode"}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         onClick={() => setReadMode((currentMode) => !currentMode)}
         title={readMode ? "Edit Mode" : "Read Mode"}
         type="button"
       >
         {readMode ? (
-          <Pencil aria-hidden="true" size={13} strokeWidth={2} />
+          <Pencil aria-hidden="true" size={15} strokeWidth={2} />
         ) : (
-          <BookOpen aria-hidden="true" size={13} strokeWidth={2} />
+          <BookOpen aria-hidden="true" size={15} strokeWidth={2} />
         )}
       </button>
       <button
         aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         onClick={toggleTextAreaFocus}
         title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
         type="button"
       >
-        <Maximize2 aria-hidden="true" size={13} strokeWidth={2} />
+        <Maximize2 aria-hidden="true" size={15} strokeWidth={2} />
       </button>
     </>
   );

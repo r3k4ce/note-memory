@@ -204,7 +204,7 @@ export function NoteDetail({
                 title={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
                 type="button"
               >
-                <RefreshCw aria-hidden="true" size={13} strokeWidth={2} />
+                <RefreshCw aria-hidden="true" size={15} strokeWidth={2} />
               </button>
               <button
                 aria-label={isSavingEdit ? "Saving changes" : "Save changes"}
@@ -214,7 +214,7 @@ export function NoteDetail({
                 title={isSavingEdit ? "Saving changes" : "Save changes"}
                 type="button"
               >
-                <Save aria-hidden="true" size={13} strokeWidth={2} />
+                <Save aria-hidden="true" size={15} strokeWidth={2} />
               </button>
               <button
                 aria-label="Cancel edit"
@@ -224,7 +224,7 @@ export function NoteDetail({
                 title="Cancel edit"
                 type="button"
               >
-                <X aria-hidden="true" size={13} strokeWidth={2} />
+                <X aria-hidden="true" size={15} strokeWidth={2} />
               </button>
               <button
                 aria-label="New note"
@@ -234,7 +234,7 @@ export function NoteDetail({
                 title="New note"
                 type="button"
               >
-                <Plus aria-hidden="true" size={13} strokeWidth={2} />
+                <Plus aria-hidden="true" size={15} strokeWidth={2} />
               </button>
               <button
                 aria-label={isDeleting ? "Deleting note" : "Delete note"}
@@ -244,7 +244,7 @@ export function NoteDetail({
                 title={isDeleting ? "Deleting note" : "Delete note"}
                 type="button"
               >
-                <Trash2 aria-hidden="true" size={13} strokeWidth={2} />
+                <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
               </button>
             </>
           )
@@ -253,12 +253,12 @@ export function NoteDetail({
         status={
           readMode ? null : (
             <>
-            <span className="truncate text-[11px] tabular-nums text-text-muted">
+            <span className="truncate text-sm tabular-nums text-text-muted">
               {parsedDocument.update.original_text.trim()
                 ? `${parsedDocument.update.original_text.length} chars`
                 : "Empty note"}
             </span>
-            <span className="rounded-md bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
+            <span className="rounded-md bg-surface-raised px-2 py-0.5 text-sm font-medium text-text-muted">
               {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
             </span>
             </>

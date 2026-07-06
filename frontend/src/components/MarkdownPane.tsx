@@ -35,8 +35,8 @@ const markdownEditorTheme = EditorView.theme(
     "&": {
       backgroundColor: "transparent",
       color: "var(--color-text-primary)",
-      fontSize: "0.9375rem",
-      lineHeight: "1.7",
+      fontSize: "1rem",
+      lineHeight: "1.75",
     },
     "&.cm-focused": {
       outline: "none",

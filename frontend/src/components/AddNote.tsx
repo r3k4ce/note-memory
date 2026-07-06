@@ -49,14 +49,14 @@ export function AddNote({
             title={isSaving ? "Saving..." : "Save note"}
             type="button"
           >
-            <Save aria-hidden="true" size={13} strokeWidth={2} />
+            <Save aria-hidden="true" size={15} strokeWidth={2} />
           </button>
           )
         }
         error={error}
         status={
           readMode ? null : (
-            <span className="min-w-0 truncate text-xs text-text-muted">{statusText}</span>
+            <span className="min-w-0 truncate text-sm text-text-muted">{statusText}</span>
           )
         }
         toolbarControls={toolbarControls}
