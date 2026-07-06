@@ -1540,45 +1540,20 @@ export default function App() {
                       <div className="ml-4 flex flex-col gap-1.5 pl-1.5" role="group">
                         {folder.notes.length > 0 ? (
                           folder.notes.map((note) => (
-                            <div className="relative" key={note.id}>
-                              <button
-                                aria-selected={note.id === selectedNoteId}
-                                className="note-slip group flex w-full cursor-grab items-center gap-1.5 px-3 py-2.5 pr-9 text-left transition-shadow active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
-                                draggable
-                                onClick={() => selectNote(note.id)}
-                                onDragEnd={clearNoteDrag}
-                                onDragStart={(event) => handleNoteDragStart(event, note.id)}
-                                title="Drag to move note"
-                                type="button"
-                              >
-                                <FileText
-                                  aria-hidden="true"
-                                  className={`shrink-0 ${
-                                    note.id === selectedNoteId ? "text-accent" : "text-text-muted"
-                                  }`}
-                                  size={13}
-                                  strokeWidth={2}
-                                />
-                                <span
-                                  className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
-                                    note.id === selectedNoteId ? "text-accent" : "text-text-primary"
-                                  }`}
-                                >
-                                  {note.ai_title}
-                                </span>
-                              </button>
-                              <input
-                                aria-label={`Use ${note.ai_title} for Ask`}
-                                checked={isNoteSelectedForAsk(askNoteScope, note.id)}
-                                className="absolute right-3 top-3 h-3.5 w-3.5 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
-                                onChange={(event) => {
-                                  event.stopPropagation();
-                                  handleToggleAskNoteScope(note.id);
-                                }}
-                                onClick={(event) => event.stopPropagation()}
-                                type="checkbox"
-                              />
-                            </div>
+                            <NoteCard
+                              askScopeSelected={isNoteSelectedForAsk(askNoteScope, note.id)}
+                              draggable
+                              icon={FileText}
+                              key={note.id}
+                              mode="browse"
+                              note={note}
+                              onAskScopeToggle={handleToggleAskNoteScope}
+                              onDragEnd={clearNoteDrag}
+                              onDragStart={(event) => handleNoteDragStart(event, note.id)}
+                              onSelect={selectNote}
+                              selected={note.id === selectedNoteId}
+                              showAskScopeCheckbox
+                            />
                           ))
                         ) : (
                           <p className="px-2 py-2 text-xs text-text-muted">No notes</p>

@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+import type { DragEvent } from "react";
 import type { NoteCardData, SearchResult } from "../types";
 
 type NoteCardSearchMetadata = Partial<Pick<SearchResult, "match_type" | "matched_snippet">>;
@@ -10,6 +12,10 @@ type NoteCardProps = {
   selected?: boolean;
   showAskScopeCheckbox: boolean;
   onSelect: (noteId: number) => void;
+  icon?: LucideIcon;
+  draggable?: boolean;
+  onDragStart?: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragEnd?: () => void;
 };
 
 const MATCH_TYPE_LABELS: Record<NonNullable<NoteCardSearchMetadata["match_type"]>, string> = {
@@ -27,6 +33,10 @@ export function NoteCard({
   selected = false,
   showAskScopeCheckbox,
   onSelect,
+  icon: Icon,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
 }: NoteCardProps) {
   const matchedSnippet = note.matched_snippet?.trim();
   const matchTypeLabel = note.match_type ? MATCH_TYPE_LABELS[note.match_type] : null;
@@ -48,29 +58,32 @@ export function NoteCard({
     return (
       <div className="relative">
         <button
-          className={`group w-full rounded-md p-2.5 pr-9 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
-            selected
-              ? "bg-surface"
-              : "hover:bg-surface-hover"
-          }`}
+          aria-selected={selected}
+          className="note-slip group flex w-full items-center gap-1.5 px-3 py-2.5 pr-9 text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
+          draggable={draggable}
           onClick={() => onSelect(note.id)}
+          onDragEnd={onDragEnd}
+          onDragStart={onDragStart}
           type="button"
         >
+          {Icon ? (
+            <Icon
+              aria-hidden="true"
+              className={`shrink-0 ${selected ? "text-accent" : "text-text-muted"}`}
+              size={13}
+              strokeWidth={2}
+            />
+          ) : null}
           <span
-            className={`block truncate text-[13px] font-medium ${
+            className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
               selected ? "text-accent" : "text-text-primary"
             }`}
           >
             {note.ai_title}
           </span>
-          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-text-muted">
-            <time className="shrink-0 tabular-nums" dateTime={note.date_added}>
-              {note.date_added.slice(5, 10)}
-            </time>
-            {note.category ? (
-              <span className="truncate text-text-secondary">{note.category.name}</span>
-            ) : null}
-          </span>
+          <time className="shrink-0 tabular-nums text-[11px] text-text-muted" dateTime={note.date_added}>
+            {note.date_added.slice(5, 10)}
+          </time>
         </button>
         {askScopeCheckbox}
       </div>

@@ -333,7 +333,7 @@ textarea:focus-visible {
   background-color: var(--color-surface-hover);
 }
 .note-slip[aria-selected="true"] {
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-accent-muted);
 }
 
 /* Read-mode preview — notebook page surface */

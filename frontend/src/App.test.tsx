@@ -592,7 +592,7 @@ describe("App sidebar navigation", () => {
     const noteRow = screen.getByRole("button", { name: /Work note/ });
 
     expect(noteRow).toHaveTextContent("Work note");
-    expect(noteRow).not.toHaveTextContent("07-03");
+    expect(noteRow).toHaveTextContent("07-03");
     expect(noteRow).not.toHaveTextContent("A note about work.");
     expect(noteRow).not.toHaveTextContent("work");
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
