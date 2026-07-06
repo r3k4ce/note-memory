@@ -1,4 +1,19 @@
 entries:
+  - time_utc: "2026-07-06T00:37:11Z"
+    time_local: "2026-07-05T21:37:11-03:00"
+    summary: "Increased Notebun frontend baseline scale and spacing for breathing-room."
+    changed:
+      - "Bumped shared TOOLBAR_BUTTON_CLASS and TOOLBAR_ACCENT_BUTTON_CLASS from h-6 w-6 to h-7 w-7 and raised the NoteToolbar container min-h-8 to min-h-10, py-1 to py-1.5, and action gap-1 to gap-1.5; updated the inline Read/Focus toolbar toggles in App.tsx to match, plus the grip h-7 w-3 to h-8 w-3.5."
+      - "Added .sidebar-row CSS class (padding 0.5rem 0.625rem, min-height 2.25rem) applied to the All-notes row and each category folder row in App.tsx in place of the cramped px-1 py-1.5 inline padding; widened the browse tree gap from gap-0.5 to gap-1."
+      - "Added min-height 2.5rem to .note-slip and bumped the draggable browse note-row inline padding from px-2.5 py-2 pr-8 to px-3 py-2.5 pr-9 with the per-note Ask checkbox repositioned to right-3 top-2.5."
+      - "Added min-height 2.25rem to shared input/textarea styles in style.css and bumped sidebar tabs (px-2 py-1.5 to px-2.5 py-2), the New note primary button (py-1.5 to py-2), sidebar group paddings (px-2.5 py-2 to px-3 py-2.5), the Categories header row (px-1 py-0.5 to px-1.5 py-1), category manager rows (px-2 py-1.5 to px-2.5 py-2), the add/rename category inputs, and the SearchBar input (py-1.5 to py-2, pl-8/pr-8 to pl-9/pr-9)."
+      - "Bumped secondary text from text-[10px] to text-[11px] for sidebar count chips and from text-[11px] to text-xs for status, scope, source, and helper text across App.tsx, AskChat.tsx, NoteDetail.tsx, AddNote.tsx, and NoteCard.tsx browse/search footers."
+      - "Polished AskChat header icon h-6 w-6 to h-7 w-7 with scope line pl-8 to pl-9, chat bubbles px-3.5 py-2.5 to px-4 py-3, the ask textarea px-3 py-2.5 to px-3.5 py-3 with min-h-20 to min-h-24, the Send button px-3.5 py-1.5 to px-4 py-2, and source citation cards px-3 py-2 to px-3.5 py-2.5."
+      - "Bumped ThemeMenu toggle and chevron from rounded p-1 to rounded-md p-1.5, the dropdown container px-1 py-1 to px-1.5 py-1.5, and items px-2 py-1.5 to px-2.5 py-2."
+      - "Bumped NoteCard browse-mode padding p-2 pr-8 to p-2.5 pr-9 and bumped the .note-tag CSS chip from 0.72rem/0.15rem 0.6rem to 0.75rem/0.2rem 0.7rem."
+    verification:
+      - "Ran npm run typecheck, npm run test, npm run lint, and npm run build from frontend/: 120/120 tests passing, lint clean, build succeeded."
+      - "No backend files changed; no API contracts changed; themes.ts and useTheme.ts untouched with exactly two dark (Cocoa, Matcha) and two light (Biscuit, Honey) themes preserved."
   - time_utc: "2026-07-05T21:50:22Z"
     time_local: "2026-07-05T18:50:22-03:00"
     summary: "Polished Bun messages and cited sources."
@@ -258,7 +273,7 @@ entries:
       - "Renamed the Theme union to ThemeId covering dark, forest, light, solarized; added THEME_MODE map and getThemeMode helper; toggleTheme now resets to the default variant of the opposite mode."
       - "Replaced ThemeToggle with ThemeMenu (same sidebar placement): Sun/Moon button retains toggle behavior; a small always-visible ChevronDown opens a role=menu popover listing the variants of the current mode with aria-checked active state and Escape/outside-click dismiss."
       - "Moved theme labels/icons into components/themes.ts to keep ThemeMenu fast-refresh clean."
-      - "Added [data-theme="forest"] (dark green, lime accent) and [data-theme="solarized"] (Solarized Light, blue accent) blocks to style.css reusing the same CSS variable set."
+      - "Added [data-theme='forest'] (dark green, lime accent) and [data-theme='solarized'] (Solarized Light, blue accent) blocks to style.css reusing the same CSS variable set."
       - "Updated index.html pre-paint inline script and MarkdownPane's CodeMirror dark flag to recognize all four theme ids."
     verification:
       - "Ran npm run typecheck, npm run lint, npm run test (51 passing), and npm run build in frontend/."
@@ -266,7 +281,7 @@ entries:
     time_local: "2026-07-04T15:37:00-03:00"
     summary: "Added a dark/light theme toggle to the frontend."
     changed:
-      - "Split the Tailwind v4 @theme block into light default tokens and a [data-theme="dark"] override block so existing utility classes work in both themes."
+      - "Split the Tailwind v4 @theme block into light default tokens and a [data-theme='dark'] override block so existing utility classes work in both themes."
       - "Added a useTheme hook that persists the choice to localStorage and syncs document.documentElement.dataset.theme, plus a ThemeToggle Sun/Moon button in the sidebar header."
       - "Added a pre-paint inline script in index.html to set data-theme from localStorage before CSS loads, avoiding a flash of wrong theme."
       - "Replaced the hardcoded dark-only index.html attributes, body background, and color-scheme rule with data-theme-driven switching."

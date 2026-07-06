@@ -8,27 +8,27 @@ type NoteToolbarProps = {
 };
 
 export const TOOLBAR_BUTTON_CLASS =
-  "inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
 
 export const TOOLBAR_ACCENT_BUTTON_CLASS =
-  "inline-flex h-6 w-6 items-center justify-center rounded-md bg-accent text-black transition-colors hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-7 w-7 items-center justify-center rounded-md bg-accent text-black transition-colors hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-40";
 
 export function NoteToolbar({ actions, error, status, toolbarControls }: NoteToolbarProps) {
   return (
     <div className="relative shrink-0">
       <div
         aria-label="Note toolbar"
-        className="flex min-h-8 items-center justify-between gap-3 px-3 py-1"
+        className="flex min-h-10 items-center justify-between gap-3 px-3 py-1.5"
         role="toolbar"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">{status}</div>
-        <div className="flex shrink-0 items-center justify-end gap-1">
+        <div className="flex shrink-0 items-center justify-end gap-1.5">
           {actions}
           {toolbarControls}
         </div>
       </div>
       {error ? (
-        <div className="note-toolbar-error absolute left-3 top-full z-20 max-w-[min(36rem,calc(100%-1.5rem))] rounded-md border border-error/20 bg-bg px-2.5 py-1.5 text-xs text-error shadow-elevated">
+        <div className="note-toolbar-error absolute left-3 top-full z-20 max-w-[min(36rem,calc(100%-1.5rem))] rounded-md border border-error/20 bg-bg px-3 py-2 text-xs text-error shadow-elevated">
           {error}
         </div>
       ) : null}

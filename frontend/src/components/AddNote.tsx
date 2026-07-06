@@ -56,7 +56,7 @@ export function AddNote({
         error={error}
         status={
           readMode ? null : (
-            <span className="min-w-0 truncate text-[11px] text-text-muted">{statusText}</span>
+            <span className="min-w-0 truncate text-xs text-text-muted">{statusText}</span>
           )
         }
         toolbarControls={toolbarControls}

@@ -42,7 +42,7 @@ export function ThemeMenu() {
     <div className="relative flex items-center" ref={containerRef}>
       <button
         aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-        className="rounded p-1 text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
+        className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
         onClick={toggleTheme}
         type="button"
       >
@@ -52,7 +52,7 @@ export function ThemeMenu() {
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label="Browse themes"
-        className="rounded p-1 text-text-muted opacity-70 transition-colors hover:bg-surface hover:text-text-primary hover:opacity-100"
+        className="rounded-md p-1.5 text-text-muted opacity-70 transition-colors hover:bg-surface hover:text-text-primary hover:opacity-100"
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
@@ -60,7 +60,7 @@ export function ThemeMenu() {
       </button>
       {isOpen ? (
         <div
-          className="absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] rounded-md bg-bg px-1 py-1 shadow-elevated"
+          className="absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] rounded-md bg-bg px-1.5 py-1.5 shadow-elevated"
           role="menu"
         >
           {variants.map((variantId) => {
@@ -70,7 +70,7 @@ export function ThemeMenu() {
             return (
               <button
                 aria-checked={isActive}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-text-primary transition-colors hover:bg-surface-hover"
+                className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[12px] text-text-primary transition-colors hover:bg-surface-hover"
                 key={variantId}
                 onClick={() => {
                   setTheme(variantId);

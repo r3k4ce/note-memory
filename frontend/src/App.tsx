@@ -130,8 +130,8 @@ function PaneResizeHandle({
       tabIndex={0}
     >
       <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-border-strong" />
-      <div className="relative flex h-7 w-3 items-center justify-center rounded-md border border-border bg-bg text-text-muted shadow-sm transition-colors group-hover:border-border-strong group-hover:text-text-secondary">
-        <GripVertical aria-hidden="true" size={10} strokeWidth={2} />
+      <div className="relative flex h-8 w-3.5 items-center justify-center rounded-md border border-border bg-bg text-text-muted shadow-sm transition-colors group-hover:border-border-strong group-hover:text-text-secondary">
+        <GripVertical aria-hidden="true" size={11} strokeWidth={2} />
       </div>
     </div>
   );
@@ -1133,7 +1133,7 @@ export default function App() {
     <>
       <button
         aria-label={readMode ? "Edit Mode" : "Read Mode"}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         onClick={() => setReadMode((currentMode) => !currentMode)}
         title={readMode ? "Edit Mode" : "Read Mode"}
         type="button"
@@ -1146,7 +1146,7 @@ export default function App() {
       </button>
       <button
         aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
         onClick={toggleTextAreaFocus}
         title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
         type="button"
@@ -1173,9 +1173,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="shrink-0 px-2.5 py-2">
+        <div className="shrink-0 px-3 py-2.5">
           <button
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSaving || isSavingEdit || isDeleting}
             onClick={handleNewNote}
             type="button"
@@ -1185,7 +1185,7 @@ export default function App() {
           </button>
         </div>
 
-        <div className="shrink-0 px-2.5 py-2">
+        <div className="shrink-0 px-3 py-2.5">
           <div
             aria-label="Sidebar mode"
             className="grid grid-cols-2 rounded-md bg-surface p-0.5"
@@ -1193,7 +1193,7 @@ export default function App() {
           >
             <button
               aria-selected={isBrowseTab}
-              className={`rounded px-2 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`rounded px-2.5 py-2 text-[12px] font-medium transition-colors ${
                 isBrowseTab
                   ? "bg-surface-hover text-text-primary"
                   : "text-text-muted hover:text-text-secondary"
@@ -1206,7 +1206,7 @@ export default function App() {
             </button>
             <button
               aria-selected={isSearchTab}
-              className={`rounded px-2 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`rounded px-2.5 py-2 text-[12px] font-medium transition-colors ${
                 isSearchTab
                   ? "bg-surface-hover text-text-primary"
                   : "text-text-muted hover:text-text-secondary"
@@ -1221,7 +1221,7 @@ export default function App() {
         </div>
 
         {isSearchTab ? (
-          <div className="shrink-0 px-2.5 py-2">
+          <div className="shrink-0 px-3 py-2.5">
             <SearchBar
               isSearching={isSearching}
               onChange={handleSearchTextChange}
@@ -1232,10 +1232,10 @@ export default function App() {
             />
             {isSearchActive ? (
               <div className="mt-2 flex items-center justify-between gap-2 px-0.5">
-                <span className="min-w-0 truncate text-[11px] text-text-secondary">
+                <span className="min-w-0 truncate text-xs text-text-secondary">
                   Results for “{activeSearchQuery}”
                 </span>
-                <span className="shrink-0 text-[11px] tabular-nums text-text-muted">
+                <span className="shrink-0 text-xs tabular-nums text-text-muted">
                   {searchStatus}
                 </span>
               </div>
@@ -1244,11 +1244,11 @@ export default function App() {
         ) : null}
 
         {isBrowseTab ? (
-          <div className="shrink-0 px-3 py-2">
+          <div className="shrink-0 px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <button
                 aria-expanded={isCategoryManagerOpen}
-                className="inline-flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+                className="inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
                 onClick={() => {
                   setIsCategoryManagerOpen((current) => !current);
                   setCategoryError(null);
@@ -1262,7 +1262,7 @@ export default function App() {
                 )}
                 Categories
               </button>
-              <span className="shrink-0 text-[10px] text-text-muted">{askScopeSummary}</span>
+              <span className="shrink-0 text-[11px] text-text-muted">{askScopeSummary}</span>
             </div>
 
             {isCategoryManagerOpen ? (
@@ -1274,7 +1274,7 @@ export default function App() {
                 <form className="flex gap-1.5" onSubmit={handleCreateCategory}>
                   <input
                     aria-label="New category name"
-                    className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1.5 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface disabled:opacity-60"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface disabled:opacity-60"
                     disabled={isSavingCategory}
                     onChange={(event) => {
                       setCategoryDraft(event.target.value);
@@ -1285,7 +1285,7 @@ export default function App() {
                   />
                   <button
                     aria-label="Add category"
-                    className="inline-flex items-center justify-center rounded-md bg-accent px-2.5 py-1.5 text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
+                    className="inline-flex items-center justify-center rounded-md bg-accent px-2.5 py-2 text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
                     disabled={isSavingCategory}
                     type="submit"
                   >
@@ -1300,7 +1300,7 @@ export default function App() {
                       const isEditingCategory = editingCategoryId === category.id;
 
                       return (
-                        <div className="rounded bg-bg px-2 py-1.5" key={category.id}>
+                        <div className="rounded bg-bg px-2.5 py-2" key={category.id}>
                           {isEditingCategory ? (
                             <form
                               className="flex gap-1.5"
@@ -1308,7 +1308,7 @@ export default function App() {
                             >
                               <input
                                 aria-label="Category name"
-                                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
                                 disabled={isUpdatingCategory}
                                 onChange={(event) => {
                                   setCategoryEditDraft(event.target.value);
@@ -1318,7 +1318,7 @@ export default function App() {
                               />
                               <button
                                 aria-label="Save category"
-                                className="rounded p-1 text-accent transition-colors hover:bg-surface-hover disabled:opacity-40"
+                                className="rounded p-1.5 text-accent transition-colors hover:bg-surface-hover disabled:opacity-40"
                                 disabled={isUpdatingCategory}
                                 type="submit"
                               >
@@ -1326,7 +1326,7 @@ export default function App() {
                               </button>
                               <button
                                 aria-label="Cancel category rename"
-                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
+                                className="rounded p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
                                 disabled={isUpdatingCategory}
                                 onClick={() => {
                                   setEditingCategoryId(null);
@@ -1343,12 +1343,12 @@ export default function App() {
                               <span className="min-w-0 flex-1 truncate text-[13px] text-text-primary">
                                 {category.name}
                               </span>
-                              <span className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                              <span className="shrink-0 text-[11px] tabular-nums text-text-muted">
                                 {noteCount}
                               </span>
                               <button
                                 aria-label={`Rename ${category.name}`}
-                                className="rounded p-1 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
+                                className="rounded p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
                                 disabled={isUpdatingCategory || deletingCategoryId !== null}
                                 onClick={() => {
                                   setEditingCategoryId(category.id);
@@ -1361,7 +1361,7 @@ export default function App() {
                               </button>
                               <button
                                 aria-label={`Delete ${category.name}`}
-                                className="rounded p-1 text-text-muted transition-colors hover:bg-error-muted hover:text-error disabled:opacity-40"
+                                className="rounded p-1.5 text-text-muted transition-colors hover:bg-error-muted hover:text-error disabled:opacity-40"
                                 disabled={isUpdatingCategory || deletingCategoryId !== null}
                                 onClick={() => void handleDeleteCategory(category, noteCount)}
                                 type="button"
@@ -1409,8 +1409,8 @@ export default function App() {
           {isBrowseTab && !isLoadingNotes && !listError && notes.length === 0 ? (
             <div className="px-2 py-6 text-center">
               <p className="text-xs text-text-muted">No notes yet</p>
-              <p className="mt-1 text-[11px] text-text-muted">
-                Press <kbd className="rounded bg-surface px-1 py-0.5 text-[10px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
+              <p className="mt-1 text-xs text-text-muted">
+                Press <kbd className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
               </p>
             </div>
           ) : null}
@@ -1436,7 +1436,7 @@ export default function App() {
           ) : null}
 
           {isBrowseTab && !isLoadingNotes && !listError && notes.length > 0 ? (
-            <div aria-label="Browse notes" className="flex flex-col gap-0.5" role="tree">
+            <div aria-label="Browse notes" className="flex flex-col gap-1" role="tree">
               <div className="flex items-center gap-1 rounded-md pr-1">
                 <input
                   aria-label="Use all notes for Ask"
@@ -1447,7 +1447,7 @@ export default function App() {
                 />
                 <button
                   aria-selected={selectedCategoryFilter === "all"}
-                  className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                  className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                     selectedCategoryFilter === "all"
                       ? "bg-surface text-text-primary"
                       : "text-text-muted hover:bg-surface-hover hover:text-text-secondary"
@@ -1457,7 +1457,7 @@ export default function App() {
                 >
                   <FileText aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
                   <span className="min-w-0 flex-1 truncate">All notes</span>
-                  <span aria-hidden="true" className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                  <span aria-hidden="true" className="shrink-0 text-[11px] tabular-nums text-text-muted">
                     {notes.length}
                   </span>
                 </button>
@@ -1479,7 +1479,7 @@ export default function App() {
                 const isDropTarget = dropTargetKey === folder.key;
 
                 return (
-                  <div className="flex flex-col gap-0.5" key={folder.key}>
+                  <div className="flex flex-col gap-1" key={folder.key}>
                     <div className="flex items-center gap-1 rounded-md pr-1">
                       <input
                         aria-label={`Use ${folder.label} category for Ask`}
@@ -1499,7 +1499,7 @@ export default function App() {
                       <button
                         aria-expanded={isExpanded}
                         aria-selected={isSelected}
-                        className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                        className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                           isDropTarget
                             ? "bg-accent-muted text-text-primary ring-1 ring-accent/40"
                             : isSelected
@@ -1530,7 +1530,7 @@ export default function App() {
                         )}
                         <FolderIcon aria-hidden="true" className="shrink-0" size={14} strokeWidth={2} />
                         <span className="min-w-0 flex-1 truncate">{folder.label}</span>
-                        <span aria-hidden="true" className="shrink-0 text-[10px] tabular-nums text-text-muted">
+                        <span aria-hidden="true" className="shrink-0 text-[11px] tabular-nums text-text-muted">
                           {folder.notes.length}
                         </span>
                       </button>
@@ -1543,7 +1543,7 @@ export default function App() {
                             <div className="relative" key={note.id}>
                               <button
                                 aria-selected={note.id === selectedNoteId}
-                                className="note-slip group flex w-full cursor-grab items-center gap-1.5 px-2.5 py-2 pr-8 text-left transition-shadow active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
+                                className="note-slip group flex w-full cursor-grab items-center gap-1.5 px-3 py-2.5 pr-9 text-left transition-shadow active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
                                 draggable
                                 onClick={() => selectNote(note.id)}
                                 onDragEnd={clearNoteDrag}
@@ -1570,7 +1570,7 @@ export default function App() {
                               <input
                                 aria-label={`Use ${note.ai_title} for Ask`}
                                 checked={isNoteSelectedForAsk(askNoteScope, note.id)}
-                                className="absolute right-2.5 top-2 h-3 w-3 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                                className="absolute right-3 top-2.5 h-3 w-3 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                                 onChange={(event) => {
                                   event.stopPropagation();
                                   handleToggleAskNoteScope(note.id);
@@ -1581,7 +1581,7 @@ export default function App() {
                             </div>
                           ))
                         ) : (
-                          <p className="px-2 py-1.5 text-[11px] text-text-muted">No notes</p>
+                          <p className="px-2 py-2 text-xs text-text-muted">No notes</p>
                         )}
                       </div>
                     ) : null}

@@ -48,7 +48,7 @@ export function NoteCard({
     return (
       <div className="relative">
         <button
-          className={`group w-full rounded-md p-2 pr-8 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+          className={`group w-full rounded-md p-2.5 pr-9 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
             selected
               ? "bg-surface"
               : "hover:bg-surface-hover"
@@ -63,7 +63,7 @@ export function NoteCard({
           >
             {note.ai_title}
           </span>
-          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-text-muted">
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-text-muted">
             <time className="shrink-0 tabular-nums" dateTime={note.date_added}>
               {note.date_added.slice(5, 10)}
             </time>
@@ -94,7 +94,7 @@ export function NoteCard({
             {note.ai_title}
           </span>
           <time
-            className="shrink-0 text-[10px] tabular-nums text-text-muted"
+            className="shrink-0 text-[11px] tabular-nums text-text-muted"
             dateTime={note.date_added}
           >
             {note.date_added.slice(5, 10)}
