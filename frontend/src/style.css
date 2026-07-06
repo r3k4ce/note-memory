@@ -338,21 +338,24 @@ textarea:focus-visible {
   box-shadow: var(--shadow-soft);
 }
 
-/* Note list slip — small cozy card surface */
+/* Note list slip — notebook card surface */
 .note-slip {
   background-color: var(--color-surface);
-  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow-soft);
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   transition:
     background-color var(--duration-150) var(--ease-out),
-    box-shadow var(--duration-150) var(--ease-out);
+    box-shadow var(--duration-150) var(--ease-out),
+    border-color var(--duration-150) var(--ease-out);
 }
 .note-slip:hover {
   background-color: var(--color-surface-hover);
 }
 .note-slip[aria-selected="true"] {
   background-color: var(--color-accent-muted);
+  border-left: 3px solid var(--color-accent);
 }
 
 /* Read-mode preview — notebook page surface */
