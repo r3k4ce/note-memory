@@ -1,4 +1,29 @@
 entries:
+  - time_utc: "2026-07-06T01:41:58Z"
+    time_local: "2026-07-05T22:41:58-03:00"
+    summary: "Stopped automatic Markdown vault sync on app startup and cleaned local notes."
+    changed:
+      - "Removed backend startup Markdown import/backfill; FastAPI lifespan now initializes SQLite only, while explicit note create/update/delete/category flows still write or remove Markdown files."
+      - "Updated backend tests to assert startup does not import vault Markdown, does not reindex imported Markdown, and does not backfill missing Markdown for existing SQLite rows."
+      - "Documented save-only Markdown behavior in README.md and backend/README.md, including reset cleanup for data/vault Markdown files."
+      - "Cleaned local data/mapping_memory.sqlite to the five tutorial notes, kept only the five tutorial files in data/vault, rebuilt SQLite FTS for those notes, and removed derived data/chroma."
+    verification:
+      - "Ran uv run python -m pytest tests/test_markdown_notes.py tests/test_notes.py tests/test_notes_api.py --no-cov from backend/: 65 passed with existing Starlette deprecation warnings."
+      - "Ran ./scripts/check.sh: backend format/lint/pyright and 200 pytest tests passed with 88.16% coverage; frontend 120 Vitest tests, lint, and build passed."
+      - "Ran default-settings TestClient health smoke check: GET /health returned 200; data/vault and SQLite remained at the five tutorial notes."
+  - time_utc: "2026-07-06T01:25:00Z"
+    time_local: "2026-07-05T22:25:00-03:00"
+    summary: "Polished Bun messages and cited sources for readability and hierarchy."
+    changed:
+      - "Improved UserBubble with font-medium weight and shadow-elevated for stronger visual distinction from assistant messages."
+      - "Improved AssistantBubble with leading-7 line-height, py-3.5 padding, and shadow-soft for better long-answer readability."
+      - "Added numbered index circles (accent-muted bg, accent text) to each source chip in SourceList, ordered by backend relevance."
+      - "Refined source button hover/focus states with border-strong, surface bg, shadow-soft, focus-visible ring-offset, and subtle arrow micro-animation on hover."
+      - "Tightened source list gap from gap-1.5 to gap-1 and reduced source padding from px-3.5 py-2.5 to px-3 py-2."
+      - "Updated AskChat.test.tsx aria-label assertion to match numbered source format."
+    verification:
+      - "Ran npm run typecheck, npm run test, npm run lint, and npm run build from frontend/: 120/120 tests passing, lint clean, build succeeded."
+      - "No backend files changed; no API contracts changed; themes.ts and useTheme.ts untouched with exactly two dark (Cocoa, Matcha) and two light (Biscuit, Honey) themes preserved."
   - time_utc: "2026-07-06T00:37:11Z"
     time_local: "2026-07-05T21:37:11-03:00"
     summary: "Increased Notebun frontend baseline scale and spacing for breathing-room."

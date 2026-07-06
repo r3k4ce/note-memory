@@ -86,7 +86,7 @@ describe("AskChat Ask Bun panel", () => {
     expect(screen.getByRole("button", { name: /Reading/i })).toBeDisabled();
     expect(screen.getByLabelText("Ask a question about saved notes")).toBeDisabled();
     expect(screen.getByText("Sources · 1")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Open cited note: React textarea notes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open cited note 1: React textarea notes" }));
 
     expect(onSourceSelect).toHaveBeenCalledWith(7);
   });
