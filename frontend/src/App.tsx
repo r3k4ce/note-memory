@@ -94,12 +94,12 @@ type PaneResizeHandleProps = {
 };
 
 const ASK_HISTORY_MESSAGE_LIMIT = 6;
-const LEFT_PANE_DEFAULT_WIDTH = 288;
-const LEFT_PANE_MIN_WIDTH = 192;
-const LEFT_PANE_MAX_WIDTH = 448;
-const RIGHT_PANE_DEFAULT_WIDTH = 384;
-const RIGHT_PANE_MIN_WIDTH = 256;
-const RIGHT_PANE_MAX_WIDTH = 512;
+const LEFT_PANE_DEFAULT_WIDTH = 320;
+const LEFT_PANE_MIN_WIDTH = 240;
+const LEFT_PANE_MAX_WIDTH = 480;
+const RIGHT_PANE_DEFAULT_WIDTH = 352;
+const RIGHT_PANE_MIN_WIDTH = 280;
+const RIGHT_PANE_MAX_WIDTH = 448;
 const PANE_COLLAPSE_THRESHOLD = 96;
 
 function clampPaneWidth(width: number, minWidth: number, maxWidth: number): number {
@@ -130,8 +130,8 @@ function PaneResizeHandle({
       tabIndex={0}
     >
       <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-border-strong" />
-      <div className="relative flex h-8 w-3.5 items-center justify-center rounded-md border border-border bg-bg text-text-muted shadow-sm transition-colors group-hover:border-border-strong group-hover:text-text-secondary">
-        <GripVertical aria-hidden="true" size={11} strokeWidth={2} />
+      <div className="relative flex h-8 w-3.5 items-center justify-center rounded-md bg-bg text-text-muted shadow-sm transition-colors group-hover:text-text-secondary">
+        <GripVertical aria-hidden="true" size={13} strokeWidth={1.75} />
       </div>
     </div>
   );
@@ -1625,7 +1625,7 @@ export default function App() {
 
       <aside
         aria-label="Bun pane"
-        className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-3 transition-[width,padding] duration-150 ease-out lg:flex ${
+        className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-4 transition-[width,padding] duration-150 ease-out lg:flex ${
           rightPaneWidth === 0 ? "px-0" : "px-4"
         }`}
         style={{ width: rightPaneWidth }}

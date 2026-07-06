@@ -200,8 +200,8 @@ describe("App sidebar navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Exit" }));
 
-    expect(sidebar).toHaveStyle({ width: "288px" });
-    expect(assistant).toHaveStyle({ width: "384px" });
+    expect(sidebar).toHaveStyle({ width: "320px" });
+    expect(assistant).toHaveStyle({ width: "352px" });
     expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
   });
 

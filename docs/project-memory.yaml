@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-06T17:10:00Z"
+    time_local: "2026-07-06T14:10:00-03:00"
+    summary: "Loosened notebook shell spacing and widened pane defaults."
+    changed:
+      - "Updated left pane defaults from 288/192/448 to 320/240/480 and right pane defaults from 384/256/512 to 352/280/448 while keeping the96px collapse threshold."
+      - "Increased sidebar-row padding from 0.5rem 0.75rem to 0.55rem 0.85rem and added gap 0.375rem for more breathable note/category rows."
+      - "Increased Bun pane vertical padding from py-3 to py-4."
+      - "Removed border and increased icon size (11px to 13px) on the resize handle grip for a calmer separator appearance."
+      - "Updated App.test.tsx Focus Mode restore assertions to match new320px/352px default widths."
+    verification:
+      - "Ran frontend npm run lint, npm run typecheck, npm run test (123 passed), and npm run build: all passed."
   - time_utc: "2026-07-06T16:31:57Z"
     time_local: "2026-07-06T13:31:57-03:00"
     summary: "Stabilized backend test surface after TestClient hangs."
