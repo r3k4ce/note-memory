@@ -437,6 +437,6 @@ textarea:focus-visible {
 
 /* Shared sidebar row rhythm — used by All notes, Uncategorized, and category folder rows */
 .sidebar-row {
-  padding: 0.5rem 0.625rem;
+  padding: 0.5rem 0.75rem;
   min-height: 2.25rem;
 }

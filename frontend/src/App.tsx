@@ -1163,10 +1163,10 @@ export default function App() {
         className="flex shrink-0 flex-col overflow-hidden bg-bg transition-[width] duration-150 ease-out"
         style={{ width: leftPaneWidth }}
       >
-        <div className="shrink-0 px-3 py-3">
+        <div className="shrink-0 border-b border-border px-3 py-3.5">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
-            <span className="text-[13px] font-semibold tracking-tight text-text-primary">Notebun</span>
+            <span className="text-[14px] font-semibold tracking-tight text-text-primary">Notebun</span>
             <span className="ml-auto">
               <ThemeMenu />
             </span>
@@ -1175,7 +1175,7 @@ export default function App() {
 
         <div className="shrink-0 px-3 py-2.5">
           <button
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-[13px] font-semibold text-black transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2.5 text-[13px] font-semibold text-black shadow-soft transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSaving || isSavingEdit || isDeleting}
             onClick={handleNewNote}
             type="button"
@@ -1188,15 +1188,15 @@ export default function App() {
         <div className="shrink-0 px-3 py-2.5">
           <div
             aria-label="Sidebar mode"
-            className="grid grid-cols-2 rounded-md bg-surface p-0.5"
+            className="grid grid-cols-2 rounded-md bg-surface p-1"
             role="tablist"
           >
             <button
               aria-selected={isBrowseTab}
-              className={`rounded px-2.5 py-2 text-[12px] font-medium transition-colors ${
+              className={`rounded px-2.5 py-2.5 text-[12px] font-medium transition-colors ${
                 isBrowseTab
-                  ? "bg-surface-hover text-text-primary"
-                  : "text-text-muted hover:text-text-secondary"
+                  ? "bg-bg text-text-primary shadow-soft"
+                  : "text-text-muted hover:text-text-primary"
               }`}
               onClick={() => setSidebarTab("browse")}
               role="tab"
@@ -1206,10 +1206,10 @@ export default function App() {
             </button>
             <button
               aria-selected={isSearchTab}
-              className={`rounded px-2.5 py-2 text-[12px] font-medium transition-colors ${
+              className={`rounded px-2.5 py-2.5 text-[12px] font-medium transition-colors ${
                 isSearchTab
-                  ? "bg-surface-hover text-text-primary"
-                  : "text-text-muted hover:text-text-secondary"
+                  ? "bg-bg text-text-primary shadow-soft"
+                  : "text-text-muted hover:text-text-primary"
               }`}
               onClick={() => setSidebarTab("search")}
               role="tab"
@@ -1244,11 +1244,11 @@ export default function App() {
         ) : null}
 
         {isBrowseTab ? (
-          <div className="shrink-0 px-3 py-2.5">
+          <div className="shrink-0 px-3 py-3">
             <div className="flex items-center justify-between gap-2">
               <button
                 aria-expanded={isCategoryManagerOpen}
-                className="inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
+                className="inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-[13px] font-semibold text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
                 onClick={() => {
                   setIsCategoryManagerOpen((current) => !current);
                   setCategoryError(null);
@@ -1294,13 +1294,13 @@ export default function App() {
                 </form>
 
                 {sortedCategories.length > 0 ? (
-                  <div className="mt-2 flex flex-col gap-1">
+                  <div className="mt-2 flex flex-col gap-1.5">
                     {sortedCategories.map((category) => {
                       const noteCount = notes.filter((note) => note.category?.id === category.id).length;
                       const isEditingCategory = editingCategoryId === category.id;
 
                       return (
-                        <div className="rounded bg-bg px-2.5 py-2" key={category.id}>
+                        <div className="rounded bg-bg px-2.5 py-2.5" key={category.id}>
                           {isEditingCategory ? (
                             <form
                               className="flex gap-1.5"
@@ -1441,7 +1441,7 @@ export default function App() {
                 <input
                   aria-label="Use all notes for Ask"
                   checked={askNoteScope.mode === "all"}
-                  className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                  className="ml-2.5 h-3.5 w-3.5 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                   onChange={handleToggleAllAskNotes}
                   type="checkbox"
                 />
@@ -1484,7 +1484,7 @@ export default function App() {
                       <input
                         aria-label={`Use ${folder.label} category for Ask`}
                         checked={isFolderAskSelected}
-                        className="ml-2 h-3 w-3 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
+                        className="ml-2.5 h-3.5 w-3.5 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
                         disabled={folderNoteIds.length === 0}
                         onChange={() =>
                           handleSetAskSourceNotesSelected(folderNoteIds, !isFolderAskSelected)
@@ -1570,7 +1570,7 @@ export default function App() {
                               <input
                                 aria-label={`Use ${note.ai_title} for Ask`}
                                 checked={isNoteSelectedForAsk(askNoteScope, note.id)}
-                                className="absolute right-3 top-2.5 h-3 w-3 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                                className="absolute right-3 top-3 h-3.5 w-3.5 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                                 onChange={(event) => {
                                   event.stopPropagation();
                                   handleToggleAskNoteScope(note.id);
