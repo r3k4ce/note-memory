@@ -882,7 +882,7 @@ describe("App sidebar navigation", () => {
     fireEvent.submit(screen.getByRole("search"));
 
     expect(await screen.findByText("Results for “missing”", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("No matches")).toBeInTheDocument();
+    expect(screen.getByText("No crumbs found")).toBeInTheDocument();
     expect(screen.getByText("No crumbs found.")).toBeInTheDocument();
   });
 

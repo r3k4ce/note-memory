@@ -1125,7 +1125,7 @@ export default function App() {
     : searchError
       ? "Search hit a snag"
       : searchResults.length === 0
-        ? "No matches"
+        ? "No crumbs found"
         : searchResults.length === 1
           ? "1 match"
           : `${searchResults.length} matches`;
@@ -1408,9 +1408,9 @@ export default function App() {
 
           {isBrowseTab && !isLoadingNotes && !listError && notes.length === 0 ? (
             <div className="px-2 py-6 text-center">
-              <p className="text-xs text-text-muted">No notes yet</p>
+              <p className="text-xs text-text-muted">Your notebook is empty.</p>
               <p className="mt-1 text-xs text-text-muted">
-                Press <kbd className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> for a new note
+                Press <kbd className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-secondary">{APP_SHORTCUTS.capture.label}</kbd> to create your first note
               </p>
             </div>
           ) : null}
@@ -1556,7 +1556,7 @@ export default function App() {
                             />
                           ))
                         ) : (
-                          <p className="px-2 py-2 text-xs text-text-muted">No notes</p>
+                          <p className="px-2 py-2 text-xs text-text-muted">Nothing here yet</p>
                         )}
                       </div>
                     ) : null}
