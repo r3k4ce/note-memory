@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-06T04:25:10Z"
+    time_local: "2026-07-06T01:25:10-03:00"
+    summary: "Restored Markdown-to-SQLite startup reconciliation before Chroma sync."
+    changed:
+      - "Startup now imports new vault Markdown files, applies newer tracked Markdown edits, and removes SQLite notes whose tracked Markdown file was deleted before reconciling Chroma."
+      - "Chroma reconciliation now handles the empty-SQLite case, and reindex can clear an empty collection without OPENAI_API_KEY."
+      - "Updated README.md and backend/README.md to document the Markdown -> SQLite -> Chroma source-of-truth chain."
+    verification:
+      - "Ran focused backend tests for vault sync, startup Chroma reconciliation, and empty reindex behavior: 6 passed."
+      - "Ran related backend tests for Markdown notes, notes API, notes repository, and reindex: 78 passed with existing Starlette deprecation warnings."
+      - "Ran ./scripts/check.sh: backend format/lint/pyright and 214 pytest tests passed with existing Starlette deprecation warnings; frontend 120 Vitest tests, lint, and build passed."
   - time_utc: "2026-07-06T04:07:12Z"
     time_local: "2026-07-06T01:07:12-03:00"
     summary: "Made Chroma reconcile from SQLite for reliable RAG indexing."

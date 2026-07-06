@@ -56,12 +56,15 @@ endpoints that return sourced results from your own note collection.
 
 ## Local-first storage
 
-- **SQLite is the source of truth.** Every note and manual category is written to
-  `data/mapping_memory.sqlite` first; if anything else (AI metadata, embeddings,
-  Chroma indexing) fails, the saved note is still there.
-- **Markdown is written on save.** Creating, editing, deleting, or uncategorizing
-  notes updates `data/vault/`; app startup does not import Markdown files or
-  generate missing files for older SQLite rows.
+- **Markdown is the startup source of truth.** Creating, editing, deleting, or
+  uncategorizing notes updates `data/vault/`. On startup, the backend imports new
+  vault Markdown files, updates SQLite from newer tracked files, and removes
+  SQLite notes whose tracked Markdown file was deleted. Existing SQLite rows
+  without a tracked Markdown file are left alone.
+- **SQLite is the operational store.** While the app is running, every note and
+  manual category is written to `data/mapping_memory.sqlite`; if anything else
+  (AI metadata, embeddings, Chroma indexing) fails, the saved note is still
+  there.
 - **Chroma is rebuildable.** The vector index in `data/chroma/` is a derived cache.
   It can be deleted at any time and re-created from SQLite. Creating, editing,
   deleting, and category changes update Chroma best-effort. On startup, the
@@ -218,9 +221,10 @@ Both paths are relative to the repository root by default and are listed in
 
 ## Rebuild Chroma index
 
-SQLite is the source of truth for saved notes and categories. Chroma stores a
-rebuildable retrieval index in `data/chroma/`: embedded note chunks plus metadata
-used by semantic search and Ask retrieval.
+Markdown files in `data/vault/` are reconciled into SQLite on startup, and
+SQLite is then used as the source for Chroma. Chroma stores a rebuildable
+retrieval index in `data/chroma/`: embedded note chunks plus metadata used by
+semantic search and Ask retrieval.
 
 Backend startup checks SQLite notes against Chroma chunk metadata and rebuilds
 the Chroma collection when it is empty, incomplete, or stale and

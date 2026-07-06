@@ -6,7 +6,7 @@
 uv sync --dev
 ```
 
-The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Startup initializes SQLite only; it does not import Markdown files from the vault or backfill Markdown files for older SQLite rows. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage. Ask uses Chroma for semantic retrieval and rescues explicitly selected notes from SQLite when vector retrieval misses them.
+The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Startup reconciles the vault into SQLite by importing new Markdown files, applying newer tracked Markdown edits, and deleting SQLite notes whose tracked Markdown file was removed; it does not backfill Markdown files for older SQLite rows. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage. Ask uses Chroma for semantic retrieval and rescues explicitly selected notes from SQLite when vector retrieval misses them.
 
 > [!WARNING]
 > **Privacy and work data.**
@@ -108,9 +108,9 @@ Delete removes the SQLite note, refreshes SQLite FTS, and attempts Chroma chunk 
 
 ## Rebuild the Chroma index
 
-SQLite is the source of truth for saved notes and categories. Chroma stores the
-derived retrieval index: embedded chunks of saved notes plus metadata used by
-semantic search and Ask retrieval.
+Markdown files are reconciled into SQLite on startup, and SQLite then acts as
+the source for Chroma. Chroma stores the derived retrieval index: embedded
+chunks of saved notes plus metadata used by semantic search and Ask retrieval.
 
 Chroma is rebuildable. Run the reindex command when the Chroma directory is
 missing, has been deleted, looks stale, or semantic search / Ask retrieval

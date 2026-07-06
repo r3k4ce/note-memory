@@ -11,6 +11,7 @@ from mapping_memory.notes import (
     get_note,
     list_notes,
     search_notes_exact,
+    sync_markdown_vault,
     update_note,
     update_note_metadata,
 )
@@ -96,6 +97,28 @@ def test_create_note_writes_markdown_file_to_vault(sqlite_path: Path, tmp_path: 
         "Raw note text\n"
         "with exact spacing"
     )
+
+
+def test_sync_markdown_vault_deletes_sqlite_note_when_markdown_file_is_missing(
+    sqlite_path: Path,
+    tmp_path: Path,
+) -> None:
+    vault_path = tmp_path / "vault"
+    note = create_note(
+        sqlite_path,
+        "Missing vault file note CD-30954.",
+        ai_title="Missing vault file",
+        vault_path=vault_path,
+    )
+    markdown_path = vault_path / f"missing-vault-file-{note.id}.md"
+    markdown_path.unlink()
+
+    changed_note_ids = sync_markdown_vault(sqlite_path, vault_path)
+
+    assert changed_note_ids == [note.id]
+    assert get_note(sqlite_path, note.id) is None
+    assert list_notes(sqlite_path) == []
+    assert search_notes_exact(sqlite_path, "CD-30954") == []
 
 
 def test_create_note_indexes_note_for_exact_search(sqlite_path: Path) -> None:

@@ -24,13 +24,13 @@ class ReindexSummary:
 
 def reindex_chroma(settings: Settings | None = None) -> ReindexSummary:
     app_settings = settings or Settings()
-    if app_settings.openai_api_key is None:
-        raise EmbeddingUnavailableError(MISSING_API_KEY_MESSAGE)
     if not app_settings.sqlite_path.exists():
         raise FileNotFoundError(f"SQLite database not found: {app_settings.sqlite_path}")
 
     notes = list_notes(app_settings.sqlite_path)
     chunks = [_chunk for note in notes for _chunk in _chunks_for_note(note)]
+    if chunks and app_settings.openai_api_key is None:
+        raise EmbeddingUnavailableError(MISSING_API_KEY_MESSAGE)
     embeddings = (
         embed_texts([chunk.text for chunk in chunks], settings=app_settings) if chunks else []
     )

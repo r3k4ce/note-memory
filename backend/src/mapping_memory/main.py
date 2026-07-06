@@ -21,6 +21,7 @@ from mapping_memory.notes import (
     get_note,
     list_categories,
     list_notes,
+    sync_markdown_vault,
     update_category,
     update_note,
 )
@@ -52,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_db(app_settings.sqlite_path)
+        sync_markdown_vault(app_settings.sqlite_path, app_settings.vault_path)
         _reconcile_chroma_with_sqlite(settings=app_settings)
         yield
 
@@ -314,9 +316,6 @@ def _delete_note_from_retrieval(note_id: int, *, settings: Settings) -> None:
 def _reconcile_chroma_with_sqlite(*, settings: Settings) -> None:
     try:
         notes = list_notes(settings.sqlite_path)
-        if not notes:
-            return
-
         expected_metadata = {
             build_chunk_id(
                 note_id=chunk.note_id, chunk_index=chunk.chunk_index

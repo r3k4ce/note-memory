@@ -158,3 +158,24 @@ def test_reindex_zero_notes_resets_to_empty_collection(
     assert summary.notes_indexed == 0
     assert summary.chunks_indexed == 0
     assert FakeVectorStore.instances[0].calls == [{"method": "recreate_collection"}]
+
+
+def test_reindex_zero_notes_without_openai_key_resets_to_empty_collection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sqlite_path = tmp_path / "notes.sqlite"
+    init_db(sqlite_path)
+
+    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        raise AssertionError("No embedding call is needed when there are no chunks")
+
+    FakeVectorStore.instances = []
+    monkeypatch.setattr("mapping_memory.reindex.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore, raising=False)
+
+    summary = reindex_chroma(Settings(sqlite_path=sqlite_path, openai_api_key=None))
+
+    assert summary.notes_indexed == 0
+    assert summary.chunks_indexed == 0
+    assert FakeVectorStore.instances[0].calls == [{"method": "recreate_collection"}]

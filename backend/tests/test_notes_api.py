@@ -9,7 +9,7 @@ from mapping_memory.ai import OrganizerMetadata
 from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.main import _reconcile_chroma_with_sqlite, create_app
-from mapping_memory.notes import create_note
+from mapping_memory.notes import create_note, get_note
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import build_chunk_id, build_chunk_metadata
 
@@ -27,6 +27,9 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
             self.settings = settings
             self.add_calls: list[dict[str, Any]] = []
             store_instances.append(self)
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {}
 
         def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
             self.add_calls.append({"chunks": list(chunks), "embeddings": embeddings})
@@ -74,10 +77,10 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         "updated_at": response.json()["date_added"],
         "category": None,
     }
-    assert len(store_instances) == 1
-    assert store_instances[0].settings.openai_embedding_model == "text-embedding-3-small"
-    assert len(store_instances[0].add_calls) == 1
-    add_call = store_instances[0].add_calls[0]
+    assert len(store_instances) == 2
+    assert store_instances[1].settings.openai_embedding_model == "text-embedding-3-small"
+    assert len(store_instances[1].add_calls) == 1
+    add_call = store_instances[1].add_calls[0]
     chunks = add_call["chunks"]
     assert len(chunks) == 1
     assert chunks[0].note_id == response.json()["id"]
@@ -244,7 +247,7 @@ def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
     }
 
 
-def test_create_app_does_not_import_markdown_file_from_vault(tmp_path: Path) -> None:
+def test_create_app_imports_markdown_file_from_vault(tmp_path: Path) -> None:
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     imported_path = vault_path / "external-note.md"
@@ -273,24 +276,20 @@ def test_create_app_does_not_import_markdown_file_from_vault(tmp_path: Path) -> 
 
     assert notes_response.status_code == 200
     assert categories_response.status_code == 200
-    assert notes_response.json() == []
-    assert categories_response.json() == []
+    assert categories_response.json()[0]["name"] == "Imported"
+    assert notes_response.json()[0]["original_text"] == "External body text"
+    assert notes_response.json()[0]["ai_title"] == "External note"
+    assert notes_response.json()[0]["short_summary"] == "External summary."
+    assert notes_response.json()[0]["tags"] == ["work"]
+    assert notes_response.json()[0]["category"]["name"] == "Imported"
 
 
-def test_create_app_does_not_reindex_markdown_file_from_vault(
+def test_create_app_reconciles_chroma_after_markdown_vault_sync(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    reindexed_notes: list[Any] = []
+    reindex_calls: list[Settings] = []
 
-    def reindex_note_for_retrieval(note: Any, *, settings: Settings) -> None:
-        reindexed_notes.append(note)
-
-    monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
-        reindex_note_for_retrieval,
-        raising=False,
-    )
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     (vault_path / "external-note.md").write_text(
@@ -304,6 +303,20 @@ def test_create_app_does_not_reindex_markdown_file_from_vault(
         "\n"
         "External body text",
     )
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {}
+
+    def reindex_chroma(settings: Settings) -> object:
+        reindex_calls.append(settings)
+        return object()
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
     app = create_app(
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
@@ -316,8 +329,8 @@ def test_create_app_does_not_reindex_markdown_file_from_vault(
         notes_response = client.get("/notes")
 
     assert notes_response.status_code == 200
-    assert notes_response.json() == []
-    assert reindexed_notes == []
+    assert notes_response.json()[0]["original_text"] == "External body text"
+    assert len(reindex_calls) == 1
 
 
 def test_create_app_does_not_backfill_markdown_for_existing_sqlite_notes(
@@ -348,6 +361,35 @@ def test_create_app_does_not_backfill_markdown_for_existing_sqlite_notes(
     assert notes_response.status_code == 200
     assert notes_response.json()[0]["id"] == note.id
     assert list(vault_path.glob("*.md")) == []
+
+
+def test_create_app_deletes_sqlite_note_when_tracked_markdown_file_is_missing(
+    tmp_path: Path,
+) -> None:
+    vault_path = tmp_path / "vault"
+    sqlite_path = tmp_path / "notes-api.sqlite"
+    init_db(sqlite_path)
+    note = create_note(
+        sqlite_path,
+        "Deleted from vault body CD-30954.",
+        ai_title="Deleted from vault",
+        vault_path=vault_path,
+    )
+    (vault_path / f"deleted-from-vault-{note.id}.md").unlink()
+    app = create_app(
+        Settings(
+            sqlite_path=sqlite_path,
+            vault_path=vault_path,
+            openai_api_key=None,
+        )
+    )
+
+    with TestClient(app) as client:
+        notes_response = client.get("/notes")
+
+    assert notes_response.status_code == 200
+    assert notes_response.json() == []
+    assert get_note(sqlite_path, note.id) is None
 
 
 def test_create_app_reindexes_when_sqlite_notes_have_empty_chroma(
@@ -465,6 +507,32 @@ def test_create_app_reindexes_when_chroma_metadata_is_stale(
     _reconcile_chroma_with_sqlite(
         settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
     )
+
+    assert len(reindex_calls) == 1
+
+
+def test_create_app_reindexes_when_sqlite_is_empty_but_chroma_has_chunks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = tmp_path / "notes-api.sqlite"
+    init_db(sqlite_path)
+    reindex_calls: list[Settings] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {"note:999:chunk:0": {"note_id": 999}}
+
+    def reindex_chroma(settings: Settings) -> object:
+        reindex_calls.append(settings)
+        return object()
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
+    _reconcile_chroma_with_sqlite(settings=Settings(sqlite_path=sqlite_path, openai_api_key=None))
 
     assert len(reindex_calls) == 1
 
@@ -779,6 +847,9 @@ def test_patch_note_reindexes_chroma_chunks(
             self.add_calls: list[dict[str, Any]] = []
             store_instances.append(self)
 
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {}
+
         def delete_chunks_for_note(self, note_id: int) -> None:
             self.delete_calls.append(note_id)
 
@@ -811,10 +882,10 @@ def test_patch_note_reindexes_chroma_chunks(
         )
 
     assert response.status_code == 200
-    assert len(store_instances) == 1
-    assert store_instances[0].delete_calls == [response.json()["id"]]
-    assert len(store_instances[0].add_calls) == 1
-    add_call = store_instances[0].add_calls[0]
+    assert len(store_instances) == 2
+    assert store_instances[1].delete_calls == [response.json()["id"]]
+    assert len(store_instances[1].add_calls) == 1
+    add_call = store_instances[1].add_calls[0]
     chunks = add_call["chunks"]
     assert len(chunks) == 1
     assert chunks[0].note_id == response.json()["id"]
