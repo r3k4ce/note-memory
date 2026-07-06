@@ -6,10 +6,12 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from mapping_memory.ai import OrganizerMetadata
+from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
-from mapping_memory.main import create_app
+from mapping_memory.main import _reconcile_chroma_with_sqlite, create_app
 from mapping_memory.notes import create_note
 from mapping_memory.settings import Settings
+from mapping_memory.vector_store import build_chunk_id, build_chunk_metadata
 
 
 def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
@@ -346,6 +348,155 @@ def test_create_app_does_not_backfill_markdown_for_existing_sqlite_notes(
     assert notes_response.status_code == 200
     assert notes_response.json()[0]["id"] == note.id
     assert list(vault_path.glob("*.md")) == []
+
+
+def test_create_app_reindexes_when_sqlite_notes_have_empty_chroma(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = tmp_path / "notes-api.sqlite"
+    init_db(sqlite_path)
+    create_note(sqlite_path, "Existing note that needs vectors")
+    reindex_calls: list[Settings] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {}
+
+    def reindex_chroma(settings: Settings) -> object:
+        reindex_calls.append(settings)
+        return object()
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
+    _reconcile_chroma_with_sqlite(
+        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
+    )
+
+    assert len(reindex_calls) == 1
+    assert reindex_calls[0].sqlite_path == sqlite_path
+
+
+def test_create_app_skips_reindex_when_chroma_matches_sqlite(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = tmp_path / "notes-api.sqlite"
+    init_db(sqlite_path)
+    note = create_note(sqlite_path, "Existing note with current vectors")
+    reindex_calls: list[Settings] = []
+    chunks = create_retrieval_chunks(
+        note_id=note.id,
+        original_text=note.original_text,
+        ai_title=note.ai_title,
+        short_summary=note.short_summary,
+        tags=note.tags,
+        date_added=note.date_added,
+        updated_at=note.updated_at,
+    )
+    expected_metadata = {
+        build_chunk_id(note_id=chunk.note_id, chunk_index=chunk.chunk_index): build_chunk_metadata(
+            chunk
+        )
+        for chunk in chunks
+    }
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return expected_metadata
+
+    def reindex_chroma(settings: Settings) -> object:
+        reindex_calls.append(settings)
+        return object()
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
+    _reconcile_chroma_with_sqlite(
+        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
+    )
+
+    assert reindex_calls == []
+
+
+def test_create_app_reindexes_when_chroma_metadata_is_stale(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sqlite_path = tmp_path / "notes-api.sqlite"
+    init_db(sqlite_path)
+    note = create_note(sqlite_path, "Existing note with stale vectors")
+    reindex_calls: list[Settings] = []
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {
+                f"note:{note.id}:chunk:0": {
+                    "note_id": note.id,
+                    "chunk_index": 0,
+                    "chunk_type": "full",
+                    "ai_title": note.ai_title,
+                    "tags": "[]",
+                    "date_added": note.date_added,
+                    "source_start": 0,
+                    "source_end": len(note.original_text),
+                    "category_id": 0,
+                    "category_name": "Uncategorized",
+                    "category_scope": "uncategorized",
+                    "chunk_text_hash": "stale",
+                    "note_updated_at": note.updated_at,
+                }
+            }
+
+    def reindex_chroma(settings: Settings) -> object:
+        reindex_calls.append(settings)
+        return object()
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
+    _reconcile_chroma_with_sqlite(
+        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
+    )
+
+    assert len(reindex_calls) == 1
+
+
+def test_create_app_logs_reindex_failure_without_crashing(
+    tmp_path: Path,
+    monkeypatch,
+    caplog,
+) -> None:
+    sqlite_path = tmp_path / "notes-api.sqlite"
+    init_db(sqlite_path)
+    create_note(sqlite_path, "Existing note with unavailable embeddings")
+
+    class FakeVectorStore:
+        def __init__(self, *, settings: Settings) -> None:
+            self.settings = settings
+
+        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+            return {}
+
+    def reindex_chroma(settings: Settings) -> object:
+        raise RuntimeError("provider failure with sensitive details")
+
+    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
+    with caplog.at_level(logging.WARNING):
+        _reconcile_chroma_with_sqlite(
+            settings=Settings(sqlite_path=sqlite_path, openai_api_key=None)
+        )
+
+    assert "Chroma index reconciliation unavailable; continuing with existing index" in caplog.text
+    assert "provider failure" not in caplog.text
 
 
 def test_post_notes_organize_returns_ai_metadata_for_body_draft(
@@ -955,6 +1106,42 @@ def test_categories_api_renames_category_and_rejects_duplicates(tmp_path: Path) 
     assert duplicate_response.json() == {"detail": "Category already exists"}
     assert missing_response.status_code == 404
     assert missing_response.json() == {"detail": "Category not found"}
+
+
+def test_categories_api_rename_reindexes_category_notes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    reindexed_note_ids: list[int] = []
+
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval",
+        lambda *args, **kwargs: None,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval",
+        lambda note, **kwargs: reindexed_note_ids.append(note.id),
+        raising=False,
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+
+    with TestClient(app) as client:
+        category_response = client.post("/categories", json={"name": "Work"})
+        category_id = category_response.json()["id"]
+        first_note = client.post(
+            "/notes",
+            json={"original_text": "First work note", "category_id": category_id},
+        ).json()
+        second_note = client.post(
+            "/notes",
+            json={"original_text": "Second work note", "category_id": category_id},
+        ).json()
+        client.post("/notes", json={"original_text": "Loose note"})
+        response = client.patch(f"/categories/{category_id}", json={"name": "Projects"})
+
+    assert response.status_code == 200
+    assert reindexed_note_ids == [second_note["id"], first_note["id"]]
 
 
 def test_categories_api_deletes_category_and_uncategorizes_notes(

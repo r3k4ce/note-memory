@@ -18,8 +18,14 @@ class FakeCollection:
     def __init__(self) -> None:
         self.add_calls: list[dict[str, Any]] = []
         self.delete_calls: list[dict[str, Any]] = []
+        self.get_calls: list[dict[str, Any]] = []
         self.query_calls: list[dict[str, Any]] = []
         self.update_calls: list[dict[str, Any]] = []
+        self.count_value = 0
+        self.get_response: dict[str, Any] = {
+            "ids": [],
+            "metadatas": [],
+        }
         self.query_response: dict[str, Any] = {
             "ids": [["note:7:chunk:0"]],
             "documents": [["chunk text"]],
@@ -32,6 +38,13 @@ class FakeCollection:
 
     def delete(self, **kwargs: Any) -> None:
         self.delete_calls.append(kwargs)
+
+    def count(self) -> int:
+        return self.count_value
+
+    def get(self, **kwargs: Any) -> dict[str, Any]:
+        self.get_calls.append(kwargs)
+        return self.get_response
 
     def query(self, **kwargs: Any) -> dict[str, Any]:
         self.query_calls.append(kwargs)
@@ -96,6 +109,8 @@ def test_build_chunk_metadata_uses_required_chroma_metadata_shape() -> None:
         "category_id": 3,
         "category_name": "Projects",
         "category_scope": "category:3",
+        "chunk_text_hash": "39c513383bc5c014a44b1761e53cf10f9c964e240222e6246b461c4a77676ec2",
+        "note_updated_at": "2026-06-30T23:30:00+00:00",
     }
 
 
@@ -177,6 +192,10 @@ def test_add_chunks_sends_ids_documents_embeddings_and_metadata_to_chroma() -> N
                     "category_id": 0,
                     "category_name": "Uncategorized",
                     "category_scope": "uncategorized",
+                    "chunk_text_hash": (
+                        "89c9099d6dacc3c2091be47508fe47e637f4267e0252f61f878d0526355c2dba"
+                    ),
+                    "note_updated_at": "2026-06-30T23:30:00+00:00",
                 },
                 {
                     "note_id": 9,
@@ -190,10 +209,37 @@ def test_add_chunks_sends_ids_documents_embeddings_and_metadata_to_chroma() -> N
                     "category_id": 0,
                     "category_name": "Uncategorized",
                     "category_scope": "uncategorized",
+                    "chunk_text_hash": (
+                        "4da1868548352163b4a4c17c36ef8d5f62940d76bfdc6ca3e9898b5f0905559d"
+                    ),
+                    "note_updated_at": "2026-06-30T23:30:00+00:00",
                 },
             ],
         }
     ]
+
+
+def test_count_chunks_returns_collection_count() -> None:
+    collection = FakeCollection()
+    collection.count_value = 3
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+
+    assert store.count_chunks() == 3
+
+
+def test_get_chunk_metadata_returns_metadata_by_chunk_id() -> None:
+    collection = FakeCollection()
+    collection.get_response = {
+        "ids": ["note:7:chunk:0", "note:8:chunk:0"],
+        "metadatas": [{"note_id": 7}, {"note_id": 8}],
+    }
+    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+
+    assert store.get_chunk_metadata() == {
+        "note:7:chunk:0": {"note_id": 7},
+        "note:8:chunk:0": {"note_id": 8},
+    }
+    assert collection.get_calls == [{"include": ["metadatas"]}]
 
 
 def test_add_chunks_rejects_mismatched_embedding_count() -> None:
@@ -288,6 +334,10 @@ def test_update_chunk_metadata_updates_known_chunk_ids_only() -> None:
                     "category_id": 4,
                     "category_name": "Work",
                     "category_scope": "category:4",
+                    "chunk_text_hash": (
+                        "ceb1ce3d817e249e7d8fbaf98faccd8ece37fa173e1671e2da78f459cb08a83f"
+                    ),
+                    "note_updated_at": "2026-06-30T23:30:00+00:00",
                 }
             ],
         }

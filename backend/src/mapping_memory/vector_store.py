@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Sequence
 from contextlib import suppress
@@ -57,6 +58,8 @@ def build_chunk_metadata(chunk: RetrievalChunk) -> ChunkMetadata:
         "category_id": category_id,
         "category_name": category_name,
         "category_scope": category_scope_value(chunk.category_id),
+        "chunk_text_hash": hashlib.sha256(chunk.text.encode("utf-8")).hexdigest(),
+        "note_updated_at": chunk.updated_at or chunk.date_added,
     }
 
 
@@ -118,6 +121,21 @@ class ChromaVectorStore:
 
         response = cast(dict[str, Any], self.collection.query(**query_kwargs))
         return _normalize_query_response(response)
+
+    def count_chunks(self) -> int:
+        return int(self.collection.count())
+
+    def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
+        response = cast(
+            dict[str, Any],
+            self.collection.get(include=["metadatas"]),
+        )
+        ids = response.get("ids", [])
+        metadatas = response.get("metadatas", [])
+        return {
+            chunk_id: metadatas[index] if index < len(metadatas) else {}
+            for index, chunk_id in enumerate(ids)
+        }
 
     def update_chunk_metadata(self, chunks: Sequence[RetrievalChunk]) -> None:
         if not chunks:

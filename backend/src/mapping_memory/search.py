@@ -402,4 +402,5 @@ def _chunks_for_note(note: NoteRead):
         date_added=note.date_added,
         category_id=note.category.id if note.category is not None else None,
         category_name=note.category.name if note.category is not None else None,
+        updated_at=note.updated_at,
     )

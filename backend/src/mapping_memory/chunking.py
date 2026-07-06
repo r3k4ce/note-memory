@@ -23,6 +23,7 @@ class RetrievalChunk:
     source_end: int | None
     category_id: int | None = None
     category_name: str | None = None
+    updated_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,7 @@ def create_retrieval_chunks(
     date_added: str,
     category_id: int | None = None,
     category_name: str | None = None,
+    updated_at: str | None = None,
 ) -> list[RetrievalChunk]:
     chunk_tags = tuple(tags)
 
@@ -60,6 +62,7 @@ def create_retrieval_chunks(
                 source_end=len(original_text),
                 category_id=category_id,
                 category_name=category_name,
+                updated_at=updated_at,
             )
         ]
 
@@ -77,6 +80,7 @@ def create_retrieval_chunks(
             source_end=None,
             category_id=category_id,
             category_name=category_name,
+            updated_at=updated_at,
         )
     ]
 
@@ -95,6 +99,7 @@ def create_retrieval_chunks(
                 source_end=content_group[-1].source_end,
                 category_id=category_id,
                 category_name=category_name,
+                updated_at=updated_at,
             )
         )
 
@@ -115,6 +120,7 @@ def _build_chunk(
     source_end: int | None,
     category_id: int | None,
     category_name: str | None,
+    updated_at: str | None,
 ) -> RetrievalChunk:
     return RetrievalChunk(
         note_id=note_id,
@@ -134,6 +140,7 @@ def _build_chunk(
         source_end=source_end,
         category_id=category_id,
         category_name=category_name,
+        updated_at=updated_at,
     )
 
 

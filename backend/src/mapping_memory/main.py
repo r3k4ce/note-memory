@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from mapping_memory.ai import organize_mapping_text
 from mapping_memory.ask import create_ask_router
-from mapping_memory.chunking import create_retrieval_chunks
+from mapping_memory.chunking import RetrievalChunk, create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
 from mapping_memory.notes import (
@@ -24,6 +24,7 @@ from mapping_memory.notes import (
     update_category,
     update_note,
 )
+from mapping_memory.reindex import reindex_chroma
 from mapping_memory.schemas import (
     CategoryCreate,
     CategoryDeleteResponse,
@@ -38,7 +39,7 @@ from mapping_memory.schemas import (
 )
 from mapping_memory.search import create_search_router
 from mapping_memory.settings import Settings
-from mapping_memory.vector_store import ChromaVectorStore
+from mapping_memory.vector_store import ChromaVectorStore, build_chunk_id, build_chunk_metadata
 
 LOCAL_FRONTEND_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
@@ -51,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_db(app_settings.sqlite_path)
+        _reconcile_chroma_with_sqlite(settings=app_settings)
         yield
 
     app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
@@ -106,6 +108,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ) from error
         if updated_category is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+        try:
+            for note in list_notes(app_settings.sqlite_path, category_id=updated_category.id):
+                _reindex_note_for_retrieval(note, settings=app_settings)
+        except Exception:
+            logger.warning("Retrieval reindexing unavailable after category rename")
 
         return updated_category
 
@@ -303,25 +311,44 @@ def _delete_note_from_retrieval(note_id: int, *, settings: Settings) -> None:
     ChromaVectorStore(settings=settings).delete_chunks_for_note(note_id)
 
 
+def _reconcile_chroma_with_sqlite(*, settings: Settings) -> None:
+    try:
+        notes = list_notes(settings.sqlite_path)
+        if not notes:
+            return
+
+        expected_metadata = {
+            build_chunk_id(
+                note_id=chunk.note_id, chunk_index=chunk.chunk_index
+            ): build_chunk_metadata(chunk)
+            for note in notes
+            for chunk in _chunks_for_note(note)
+        }
+        current_metadata = ChromaVectorStore(settings=settings).get_chunk_metadata()
+        if current_metadata == expected_metadata:
+            return
+
+        reindex_chroma(settings)
+    except Exception:
+        logger.warning("Chroma index reconciliation unavailable; continuing with existing index")
+
+
 def _reindex_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:
     vector_store = ChromaVectorStore(settings=settings)
     vector_store.delete_chunks_for_note(note.id)
-    chunks = create_retrieval_chunks(
-        note_id=note.id,
-        original_text=note.original_text,
-        ai_title=note.ai_title,
-        short_summary=note.short_summary,
-        tags=note.tags,
-        date_added=note.date_added,
-        category_id=note.category.id if note.category is not None else None,
-        category_name=note.category.name if note.category is not None else None,
-    )
+    chunks = _chunks_for_note(note)
     embeddings = embed_texts([chunk.text for chunk in chunks], settings=settings)
     vector_store.add_chunks(chunks, embeddings=embeddings)
 
 
 def _index_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:
-    chunks = create_retrieval_chunks(
+    chunks = _chunks_for_note(note)
+    embeddings = embed_texts([chunk.text for chunk in chunks], settings=settings)
+    ChromaVectorStore(settings=settings).add_chunks(chunks, embeddings=embeddings)
+
+
+def _chunks_for_note(note: NoteRead) -> list[RetrievalChunk]:
+    return create_retrieval_chunks(
         note_id=note.id,
         original_text=note.original_text,
         ai_title=note.ai_title,
@@ -330,9 +357,8 @@ def _index_note_for_retrieval(note: NoteRead, *, settings: Settings) -> None:
         date_added=note.date_added,
         category_id=note.category.id if note.category is not None else None,
         category_name=note.category.name if note.category is not None else None,
+        updated_at=note.updated_at,
     )
-    embeddings = embed_texts([chunk.text for chunk in chunks], settings=settings)
-    ChromaVectorStore(settings=settings).add_chunks(chunks, embeddings=embeddings)
 
 
 app = create_app()

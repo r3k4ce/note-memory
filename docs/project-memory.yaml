@@ -1,4 +1,17 @@
 entries:
+  - time_utc: "2026-07-06T04:07:12Z"
+    time_local: "2026-07-06T01:07:12-03:00"
+    summary: "Made Chroma reconcile from SQLite for reliable RAG indexing."
+    changed:
+      - "Added Chroma chunk metadata inspection and sync metadata, including chunk text hashes and note updated timestamps."
+      - "Added backend startup reconciliation that compares SQLite-derived retrieval chunks with Chroma metadata and best-effort rebuilds the Chroma collection when it is empty, incomplete, or stale."
+      - "Kept live mutation sync intact and added category-rename reindexing for notes in the renamed category."
+      - "Documented automatic Chroma reconciliation in README.md and backend/README.md."
+    verification:
+      - "Ran backend ruff format --check and ruff check: passed."
+      - "Ran focused backend tests for vector store metadata, Chroma reconciliation, and reindex: 24 passed."
+      - "Attempted pyright, but it failed to resolve installed third-party packages from the uv environment."
+      - "Attempted local Chroma rebuild; sandbox DNS blocked OpenAI embeddings, and escalated network execution was rejected because it would send note text to OpenAI without explicit approval."
   - time_utc: "2026-07-06T02:19:11Z"
     time_local: "2026-07-05T23:19:11-03:00"
     summary: "Improved Ask Bun selected-note retrieval and source evidence snippets."

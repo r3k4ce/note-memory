@@ -63,10 +63,13 @@ endpoints that return sourced results from your own note collection.
   notes updates `data/vault/`; app startup does not import Markdown files or
   generate missing files for older SQLite rows.
 - **Chroma is rebuildable.** The vector index in `data/chroma/` is a derived cache.
-  It can be deleted at any time and re-created from SQLite. Search falls back to
-  local exact and fuzzy matching while the index is empty or unavailable. Ask uses
-  Chroma for semantic retrieval and also rescues explicitly selected notes from
-  SQLite when vector retrieval misses them.
+  It can be deleted at any time and re-created from SQLite. Creating, editing,
+  deleting, and category changes update Chroma best-effort. On startup, the
+  backend compares SQLite notes against stored Chroma chunk metadata and rebuilds
+  the index when it is empty, incomplete, or stale and `OPENAI_API_KEY` is
+  configured. Search falls back to local exact and fuzzy matching while the index
+  is empty or unavailable. Ask uses Chroma for semantic retrieval and also
+  rescues explicitly selected notes from SQLite when vector retrieval misses them.
 - No cloud sync, no telemetry, no remote backup. The data folder is yours.
 
 ## Prerequisites
@@ -219,10 +222,13 @@ SQLite is the source of truth for saved notes and categories. Chroma stores a
 rebuildable retrieval index in `data/chroma/`: embedded note chunks plus metadata
 used by semantic search and Ask retrieval.
 
-Run the reindex command when `data/chroma/` is missing, has been deleted, looks
-stale, or semantic search / Ask retrieval is not reflecting the notes saved
-in SQLite. Reindex after Ask retrieval changes so stored chunk metadata, including
-source offsets, is refreshed.
+Backend startup checks SQLite notes against Chroma chunk metadata and rebuilds
+the Chroma collection when it is empty, incomplete, or stale and
+`OPENAI_API_KEY` is configured. Run the reindex command manually when
+`data/chroma/` is missing, has been deleted, looks stale, or semantic search /
+Ask retrieval is not reflecting the notes saved in SQLite. Reindex after Ask
+retrieval changes so stored chunk metadata, including source offsets and sync
+hashes, is refreshed.
 
 Run from `backend/`:
 

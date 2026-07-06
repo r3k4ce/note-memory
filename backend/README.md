@@ -114,8 +114,11 @@ semantic search and Ask retrieval.
 
 Chroma is rebuildable. Run the reindex command when the Chroma directory is
 missing, has been deleted, looks stale, or semantic search / Ask retrieval
-is not reflecting the notes saved in SQLite. Reindex after retrieval changes so
-stored chunk metadata, including source offsets, is refreshed.
+is not reflecting the notes saved in SQLite. Backend startup also compares
+SQLite notes against Chroma chunk metadata and rebuilds the Chroma collection
+when it is empty, incomplete, or stale and `OPENAI_API_KEY` is configured.
+Reindex after retrieval changes so stored chunk metadata, including source
+offsets and sync hashes, is refreshed.
 
 Run from `backend/`:
 
