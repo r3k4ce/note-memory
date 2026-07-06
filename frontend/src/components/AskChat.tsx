@@ -63,7 +63,7 @@ function SourceList({
           >
             <button
               aria-label={`Open cited note ${index + 1}: ${source.title}`}
-              className="group flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1"
+              className="group flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1"
               onClick={() => onSourceSelect(source.note_id)}
               type="button"
             >
@@ -71,7 +71,7 @@ function SourceList({
                 {index + 1}
               </span>
               <FileText size={12} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">{source.title}</span>
+              <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-text-primary">{source.title}</span>
               <time className="shrink-0 text-xs tabular-nums text-text-muted" dateTime={source.date_added}>
                 {source.date_added.slice(0, 10)}
               </time>
@@ -143,7 +143,7 @@ function AssistantBubble({ content, isPending, onSourceSelect, sources, status }
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[86%] rounded-2xl rounded-tl-md bg-surface px-4 py-3.5 text-[13px] leading-7 text-text-secondary shadow-soft">
+      <div className="max-w-[86%] rounded-2xl rounded-tl-md bg-surface px-4 py-4 text-[14px] leading-7 text-text-secondary shadow-soft">
         <p className={isPending ? "whitespace-pre-wrap italic text-text-muted" : "whitespace-pre-wrap"}>{displayContent}</p>
         {!isPending && status !== "no_evidence" ? (
           <CitationChips content={content} onSourceSelect={onSourceSelect} sources={sources} />
@@ -157,7 +157,7 @@ function AssistantBubble({ content, isPending, onSourceSelect, sources, status }
 function UserBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[78%] rounded-2xl rounded-br-md bg-accent px-4 py-3 text-[13px] leading-relaxed text-accent-fg shadow-elevated">
+      <div className="max-w-[78%] rounded-2xl rounded-br-md bg-accent px-4 py-3.5 text-[14px] leading-relaxed text-accent-fg shadow-elevated">
         <p className="whitespace-pre-wrap font-medium">{content}</p>
       </div>
     </div>
@@ -167,7 +167,7 @@ function UserBubble({ content }: { content: string }) {
 function ErrorBubble({ content }: { content: string }) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[86%] rounded-2xl rounded-tl-md border border-error/60 bg-error-muted px-4 py-3 text-[13px] leading-relaxed text-error shadow-sm">
+      <div className="max-w-[86%] rounded-2xl rounded-tl-md border border-error/60 bg-error-muted px-4 py-3.5 text-[14px] leading-relaxed text-error shadow-sm">
         <div className="flex items-start gap-2">
           <TriangleAlert size={14} strokeWidth={2} className="mt-0.5 shrink-0 text-error" aria-hidden="true" />
           <p className="whitespace-pre-wrap">{content}</p>
@@ -236,16 +236,16 @@ export function AskChat({
 
   return (
 <section className="flex h-full min-h-0 w-full flex-col gap-3" aria-labelledby="ask-title">
-      <header className="flex shrink-0 flex-col gap-1 border-b border-border pb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-muted">
-            <Sparkles size={13} strokeWidth={2} className="text-accent" />
-          </div>
-          <h2 className="text-sm font-semibold text-text-primary" id="ask-title">
-            Ask Bun
-          </h2>
+      <header className="flex shrink-0 items-center gap-2 border-b border-border pb-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-muted">
+          <Sparkles size={15} strokeWidth={2} className="text-accent" />
         </div>
-        <p className="pl-9 text-xs text-text-muted">Searching · {scopeLabel}</p>
+        <h2 className="text-base font-semibold text-text-primary" id="ask-title">
+          Ask Bun
+        </h2>
+        <span className="inline-flex items-center rounded-full bg-accent-muted px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
+          Searching · {scopeLabel}
+        </span>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
@@ -257,7 +257,7 @@ export function AskChat({
             <div className="flex max-w-[260px] flex-wrap justify-center gap-1.5">
               {promptChips.map((prompt) => (
                 <button
-                  className="rounded-full border border-border bg-bg px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50"
+                  className="rounded-full border border-border bg-bg px-3 py-1.5 text-[13px] font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50"
                   disabled={isPending || isSubmitDisabled}
                   key={prompt}
                   onClick={() => setQuestion(prompt)}
@@ -295,7 +295,7 @@ export function AskChat({
       <form aria-busy={isPending} className="flex shrink-0 flex-col gap-2 pt-2" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="w-full resize-none overflow-y-auto rounded-md border border-border bg-bg px-3.5 py-3 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="w-full resize-none overflow-y-auto rounded-md border border-border bg-bg px-3.5 py-3.5 text-[14px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -312,7 +312,7 @@ export function AskChat({
                   : "Enter to send · Shift+Enter for a new line")}
           </span>
           <button
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSendDisabled}
             type="submit"
           >

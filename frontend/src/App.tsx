@@ -1625,8 +1625,8 @@ export default function App() {
 
       <aside
         aria-label="Bun pane"
-        className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-4 transition-[width,padding] duration-150 ease-out lg:flex ${
-          rightPaneWidth === 0 ? "px-0" : "px-4"
+        className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-5 transition-[width,padding] duration-150 ease-out lg:flex ${
+          rightPaneWidth === 0 ? "px-0" : "px-5"
         }`}
         style={{ width: rightPaneWidth }}
       >
