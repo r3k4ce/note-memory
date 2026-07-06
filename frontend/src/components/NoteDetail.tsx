@@ -286,7 +286,7 @@ export function NoteDetail({
       ) : null}
 
       {readMode ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
           <MarkdownPreview source={previewBody} />
         </div>
       ) : (

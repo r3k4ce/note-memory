@@ -1165,10 +1165,10 @@ export default function App() {
         className="flex shrink-0 flex-col overflow-hidden bg-bg transition-[width] duration-150 ease-out"
         style={{ width: leftPaneWidth }}
       >
-        <div className="shrink-0 border-b border-border px-3 py-3.5">
+        <div className="shrink-0 border-b border-border px-3 py-6">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
-            <span className="text-[14px] font-semibold tracking-tight text-text-primary">Notebun</span>
+            <span className="text-lg font-semibold tracking-tight text-text-primary">Notebun</span>
             <span className="ml-auto">
               <ThemeMenu />
             </span>
@@ -1177,12 +1177,12 @@ export default function App() {
 
         <div className="shrink-0 px-3 py-2.5">
           <button
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2.5 text-[13px] font-semibold text-black shadow-soft transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent px-3 py-3 text-[14px] font-semibold text-black shadow-soft transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSaving || isSavingEdit || isDeleting}
             onClick={handleNewNote}
             type="button"
           >
-            <Plus size={14} strokeWidth={2} />
+            <Plus size={16} strokeWidth={2} />
             New note
           </button>
         </div>
