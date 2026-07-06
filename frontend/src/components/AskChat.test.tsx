@@ -49,8 +49,8 @@ describe("AskChat Ask Bun panel", () => {
     const { onSubmit } = renderAskChat();
 
     expect(screen.getByRole("heading", { name: "Ask Bun" })).toBeInTheDocument();
-    expect(screen.getByText("Scope · All notes")).toBeInTheDocument();
-    expect(screen.getByText(/Bun has nothing to read yet\./)).toBeInTheDocument();
+    expect(screen.getByText("Searching · All notes")).toBeInTheDocument();
+    expect(screen.getByText(/Ask Bun about your notes/)).toBeInTheDocument();
 
     const textarea = screen.getByLabelText("Ask a question about saved notes");
     expect(screen.getByPlaceholderText("Ask about your notes...")).toBeInTheDocument();

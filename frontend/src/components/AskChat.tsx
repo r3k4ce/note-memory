@@ -114,6 +114,15 @@ export function AskChat({
   const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
 
   useEffect(() => {
+    const el = askRef.current;
+    if (!el) {
+      return;
+    }
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [question, askRef]);
+
+  useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, pendingMessageId]);
 
@@ -142,24 +151,29 @@ export function AskChat({
 
   return (
 <section className="flex h-full min-h-0 w-full flex-col gap-3" aria-labelledby="ask-title">
-      <header className="flex shrink-0 flex-col gap-1 pb-2">
+      <header className="flex shrink-0 flex-col gap-1 border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-muted">
             <Sparkles size={13} strokeWidth={2} className="text-accent" />
           </div>
-          <h2 className="text-[13px] font-semibold text-text-primary" id="ask-title">
+          <h2 className="text-sm font-semibold text-text-primary" id="ask-title">
             Ask Bun
           </h2>
         </div>
-        <p className="pl-9 text-xs text-text-muted">Scope · {scopeLabel}</p>
+        <p className="pl-9 text-xs text-text-muted">Searching · {scopeLabel}</p>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
-        <AssistantBubble
-          content={"Bun has nothing to read yet."}
-          onSourceSelect={onSourceSelect}
-          sources={[]}
-        />
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-muted">
+              <Sparkles size={16} strokeWidth={2} className="text-accent" />
+            </div>
+            <p className="max-w-[220px] text-xs leading-relaxed text-text-muted">
+              Ask Bun about your notes — it reads them and answers with cited sources.
+            </p>
+          </div>
+        )}
         {messages.map((message) => {
           if (message.role === "user") {
             return <UserBubble content={message.content} key={message.id} />;
@@ -185,13 +199,13 @@ export function AskChat({
       <form aria-busy={isPending} className="flex shrink-0 flex-col gap-2 pt-2" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="min-h-24 w-full resize-y rounded-md border border-border bg-bg px-3.5 py-3 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="w-full resize-none overflow-y-auto rounded-md border border-border bg-bg px-3.5 py-3 text-[13px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask about your notes..."
           ref={askRef}
-          rows={3}
+          rows={2}
           value={question}
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -199,10 +213,10 @@ export function AskChat({
             {submitDisabledMessage
               ?? (isPending
                  ? "Bun is reading your notes…"
-                 : "Press Enter to send, Shift+Enter for a new line.")}
+                  : "Enter to send · Shift+Enter for a new line")}
           </span>
           <button
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isSendDisabled}
             type="submit"
           >
