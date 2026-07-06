@@ -21,7 +21,6 @@ from mapping_memory.notes import (
     get_note,
     list_categories,
     list_notes,
-    sync_markdown_vault,
     update_category,
     update_note,
 )
@@ -52,14 +51,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_db(app_settings.sqlite_path)
-        changed_note_ids = sync_markdown_vault(app_settings.sqlite_path, app_settings.vault_path)
-        for note_id in changed_note_ids:
-            try:
-                note = get_note(app_settings.sqlite_path, note_id)
-                if note is not None:
-                    _reindex_note_for_retrieval(note, settings=app_settings)
-            except Exception:
-                logger.warning("Retrieval reindexing unavailable after vault sync")
         yield
 
     app = FastAPI(title=app_settings.app_name, lifespan=lifespan)

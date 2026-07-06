@@ -253,12 +253,12 @@ export function NoteDetail({
         status={
           readMode ? null : (
             <>
-            <span className="truncate text-xs text-text-muted">
+            <span className="truncate text-[11px] tabular-nums text-text-muted">
               {parsedDocument.update.original_text.trim()
                 ? `${parsedDocument.update.original_text.length} chars`
                 : "Empty note"}
             </span>
-            <span className="rounded bg-surface px-2.5 py-1 text-xs text-text-secondary">
+            <span className="rounded-md bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
               {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
             </span>
             </>

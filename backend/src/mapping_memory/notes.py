@@ -19,7 +19,6 @@ from mapping_memory.fts import (
 )
 from mapping_memory.markdown_notes import (
     delete_markdown_note,
-    parse_markdown_note,
     write_markdown_note,
 )
 from mapping_memory.schemas import CategoryRead, NoteRead
@@ -107,12 +106,6 @@ def list_categories(sqlite_path: Path) -> list[CategoryRead]:
         ).fetchall()
 
     return [_category_from_row(row) for row in rows]
-
-
-def sync_markdown_vault(sqlite_path: Path, vault_path: Path) -> list[int]:
-    vault_path.mkdir(parents=True, exist_ok=True)
-    _write_missing_markdown_files(sqlite_path, vault_path)
-    return _import_newer_markdown_files(sqlite_path, vault_path)
 
 
 def update_category(sqlite_path: Path, category_id: int, name: str) -> CategoryRead | None:
@@ -588,110 +581,6 @@ def _note_from_row(row: Row) -> NoteRead:
         updated_at=row["updated_at"],
         category=category,
     )
-
-
-def _write_missing_markdown_files(sqlite_path: Path, vault_path: Path) -> None:
-    with closing(connect_db(sqlite_path)) as connection:
-        rows = connection.execute(
-            f"""
-            SELECT {_note_select_columns()}
-            FROM notes
-            LEFT JOIN categories ON categories.id = notes.category_id
-            ORDER BY notes.date_added DESC, notes.id DESC
-            """
-        ).fetchall()
-        for row in rows:
-            relative_path = row["markdown_path"]
-            if relative_path is None or not (vault_path / relative_path).exists():
-                _write_row_markdown(connection, vault_path, row)
-        connection.commit()
-
-
-def _import_newer_markdown_files(sqlite_path: Path, vault_path: Path) -> list[int]:
-    known_notes = _known_markdown_notes(sqlite_path)
-    known_paths = set(known_notes)
-    changed_note_ids: list[int] = []
-    for markdown_path in sorted(vault_path.glob("*.md")):
-        relative_path = markdown_path.name
-        if relative_path not in known_paths:
-            note_id = _import_new_markdown_file(sqlite_path, markdown_path)
-            if note_id is not None:
-                changed_note_ids.append(note_id)
-            continue
-
-        note_id, updated_at = known_notes[relative_path]
-        file_updated_at = datetime.fromtimestamp(markdown_path.stat().st_mtime, tz=UTC)
-        note_updated_at = datetime.fromisoformat(updated_at)
-        if file_updated_at > note_updated_at:
-            imported_note_id = _import_existing_markdown_file(sqlite_path, note_id, markdown_path)
-            if imported_note_id is not None:
-                changed_note_ids.append(imported_note_id)
-
-    return changed_note_ids
-
-
-def _known_markdown_notes(sqlite_path: Path) -> dict[str, tuple[int, str]]:
-    with closing(connect_db(sqlite_path)) as connection:
-        rows = connection.execute(
-            """
-            SELECT id, markdown_path, updated_at
-            FROM notes
-            WHERE markdown_path IS NOT NULL
-            """
-        ).fetchall()
-    return {row["markdown_path"]: (row["id"], row["updated_at"]) for row in rows}
-
-
-def _import_new_markdown_file(sqlite_path: Path, markdown_path: Path) -> int | None:
-    parsed = parse_markdown_note(markdown_path.read_text())
-    body = parsed.body
-    if not body.strip():
-        return None
-
-    note = create_note(
-        sqlite_path,
-        body,
-        ai_title=parsed.title or _fallback_title(body),
-        short_summary=parsed.summary or body[:250],
-        tags=parsed.tags,
-        category_id=_category_id_for_name(sqlite_path, parsed.category),
-        markdown_path=markdown_path.name,
-    )
-    return note.id
-
-
-def _import_existing_markdown_file(
-    sqlite_path: Path,
-    note_id: int,
-    markdown_path: Path,
-) -> int | None:
-    parsed = parse_markdown_note(markdown_path.read_text())
-    body = parsed.body
-    if not body.strip():
-        return None
-
-    note = update_note(
-        sqlite_path,
-        note_id,
-        original_text=body,
-        ai_title=parsed.title or _fallback_title(body),
-        short_summary=parsed.summary or body[:250],
-        tags=parsed.tags,
-        category_id=_category_id_for_name(sqlite_path, parsed.category),
-    )
-    return note.id if note is not None else None
-
-
-def _category_id_for_name(sqlite_path: Path, category_name: str) -> int | None:
-    stripped_name = category_name.strip()
-    if not stripped_name:
-        return None
-
-    for category in list_categories(sqlite_path):
-        if category.name.lower() == stripped_name.lower():
-            return category.id
-
-    return create_category(sqlite_path, stripped_name).id
 
 
 def _category_name_for_id(connection: sqlite3.Connection, category_id: int | None) -> str | None:

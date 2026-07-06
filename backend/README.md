@@ -6,7 +6,7 @@
 uv sync --dev
 ```
 
-The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage.
+The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Startup initializes SQLite only; it does not import Markdown files from the vault or backfill Markdown files for older SQLite rows. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage.
 
 > [!WARNING]
 > **Privacy and work data.**

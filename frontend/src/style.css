@@ -235,7 +235,8 @@ body {
 
 .markdown-codemirror-workspace:focus-within {
   border-color: var(--color-border-strong);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+  border-left: 3px solid var(--color-accent-muted);
 }
 
 .markdown-codemirror-workspace .cm-editor,
@@ -250,7 +251,7 @@ body {
 
 .markdown-codemirror-workspace .cm-content {
   min-height: 100%;
-  padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem);
+  padding: 1.75rem clamp(1.5rem, 5vw, 4rem);
 }
 
 /* Soft panel tone on the two side panes */
@@ -279,7 +280,7 @@ section[aria-labelledby="ask-title"] form {
 }
 .markdown-codemirror:focus-within {
   border-color: var(--color-border-strong);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
 }
 
 /* Soften inputs and textareas */
@@ -298,7 +299,7 @@ input[type="text"]:focus-visible,
 input[type="search"]:focus-visible,
 input:not([type]):focus-visible,
 textarea:focus-visible {
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
 }
 
 /* Soften the resize-handle grip */
@@ -367,11 +368,11 @@ textarea:focus-visible {
 
 /* Prose content spacing — gentle notebook rhythm */
 .note-preview .prose :where(p):not(:where([class~="not-prose"] *)) {
-  margin-block: 0.85em;
+  margin-block: 1em;
 }
 .note-preview .prose :where(h1, h2, h3, h4) {
-  margin-top: 1.6em;
-  margin-bottom: 0.5em;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
 }
 .note-preview .prose :where(hr) {
   margin-block: 2em;
@@ -379,7 +380,8 @@ textarea:focus-visible {
 }
 .note-preview .prose :where(blockquote) {
   font-style: normal;
-  border-left-width: 0.2rem;
+  border-left-width: 3px;
+  border-left-color: var(--color-accent-muted);
   padding-inline-start: 1rem;
 }
 .note-preview .prose :where(code):not(:where(pre code, [class~="not-prose"] *))::before,

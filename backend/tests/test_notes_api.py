@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from mapping_memory.ai import OrganizerMetadata
+from mapping_memory.db import init_db
 from mapping_memory.main import create_app
+from mapping_memory.notes import create_note
 from mapping_memory.settings import Settings
 
 
@@ -240,15 +242,7 @@ def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
     }
 
 
-def test_create_app_imports_newer_markdown_file_from_vault(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
-        lambda *args, **kwargs: None,
-        raising=False,
-    )
+def test_create_app_does_not_import_markdown_file_from_vault(tmp_path: Path) -> None:
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
     imported_path = vault_path / "external-note.md"
@@ -277,15 +271,11 @@ def test_create_app_imports_newer_markdown_file_from_vault(
 
     assert notes_response.status_code == 200
     assert categories_response.status_code == 200
-    assert categories_response.json()[0]["name"] == "Imported"
-    assert notes_response.json()[0]["original_text"] == "External body text"
-    assert notes_response.json()[0]["ai_title"] == "External note"
-    assert notes_response.json()[0]["short_summary"] == "External summary."
-    assert notes_response.json()[0]["tags"] == ["work"]
-    assert notes_response.json()[0]["category"]["name"] == "Imported"
+    assert notes_response.json() == []
+    assert categories_response.json() == []
 
 
-def test_create_app_reindexes_markdown_imported_from_vault(
+def test_create_app_does_not_reindex_markdown_file_from_vault(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -324,51 +314,38 @@ def test_create_app_reindexes_markdown_imported_from_vault(
         notes_response = client.get("/notes")
 
     assert notes_response.status_code == 200
-    assert len(reindexed_notes) == 1
-    assert reindexed_notes[0].id == notes_response.json()[0]["id"]
-    assert reindexed_notes[0].original_text == "External body text"
+    assert notes_response.json() == []
+    assert reindexed_notes == []
 
 
-def test_create_app_continues_when_startup_markdown_reindex_fails(
+def test_create_app_does_not_backfill_markdown_for_existing_sqlite_notes(
     tmp_path: Path,
-    monkeypatch,
-    caplog,
 ) -> None:
-    def reindex_note_for_retrieval(*args: Any, **kwargs: Any) -> None:
-        raise RuntimeError("provider failure with sensitive details")
-
-    monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
-        reindex_note_for_retrieval,
-        raising=False,
-    )
     vault_path = tmp_path / "vault"
     vault_path.mkdir()
-    (vault_path / "external-note.md").write_text(
-        "---\n"
-        "title: External note\n"
-        "summary: External summary.\n"
-        "tags: []\n"
-        "category: ''\n"
-        "---\n"
-        "\n"
-        "External body text",
+    sqlite_path = tmp_path / "notes-api.sqlite"
+
+    init_db(sqlite_path)
+    note = create_note(
+        sqlite_path,
+        "Existing SQLite note body",
+        ai_title="Existing SQLite note",
+        short_summary="Existing summary.",
     )
     app = create_app(
         Settings(
-            sqlite_path=tmp_path / "notes-api.sqlite",
+            sqlite_path=sqlite_path,
             vault_path=vault_path,
             openai_api_key=None,
         )
     )
 
-    with caplog.at_level(logging.WARNING), TestClient(app) as client:
+    with TestClient(app) as client:
         notes_response = client.get("/notes")
 
     assert notes_response.status_code == 200
-    assert notes_response.json()[0]["original_text"] == "External body text"
-    assert "Retrieval reindexing unavailable after vault sync" in caplog.text
-    assert "provider failure" not in caplog.text
+    assert notes_response.json()[0]["id"] == note.id
+    assert list(vault_path.glob("*.md")) == []
 
 
 def test_post_notes_organize_returns_ai_metadata_for_body_draft(

@@ -48,16 +48,19 @@ The choice persists in `localStorage`.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
   Ask source scope, and cited answers whose sources open saved notes.
 
-The backend stores notes locally in SQLite and mirrors them as Markdown files
-with YAML frontmatter, asks an LLM for title, summary, and tags when configured,
-indexes note chunks for retrieval, and exposes search and Ask endpoints that
-return sourced results from your own note collection.
+The backend stores notes locally in SQLite and writes saved notes as Markdown
+files with YAML frontmatter, asks an LLM for title, summary, and tags when
+configured, indexes note chunks for retrieval, and exposes search and Ask
+endpoints that return sourced results from your own note collection.
 
 ## Local-first storage
 
 - **SQLite is the source of truth.** Every note and manual category is written to
   `data/mapping_memory.sqlite` first; if anything else (AI metadata, embeddings,
   Chroma indexing) fails, the saved note is still there.
+- **Markdown is written on save.** Creating, editing, deleting, or uncategorizing
+  notes updates `data/vault/`; app startup does not import Markdown files or
+  generate missing files for older SQLite rows.
 - **Chroma is rebuildable.** The vector index in `data/chroma/` is a derived cache.
   It can be deleted at any time and re-created from SQLite. Search falls back to
   local exact and fuzzy matching while the index is empty or unavailable; Ask
@@ -236,11 +239,12 @@ not delete SQLite data.
 
 ```powershell
 Remove-Item -LiteralPath data/mapping_memory.sqlite
+Remove-Item -Path data/vault/*.md
 Remove-Item -LiteralPath data/chroma -Recurse -Force
 ```
 
-Restart the backend afterwards; it will recreate the SQLite schema and an empty
-Chroma index. Notes deleted this way cannot be recovered.
+Restart the backend afterwards; it will recreate the SQLite schema. Notes deleted
+this way cannot be recovered.
 
 ## MVP non-goals
 

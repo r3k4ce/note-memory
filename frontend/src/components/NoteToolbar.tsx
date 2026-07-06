@@ -18,7 +18,7 @@ export function NoteToolbar({ actions, error, status, toolbarControls }: NoteToo
     <div className="relative shrink-0">
       <div
         aria-label="Note toolbar"
-        className="flex min-h-10 items-center justify-between gap-3 px-3 py-1.5"
+        className="flex min-h-[2.75rem] items-center justify-between gap-3.5 px-3 py-2"
         role="toolbar"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">{status}</div>
