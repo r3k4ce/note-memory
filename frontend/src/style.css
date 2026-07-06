@@ -42,6 +42,11 @@
   --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
 
+  /* Page surface (notebook page) */
+  --color-page: #fdfaf4;
+  --color-page-border: #e0d5c0;
+  --shadow-page: 0 2px 8px -2px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.04);
+
   /* Soft panel surface */
   --color-panel-soft: #f7eed8;
 
@@ -84,6 +89,10 @@
   --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
 
+  --color-page: #2a1f17;
+  --color-page-border: #4a3828;
+  --shadow-page: 0 4px 14px -3px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+
   --color-panel-soft: #241a12;
 }
 
@@ -114,6 +123,10 @@
   --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
 
+  --color-page: #28231d;
+  --color-page-border: #453829;
+  --shadow-page: 0 4px 14px -3px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+
   --color-panel-soft: #201915;
 }
 
@@ -143,6 +156,10 @@
 
   --shadow-soft: 0 1px 2px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
   --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+
+  --color-page: #faf4e0;
+  --color-page-border: #e2d3a0;
+  --shadow-page: 0 2px 8px -2px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.04);
 
   --color-panel-soft: #f3e6c8;
 }
@@ -226,17 +243,17 @@ body {
 .markdown-codemirror-workspace {
   flex: 1;
   min-height: 0;
-  margin: clamp(0.5rem, 1.2vw, 0.75rem);
-  border: 1px solid var(--color-border);
+  max-width: 64rem;
+  margin: clamp(1rem, 2vw, 2rem) auto;
+  border: 1px solid var(--color-page-border);
   border-radius: var(--radius-card);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-soft);
+  background-color: var(--color-page);
+  box-shadow: var(--shadow-page);
 }
 
 .markdown-codemirror-workspace:focus-within {
-  border-color: var(--color-border-strong);
-  box-shadow: 0 0 0 2px var(--color-accent-soft);
-  border-left: 3px solid var(--color-accent-muted);
+  border-color: var(--color-page-border);
+  box-shadow: var(--shadow-elevated);
 }
 
 .markdown-codemirror-workspace .cm-editor,
@@ -251,7 +268,7 @@ body {
 
 .markdown-codemirror-workspace .cm-content {
   min-height: 100%;
-  padding: 1.75rem clamp(1.5rem, 5vw, 4rem);
+  padding: clamp(1.5rem, 5vw, 4rem);
 }
 
 /* Soft panel tone on the two side panes */
@@ -339,11 +356,13 @@ textarea:focus-visible {
 
 /* Read-mode preview — notebook page surface */
 .note-preview {
-  margin: clamp(0.5rem, 1.2vw, 0.75rem);
-  border: 1px solid var(--color-border);
+  max-width: 64rem;
+  margin: clamp(1rem, 2vw, 2rem) auto;
+  padding: 1.5rem clamp(1.5rem, 5vw, 4rem) !important;
+  border: 1px solid var(--color-page-border);
   border-radius: var(--radius-card);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-soft);
+  background-color: var(--color-page);
+  box-shadow: var(--shadow-page);
 }
 
 /* Theme-aware prose color tokens */
