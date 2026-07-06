@@ -295,6 +295,9 @@ class AskSourceSnippet(BaseModel):
     text: str
     match_type: Literal["semantic", "exact", "fuzzy", "selected"]
     chunk_index: int | None = None
+    chunk_type: Literal["full", "summary", "content"] | None = None
+    source_start: int | None = None
+    source_end: int | None = None
 
     @field_validator("text")
     @classmethod
@@ -313,6 +316,14 @@ class AskSource(BaseModel):
     snippets: list[AskSourceSnippet] = Field(default_factory=list)
 
 
+class AskEvidenceSummary(BaseModel):
+    source_count: int
+    snippet_count: int
+    match_types: list[Literal["semantic", "exact", "fuzzy", "selected"]]
+
+
 class AskResponse(BaseModel):
     answer: str
+    status: Literal["answered", "no_evidence"]
+    evidence_summary: AskEvidenceSummary
     sources: list[AskSource]

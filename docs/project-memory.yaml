@@ -1,4 +1,20 @@
 entries:
+  - time_utc: "2026-07-06T04:53:56Z"
+    time_local: "2026-07-06T01:53:56-03:00"
+    summary: "Productized Ask Bun trust and evidence UX."
+    changed:
+      - "Extended Ask responses with answered/no_evidence status, evidence summaries, and optional snippet chunk type/source offsets."
+      - "Added hybrid Ask evidence collection from semantic Chroma hits, SQLite exact matches, stdlib fuzzy title/tag matches, and selected-note rescue while preserving category and selected-note scope."
+      - "Tightened answer grounding instructions for source-number citations and missing/ambiguous evidence."
+      - "Updated Ask Bun UI with prompt chips, staged pending copy, friendly no-evidence copy, Bun source-card labels, and clickable citation chips."
+      - "Removed TestClient usage from test_ask_api.py by calling the Ask endpoint directly through a small request/response harness."
+    verification:
+      - "Ran backend ruff format --check and ruff check: passed."
+      - "Ran pyright on src/mapping_memory/rag.py: passed."
+      - "Ran focused backend tests for schemas, RAG, and Ask API: 74 passed with existing Starlette deprecation warnings."
+      - "Ran frontend Vitest suite: 123 passed; ran frontend lint and build: passed."
+      - "Ran env UV_CACHE_DIR=/tmp/uv-cache ./scripts/check.sh: failed at backend pyright because it could not resolve third-party imports across the project."
+      - "Attempted full backend pytest --no-cov: interrupted after progress stopped in legacy TestClient-based test_ai.py."
   - time_utc: "2026-07-06T04:25:10Z"
     time_local: "2026-07-06T01:25:10-03:00"
     summary: "Restored Markdown-to-SQLite startup reconciliation before Chroma sync."

@@ -526,6 +526,8 @@ describe("App sidebar navigation", () => {
   test("uses visible Ask source selections for payloads without browse category scope", async () => {
     vi.mocked(askQuestion).mockResolvedValue({
       answer: "Saved notes mention work.",
+      status: "answered",
+      evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
       sources: [],
     });
 

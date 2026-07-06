@@ -6,7 +6,13 @@ from mapping_memory.ai import ANSWER_FALLBACK, generate_grounded_answer
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.notes import get_category
 from mapping_memory.rag import RagSource, prepare_retrieval_context
-from mapping_memory.schemas import AskRequest, AskResponse, AskSource, AskSourceSnippet
+from mapping_memory.schemas import (
+    AskEvidenceSummary,
+    AskRequest,
+    AskResponse,
+    AskSource,
+    AskSourceSnippet,
+)
 from mapping_memory.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -15,7 +21,7 @@ logger = logging.getLogger(__name__)
 def create_ask_router(settings: Settings) -> APIRouter:
     router = APIRouter()
 
-    @router.post("/ask", response_model=AskResponse)
+    @router.post("/ask", response_model=AskResponse, response_model_exclude_none=True)
     def ask(request: AskRequest) -> AskResponse:
         category_scope = _validated_category_scope(request, settings=settings)
         try:
@@ -34,7 +40,7 @@ def create_ask_router(settings: Settings) -> APIRouter:
             ) from None
 
         if not retrieval_context.sources:
-            return AskResponse(answer=ANSWER_FALLBACK, sources=[])
+            return _no_evidence_response()
 
         try:
             answer = generate_grounded_answer(
@@ -51,9 +57,15 @@ def create_ask_router(settings: Settings) -> APIRouter:
             ) from None
 
         if answer == ANSWER_FALLBACK:
-            return AskResponse(answer=ANSWER_FALLBACK, sources=[])
+            return _no_evidence_response()
 
-        return AskResponse(answer=answer, sources=_ask_sources(retrieval_context.sources))
+        sources = _ask_sources(retrieval_context.sources)
+        return AskResponse(
+            answer=answer,
+            status="answered",
+            evidence_summary=_evidence_summary(sources),
+            sources=sources,
+        )
 
     return router
 
@@ -83,11 +95,36 @@ def _source_snippets(source: RagSource) -> list[AskSourceSnippet]:
                 text=text,
                 match_type=chunk.match_type,
                 chunk_index=chunk.chunk_index,
+                chunk_type=chunk.chunk_type,
+                source_start=chunk.source_start,
+                source_end=chunk.source_end,
             )
         )
         seen_texts.add(text)
 
     return snippets
+
+
+def _no_evidence_response() -> AskResponse:
+    return AskResponse(
+        answer=ANSWER_FALLBACK,
+        status="no_evidence",
+        evidence_summary=AskEvidenceSummary(
+            source_count=0,
+            snippet_count=0,
+            match_types=[],
+        ),
+        sources=[],
+    )
+
+
+def _evidence_summary(sources: list[AskSource]) -> AskEvidenceSummary:
+    match_types = sorted({snippet.match_type for source in sources for snippet in source.snippets})
+    return AskEvidenceSummary(
+        source_count=len(sources),
+        snippet_count=sum(len(source.snippets) for source in sources),
+        match_types=match_types,
+    )
 
 
 def _snippet_text(text: str, *, max_chars: int = 360) -> str:

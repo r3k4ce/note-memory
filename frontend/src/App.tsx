@@ -793,7 +793,7 @@ export default function App() {
     const pendingMessage: ChatMessage = {
       id: pendingMessageId,
       role: "assistant",
-      content: "Bun is reading...",
+      content: "Bun is finding notes...\nBun is checking snippets...\nBun is writing...",
       sources: [],
     };
 
@@ -815,6 +815,8 @@ export default function App() {
                   id: pendingMessageId,
                   role: "assistant",
                   content: result.answer,
+                  status: result.status,
+                  evidenceSummary: result.evidence_summary,
                   sources: result.sources,
                 }
               : message,

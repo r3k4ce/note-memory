@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from mapping_memory.schemas import AskRequest, AskSource, NoteUpdate, SearchResult
+from mapping_memory.schemas import AskRequest, AskResponse, AskSource, NoteUpdate, SearchResult
 
 
 def test_ask_request_accepts_note_ids() -> None:
@@ -17,7 +17,14 @@ def test_ask_source_accepts_grounding_snippets() -> None:
             "title": "Saved note",
             "date_added": "2026-07-02T12:00:00Z",
             "snippets": [
-                {"text": "The relevant saved text.", "match_type": "selected", "chunk_index": 0}
+                {
+                    "text": "The relevant saved text.",
+                    "match_type": "selected",
+                    "chunk_index": 0,
+                    "chunk_type": "content",
+                    "source_start": 12,
+                    "source_end": 36,
+                }
             ],
         }
     )
@@ -25,6 +32,29 @@ def test_ask_source_accepts_grounding_snippets() -> None:
     assert source.snippets[0].text == "The relevant saved text."
     assert source.snippets[0].match_type == "selected"
     assert source.snippets[0].chunk_index == 0
+    assert source.snippets[0].chunk_type == "content"
+    assert source.snippets[0].source_start == 12
+    assert source.snippets[0].source_end == 36
+
+
+def test_ask_response_accepts_status_and_evidence_summary() -> None:
+    response = AskResponse.model_validate(
+        {
+            "answer": "Bun found it in one card. [1]",
+            "status": "answered",
+            "evidence_summary": {
+                "source_count": 1,
+                "snippet_count": 2,
+                "match_types": ["exact", "semantic"],
+            },
+            "sources": [],
+        }
+    )
+
+    assert response.status == "answered"
+    assert response.evidence_summary.source_count == 1
+    assert response.evidence_summary.snippet_count == 2
+    assert response.evidence_summary.match_types == ["exact", "semantic"]
 
 
 @pytest.mark.parametrize("match_type", ["exact", "semantic", "hybrid", "fuzzy"])

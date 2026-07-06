@@ -97,10 +97,21 @@ export type AskSourceSnippet = {
   text: string;
   match_type: "semantic" | "exact" | "fuzzy" | "selected";
   chunk_index: number | null;
+  chunk_type?: "full" | "summary" | "content";
+  source_start?: number | null;
+  source_end?: number | null;
+};
+
+export type AskEvidenceSummary = {
+  source_count: number;
+  snippet_count: number;
+  match_types: AskSourceSnippet["match_type"][];
 };
 
 export type AskResponse = {
   answer: string;
+  status: "answered" | "no_evidence";
+  evidence_summary: AskEvidenceSummary;
   sources: AskSource[];
 };
 
@@ -114,6 +125,8 @@ export type ChatMessage =
       id: string;
       role: "assistant";
       content: string;
+      status?: AskResponse["status"];
+      evidenceSummary?: AskEvidenceSummary;
       sources: AskSource[];
     }
   | {

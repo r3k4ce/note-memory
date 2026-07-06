@@ -20,6 +20,7 @@ type AssistantBubbleProps = {
   isPending?: boolean;
   onSourceSelect: (noteId: number) => void;
   sources: AskSource[];
+  status?: "answered" | "no_evidence";
 };
 
 function formatMatchType(matchType: AskSource["snippets"][number]["match_type"]) {
@@ -51,7 +52,7 @@ function SourceList({
       <div className="flex items-center gap-1.5">
         <Quote size={11} strokeWidth={2} className="text-text-muted" aria-hidden="true" />
         <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-          Sources · {sources.length}
+          Bun read {sources.length} {sources.length === 1 ? "card" : "cards"}
         </p>
       </div>
       <div className="mt-2 flex flex-col gap-1">
@@ -97,11 +98,56 @@ function SourceList({
   );
 }
 
-function AssistantBubble({ content, isPending, onSourceSelect, sources }: AssistantBubbleProps) {
+function CitationChips({
+  content,
+  onSourceSelect,
+  sources,
+}: {
+  content: string;
+  onSourceSelect: (noteId: number) => void;
+  sources: AskSource[];
+}) {
+  const citedIndexes = Array.from(content.matchAll(/\[(\d+)\]/g))
+    .map((match) => Number(match[1]))
+    .filter((sourceNumber, index, sourceNumbers) =>
+      sourceNumber >= 1 && sourceNumber <= sources.length && sourceNumbers.indexOf(sourceNumber) === index,
+    );
+
+  if (citedIndexes.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Cited notes">
+      {citedIndexes.map((sourceNumber) => {
+        const source = sources[sourceNumber - 1];
+        return (
+          <button
+            aria-label={`Open citation ${sourceNumber}: ${source.title}`}
+            className="inline-flex h-6 items-center rounded-full border border-border bg-bg px-2 text-[11px] font-semibold tabular-nums text-accent transition-colors hover:border-border-strong hover:bg-surface"
+            key={sourceNumber}
+            onClick={() => onSourceSelect(source.note_id)}
+            type="button"
+          >
+            [{sourceNumber}]
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AssistantBubble({ content, isPending, onSourceSelect, sources, status }: AssistantBubbleProps) {
+  const displayContent =
+    status === "no_evidence" ? "Bun couldn't find that in this notebook yet." : content;
+
   return (
     <div className="flex justify-start">
       <div className="max-w-[86%] rounded-2xl rounded-tl-md bg-surface px-4 py-3.5 text-[13px] leading-7 text-text-secondary shadow-soft">
-        <p className={isPending ? "whitespace-pre-wrap italic text-text-muted" : "whitespace-pre-wrap"}>{content}</p>
+        <p className={isPending ? "whitespace-pre-wrap italic text-text-muted" : "whitespace-pre-wrap"}>{displayContent}</p>
+        {!isPending && status !== "no_evidence" ? (
+          <CitationChips content={content} onSourceSelect={onSourceSelect} sources={sources} />
+        ) : null}
         <SourceList onSourceSelect={onSourceSelect} sources={sources} />
       </div>
     </div>
@@ -146,6 +192,11 @@ export function AskChat({
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
   const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
+  const promptChips = [
+    "What did I save today?",
+    "Find decisions with sources",
+    "What is still missing?",
+  ];
 
   useEffect(() => {
     const el = askRef.current;
@@ -199,13 +250,23 @@ export function AskChat({
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-muted">
               <Sparkles size={16} strokeWidth={2} className="text-accent" />
             </div>
-            <p className="max-w-[220px] text-xs leading-relaxed text-text-muted">
-              Ask Bun about your notes — it reads them and answers with cited sources.
-            </p>
+            <div className="flex max-w-[260px] flex-wrap justify-center gap-1.5">
+              {promptChips.map((prompt) => (
+                <button
+                  className="rounded-full border border-border bg-bg px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-surface disabled:opacity-50"
+                  disabled={isPending || isSubmitDisabled}
+                  key={prompt}
+                  onClick={() => setQuestion(prompt)}
+                  type="button"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((message) => {
@@ -221,6 +282,7 @@ export function AskChat({
                 key={message.id}
                 onSourceSelect={onSourceSelect}
                 sources={message.sources}
+                status={message.status}
               />
             );
           }

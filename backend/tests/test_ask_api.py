@@ -1,39 +1,69 @@
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
 
-from fastapi.testclient import TestClient
-from pydantic import SecretStr
+from fastapi import HTTPException
+from pydantic import SecretStr, ValidationError
 
 from mapping_memory.db import init_db
 from mapping_memory.notes import create_category, create_note
 from mapping_memory.rag import RagContextChunk, RagRetrievalContext, RagSource
+from mapping_memory.schemas import AskRequest, AskResponse
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import VectorSearchResult
 
 FALLBACK = "I do not have this in the saved notes."
 
+AskEndpoint = Callable[[AskRequest], AskResponse]
+
+
+class DirectAskResponse:
+    def __init__(self, status_code: int, body: dict[str, Any]) -> None:
+        self.status_code = status_code
+        self._body = body
+        self.text = str(body)
+
+    def json(self) -> dict[str, Any]:
+        return self._body
+
+
+def _post_ask(ask_endpoint: AskEndpoint, payload: dict[str, Any]) -> DirectAskResponse:
+    try:
+        request = AskRequest.model_validate(payload)
+        response = ask_endpoint(request)
+    except ValidationError as error:
+        return DirectAskResponse(422, {"detail": error.errors()})
+    except HTTPException as error:
+        return DirectAskResponse(error.status_code, {"detail": error.detail})
+
+    return DirectAskResponse(200, response.model_dump(mode="json", exclude_none=True))
+
 
 def test_ask_returns_fallback_when_retrieval_has_no_context(tmp_path, monkeypatch) -> None:
     calls: list[str] = []
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: calls.append("called") or "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "What decision was saved?"})
+    response = _post_ask(ask_endpoint, {"question": "What decision was saved?"})
 
     assert response.status_code == 200
-    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert response.json() == {
+        "answer": FALLBACK,
+        "status": "no_evidence",
+        "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "sources": [],
+    }
     assert calls == []
 
 
 def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
     source = _source(note_id=7, title="Source recreation", date_added="2026-07-01T01:00:00Z")
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(
@@ -47,12 +77,13 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
         answer=lambda **_: "Use the recreated source only after QA.",
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "When should we use it?"})
+    response = _post_ask(ask_endpoint, {"question": "When should we use it?"})
 
     assert response.status_code == 200
     assert response.json() == {
         "answer": "Use the recreated source only after QA.",
+        "status": "answered",
+        "evidence_summary": {"source_count": 1, "snippet_count": 1, "match_types": ["semantic"]},
         "sources": [
             {
                 "note_id": 7,
@@ -67,7 +98,7 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
 def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
     captured: dict[str, Any] = {}
     source = _source(note_id=7, title="Scoped source", date_added="2026-07-01T01:00:00Z")
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
@@ -75,21 +106,20 @@ def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
         capture=captured,
     )
 
-    with TestClient(app) as client:
-        category = client.post("/categories", json={"name": "Projects"}).json()
-        response = client.post(
-            "/ask",
-            json={"question": "What is scoped?", "category_id": category["id"]},
-        )
+    category = create_category(tmp_path / "ask.sqlite", "Projects")
+    response = _post_ask(
+        ask_endpoint,
+        {"question": "What is scoped?", "category_id": category.id},
+    )
 
     assert response.status_code == 200
-    assert captured["category_scope"].category_id == category["id"]
+    assert captured["category_scope"].category_id == category.id
     assert captured["category_scope"].uncategorized is False
 
 
 def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
     captured: dict[str, Any] = {}
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
@@ -97,11 +127,7 @@ def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
         capture=captured,
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={"question": "What is scoped?", "note_ids": [1, 2, 3]},
-        )
+    response = _post_ask(ask_endpoint, {"question": "What is scoped?", "note_ids": [1, 2, 3]})
 
     assert response.status_code == 200
     assert captured["note_ids"] == [1, 2, 3]
@@ -109,7 +135,7 @@ def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
 
 def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
     captured: dict[str, Any] = {}
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
@@ -117,17 +143,16 @@ def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
         capture=captured,
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={
-                "question": "What happened next?",
-                "history": [
-                    {"role": "user", "content": "What did we discuss?"},
-                    {"role": "assistant", "content": "Source recreation."},
-                ],
-            },
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {
+            "question": "What happened next?",
+            "history": [
+                {"role": "user", "content": "What did we discuss?"},
+                {"role": "assistant", "content": "Source recreation."},
+            ],
+        },
+    )
 
     assert response.status_code == 200
     assert [message.model_dump() for message in captured["history"]] == [
@@ -139,24 +164,23 @@ def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
 def test_ask_passes_history_to_answer_generation(tmp_path, monkeypatch) -> None:
     captured: dict[str, Any] = {}
     source = _source(note_id=7, title="Source recreation", date_added="2026-07-01T01:00:00Z")
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
         answer=lambda **kwargs: captured.update(kwargs) or "Grounded answer.",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={
-                "question": "What happened next?",
-                "history": [
-                    {"role": "user", "content": "What did we discuss?"},
-                    {"role": "assistant", "content": "Source recreation."},
-                ],
-            },
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {
+            "question": "What happened next?",
+            "history": [
+                {"role": "user", "content": "What did we discuss?"},
+                {"role": "assistant", "content": "Source recreation."},
+            ],
+        },
+    )
 
     assert response.status_code == 200
     assert [message.model_dump() for message in captured["history"]] == [
@@ -167,21 +191,22 @@ def test_ask_passes_history_to_answer_generation(tmp_path, monkeypatch) -> None:
 
 def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatch) -> None:
     answer_calls: list[dict[str, Any]] = []
-    app = _ask_app_with_real_retrieval(
+    ask_endpoint = _ask_app_with_real_retrieval(
         tmp_path,
         monkeypatch,
         vector_results=[],
         answer=lambda **kwargs: answer_calls.append(kwargs) or "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={"question": "What is scoped?", "note_ids": []},
-        )
+    response = _post_ask(ask_endpoint, {"question": "What is scoped?", "note_ids": []})
 
     assert response.status_code == 200
-    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert response.json() == {
+        "answer": FALLBACK,
+        "status": "no_evidence",
+        "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "sources": [],
+    }
     assert answer_calls == []
     assert FakeAskVectorStore.calls == []
 
@@ -191,7 +216,7 @@ def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypat
     selected = create_note(sqlite_path, "Selected note body", ai_title="Selected note")
     unselected = create_note(sqlite_path, "Unselected note body", ai_title="Unselected note")
     captured: dict[str, Any] = {}
-    app = _ask_app_with_real_retrieval(
+    ask_endpoint = _ask_app_with_real_retrieval(
         tmp_path,
         monkeypatch,
         init_db_first=False,
@@ -202,11 +227,10 @@ def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypat
         answer=lambda **kwargs: captured.update(kwargs) or "Selected answer.",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={"question": "What is scoped?", "note_ids": [selected.id]},
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {"question": "What is scoped?", "note_ids": [selected.id]},
+    )
 
     assert response.status_code == 200
     assert response.json()["answer"] == "Selected answer."
@@ -217,7 +241,14 @@ def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypat
             "date_added": selected.date_added,
             "snippets": [
                 {"text": "selected chunk", "match_type": "semantic", "chunk_index": 0},
-                {"text": "Selected note body", "match_type": "selected", "chunk_index": 0},
+                {
+                    "text": "Selected note body",
+                    "match_type": "selected",
+                    "chunk_index": 0,
+                    "chunk_type": "full",
+                    "source_start": 0,
+                    "source_end": 18,
+                },
             ],
         }
     ]
@@ -247,7 +278,7 @@ def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> N
         ai_title="Unselected same category",
         category_id=category.id,
     )
-    app = _ask_app_with_real_retrieval(
+    ask_endpoint = _ask_app_with_real_retrieval(
         tmp_path,
         monkeypatch,
         init_db_first=False,
@@ -259,15 +290,14 @@ def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> N
         answer=lambda **_: "Matching answer.",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={
-                "question": "What is scoped?",
-                "category_id": category.id,
-                "note_ids": [matching.id, selected_wrong_category.id],
-            },
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {
+            "question": "What is scoped?",
+            "category_id": category.id,
+            "note_ids": [matching.id, selected_wrong_category.id],
+        },
+    )
 
     assert response.status_code == 200
     assert response.json()["sources"] == [
@@ -277,7 +307,14 @@ def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> N
             "date_added": matching.date_added,
             "snippets": [
                 {"text": "matching chunk", "match_type": "semantic", "chunk_index": 0},
-                {"text": "Matching note body", "match_type": "selected", "chunk_index": 0},
+                {
+                    "text": "Matching note body",
+                    "match_type": "selected",
+                    "chunk_index": 0,
+                    "chunk_type": "full",
+                    "source_start": 0,
+                    "source_end": 18,
+                },
             ],
         }
     ]
@@ -300,7 +337,7 @@ def test_ask_without_note_ids_keeps_existing_unscoped_behavior(tmp_path, monkeyp
     sqlite_path = _init_ask_path(tmp_path)
     first = create_note(sqlite_path, "First note body", ai_title="First note")
     second = create_note(sqlite_path, "Second note body", ai_title="Second note")
-    app = _ask_app_with_real_retrieval(
+    ask_endpoint = _ask_app_with_real_retrieval(
         tmp_path,
         monkeypatch,
         init_db_first=False,
@@ -311,8 +348,7 @@ def test_ask_without_note_ids_keeps_existing_unscoped_behavior(tmp_path, monkeyp
         answer=lambda **_: "Unscoped answer.",
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "What is scoped?"})
+    response = _post_ask(ask_endpoint, {"question": "What is scoped?"})
 
     assert response.status_code == 200
     assert response.json()["sources"] == [
@@ -333,82 +369,74 @@ def test_ask_without_note_ids_keeps_existing_unscoped_behavior(tmp_path, monkeyp
 
 
 def test_ask_rejects_invalid_note_ids(tmp_path, monkeypatch) -> None:
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={"question": "What is scoped?", "note_ids": [0]},
-        )
+    response = _post_ask(ask_endpoint, {"question": "What is scoped?", "note_ids": [0]})
 
     assert response.status_code == 422
 
 
 def test_ask_rejects_more_than_500_note_ids(tmp_path, monkeypatch) -> None:
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={"question": "What is scoped?", "note_ids": list(range(1, 502))},
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {"question": "What is scoped?", "note_ids": list(range(1, 502))},
+    )
 
     assert response.status_code == 422
 
 
 def test_ask_rejects_missing_category_scope(tmp_path, monkeypatch) -> None:
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "What?", "category_id": 999999})
+    response = _post_ask(ask_endpoint, {"question": "What?", "category_id": 999999})
 
     assert response.status_code == 422
     assert response.json() == {"detail": "Category not found"}
 
 
 def test_ask_rejects_conflicting_category_scopes(tmp_path, monkeypatch) -> None:
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={"question": "What?", "category_id": 1, "uncategorized": True},
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {"question": "What?", "category_id": 1, "uncategorized": True},
+    )
 
     assert response.status_code == 422
     assert response.json() == {"detail": "category_id and uncategorized cannot both be set"}
 
 
 def test_ask_rejects_empty_question(tmp_path, monkeypatch) -> None:
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: "unexpected",
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": " \n\t "})
+    response = _post_ask(ask_endpoint, {"question": " \n\t "})
 
     assert response.status_code == 422
 
@@ -425,7 +453,7 @@ def test_ask_sends_only_retrieved_context_to_answer_model(tmp_path, monkeypatch)
         assert kwargs["context"] == retrieved_context
         return "Only this chunk is relevant."
 
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(
@@ -435,8 +463,7 @@ def test_ask_sends_only_retrieved_context_to_answer_model(tmp_path, monkeypatch)
         answer=answer,
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "What is relevant?"})
+    response = _post_ask(ask_endpoint, {"question": "What is relevant?"})
 
     assert response.status_code == 200
     assert captured["question"] == "What is relevant?"
@@ -445,7 +472,7 @@ def test_ask_sends_only_retrieved_context_to_answer_model(tmp_path, monkeypatch)
 
 def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
     source = _source(note_id=9, title="Retrieved card", date_added="2026-07-01T05:00:00Z")
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(
@@ -454,19 +481,18 @@ def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
         answer=lambda **_: "Grounded answer.",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={
-                "question": "What source should be cited?",
-                "history": [
-                    {
-                        "role": "assistant",
-                        "content": "Source: fake-note-999, title: History-only source",
-                    }
-                ],
-            },
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {
+            "question": "What source should be cited?",
+            "history": [
+                {
+                    "role": "assistant",
+                    "content": "Source: fake-note-999, title: History-only source",
+                }
+            ],
+        },
+    )
 
     assert response.status_code == 200
     assert response.json()["sources"] == [
@@ -483,41 +509,124 @@ def test_ask_history_alone_cannot_produce_answer_without_note_context(
     tmp_path, monkeypatch
 ) -> None:
     calls: list[str] = []
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
         answer=lambda **_: calls.append("called") or "history-only answer",
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/ask",
-            json={
-                "question": "What was the decision?",
-                "history": [{"role": "assistant", "content": "The decision was to ship history."}],
-            },
-        )
+    response = _post_ask(
+        ask_endpoint,
+        {
+            "question": "What was the decision?",
+            "history": [{"role": "assistant", "content": "The decision was to ship history."}],
+        },
+    )
 
     assert response.status_code == 200
-    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert response.json() == {
+        "answer": FALLBACK,
+        "status": "no_evidence",
+        "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "sources": [],
+    }
     assert calls == []
 
 
 def test_ask_returns_empty_sources_when_model_returns_fallback(tmp_path, monkeypatch) -> None:
     source = _source(note_id=4, title="Unhelpful source", date_added="2026-07-01T03:00:00Z")
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
         answer=lambda **_: FALLBACK,
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "What is missing?"})
+    response = _post_ask(ask_endpoint, {"question": "What is missing?"})
 
     assert response.status_code == 200
-    assert response.json() == {"answer": FALLBACK, "sources": []}
+    assert response.json() == {
+        "answer": FALLBACK,
+        "status": "no_evidence",
+        "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "sources": [],
+    }
+
+
+def test_ask_real_retrieval_reports_exact_evidence_when_semantic_misses(
+    tmp_path, monkeypatch
+) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    note = create_note(
+        sqlite_path,
+        "The quiet launch phrase is maple-glider.",
+        ai_title="Launch phrase",
+        tags=["release"],
+    )
+    captured: dict[str, Any] = {}
+    ask_endpoint = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[],
+        answer=lambda **kwargs: captured.update(kwargs) or "Bun found maple-glider. [1]",
+        expected_query="user: maple-glider",
+    )
+
+    response = _post_ask(ask_endpoint, {"question": "maple-glider"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "answered"
+    assert body["evidence_summary"] == {
+        "source_count": 1,
+        "snippet_count": 1,
+        "match_types": ["exact"],
+    }
+    assert body["sources"] == [
+        {
+            "note_id": note.id,
+            "title": "Launch phrase",
+            "date_added": note.date_added,
+            "snippets": [
+                {
+                    "text": "The quiet launch phrase is maple-glider.",
+                    "match_type": "exact",
+                    "chunk_index": 0,
+                    "chunk_type": "full",
+                    "source_start": 0,
+                    "source_end": 40,
+                }
+            ],
+        }
+    ]
+    assert "maple-glider" in captured["context"]
+
+
+def test_ask_real_retrieval_respects_selected_scope_for_local_evidence(
+    tmp_path, monkeypatch
+) -> None:
+    sqlite_path = _init_ask_path(tmp_path)
+    selected = create_note(sqlite_path, "Selected note body.", ai_title="Selected")
+    create_note(sqlite_path, "Forbidden exact phrase.", ai_title="Unselected")
+    ask_endpoint = _ask_app_with_real_retrieval(
+        tmp_path,
+        monkeypatch,
+        init_db_first=False,
+        vector_results=[],
+        answer=lambda **_: "Selected answer.",
+        expected_query="user: Forbidden exact phrase",
+    )
+
+    response = _post_ask(
+        ask_endpoint,
+        {"question": "Forbidden exact phrase", "note_ids": [selected.id]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "answered"
+    assert [source["note_id"] for source in response.json()["sources"]] == [selected.id]
 
 
 def test_ask_returns_sanitized_503_when_answer_generation_fails(tmp_path, monkeypatch) -> None:
@@ -526,15 +635,14 @@ def test_ask_returns_sanitized_503_when_answer_generation_fails(tmp_path, monkey
     def answer(**_: Any) -> str:
         raise RuntimeError("provider failure with secret-ish details")
 
-    app = _ask_app(
+    ask_endpoint = _ask_app(
         tmp_path,
         monkeypatch,
         retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
         answer=answer,
     )
 
-    with TestClient(app) as client:
-        response = client.post("/ask", json={"question": "What failed?"})
+    response = _post_ask(ask_endpoint, {"question": "What failed?"})
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Ask endpoint is unavailable"}
@@ -635,7 +743,7 @@ def _ask_app(
     answer,
     capture: dict[str, Any] | None = None,
 ):
-    from mapping_memory.main import create_app
+    from mapping_memory.ask import create_ask_router
 
     def prepare_retrieval_context(
         question: str,
@@ -659,9 +767,12 @@ def _ask_app(
         raising=False,
     )
     monkeypatch.setattr("mapping_memory.ask.generate_grounded_answer", answer, raising=False)
-    return create_app(
-        Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite",
+        openai_api_key=SecretStr("test-key"),
     )
+    init_db(settings.sqlite_path)
+    return _ask_endpoint(create_ask_router(settings))
 
 
 def _init_ask_path(tmp_path: Path) -> Path:
@@ -677,15 +788,16 @@ def _ask_app_with_real_retrieval(
     vector_results: list[VectorSearchResult],
     answer,
     init_db_first: bool = True,
+    expected_query: str = "user: What is scoped?",
 ):
-    from mapping_memory.main import create_app
+    from mapping_memory.ask import create_ask_router
 
     sqlite_path = tmp_path / "ask.sqlite"
     if init_db_first:
         init_db(sqlite_path)
 
     def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        assert texts == ["user: What is scoped?"]
+        assert texts == [expected_query]
         assert settings.sqlite_path == sqlite_path
         return [[0.1, 0.2, 0.3]]
 
@@ -694,7 +806,17 @@ def _ask_app_with_real_retrieval(
     monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts, raising=False)
     monkeypatch.setattr("mapping_memory.rag.ChromaVectorStore", FakeAskVectorStore, raising=False)
     monkeypatch.setattr("mapping_memory.ask.generate_grounded_answer", answer, raising=False)
-    return create_app(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+    return _ask_endpoint(
+        create_ask_router(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+    )
+
+
+def _ask_endpoint(router) -> AskEndpoint:
+    for route in router.routes:
+        if getattr(route, "path", None) == "/ask":
+            return route.endpoint
+
+    raise AssertionError("Ask route was not registered")
 
 
 def _source(note_id: int, title: str, date_added: str) -> RagSource:

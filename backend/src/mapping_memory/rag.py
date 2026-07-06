@@ -1,12 +1,14 @@
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from difflib import SequenceMatcher
+from typing import Any, Literal, cast
 
 from mapping_memory.category_scope import CategoryScope
-from mapping_memory.chunking import create_retrieval_chunks
+from mapping_memory.chunking import ChunkType, RetrievalChunk, create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
-from mapping_memory.notes import get_note, list_notes
+from mapping_memory.fts import tags_to_text
+from mapping_memory.notes import ExactSearchMatch, get_note, list_notes, search_notes_exact_matches
 from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore
@@ -16,6 +18,8 @@ RAG_FALLBACK_RETRIEVAL_LIMIT = 100
 RAG_MAX_CHUNKS_PER_NOTE = 2
 RAG_FINAL_CHUNK_LIMIT = 8
 RAG_SELECTED_NOTE_RESCUE_LIMIT = 5
+RAG_LOCAL_MATCH_LIMIT = 8
+RAG_FUZZY_SCORE_CUTOFF = 85.0
 
 RagMatchType = Literal["semantic", "exact", "fuzzy", "selected"]
 
@@ -27,6 +31,9 @@ class RagContextChunk:
     text: str
     distance: float | None
     match_type: RagMatchType = "semantic"
+    chunk_type: ChunkType | None = None
+    source_start: int | None = None
+    source_end: int | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +80,24 @@ def prepare_retrieval_context(
 
     accepted_count = _add_vector_hits_to_sources(
         hits,
+        settings=settings,
+        scope=scope,
+        selected_note_ids=selected_note_ids,
+        source_chunks=source_chunks,
+        sources_by_note_id=sources_by_note_id,
+        accepted_count=accepted_count,
+    )
+    accepted_count = _add_exact_matches_to_sources(
+        query,
+        settings=settings,
+        scope=scope,
+        selected_note_ids=selected_note_ids,
+        source_chunks=source_chunks,
+        sources_by_note_id=sources_by_note_id,
+        accepted_count=accepted_count,
+    )
+    accepted_count = _add_fuzzy_matches_to_sources(
+        query,
         settings=settings,
         scope=scope,
         selected_note_ids=selected_note_ids,
@@ -150,11 +175,183 @@ def _add_vector_hits_to_sources(
                 text=hit.text,
                 distance=hit.distance,
                 match_type="semantic",
+                chunk_type=_metadata_chunk_type(hit.metadata.get("chunk_type")),
+                source_start=_metadata_source_offset(hit.metadata.get("source_start")),
+                source_end=_metadata_source_offset(hit.metadata.get("source_end")),
             )
         )
         accepted_count += 1
 
     return accepted_count
+
+
+def _add_exact_matches_to_sources(
+    query: str,
+    *,
+    settings: Settings,
+    scope: CategoryScope,
+    selected_note_ids: set[int] | None,
+    source_chunks: dict[int, list[RagContextChunk]],
+    sources_by_note_id: dict[int, RagSource],
+    accepted_count: int,
+) -> int:
+    matches = search_notes_exact_matches(
+        settings.sqlite_path,
+        query,
+        limit=RAG_LOCAL_MATCH_LIMIT,
+        category_scope=scope,
+    )
+    for match in matches:
+        if accepted_count >= RAG_FINAL_CHUNK_LIMIT:
+            break
+        if selected_note_ids is not None and match.note.id not in selected_note_ids:
+            continue
+
+        accepted_count = _add_note_chunk_to_sources(
+            query,
+            match=match,
+            match_type="exact",
+            scope=scope,
+            source_chunks=source_chunks,
+            sources_by_note_id=sources_by_note_id,
+            accepted_count=accepted_count,
+        )
+
+    return accepted_count
+
+
+def _add_fuzzy_matches_to_sources(
+    query: str,
+    *,
+    settings: Settings,
+    scope: CategoryScope,
+    selected_note_ids: set[int] | None,
+    source_chunks: dict[int, list[RagContextChunk]],
+    sources_by_note_id: dict[int, RagSource],
+    accepted_count: int,
+) -> int:
+    if accepted_count >= RAG_FINAL_CHUNK_LIMIT:
+        return accepted_count
+
+    notes = list_notes(
+        settings.sqlite_path,
+        category_id=scope.category_id,
+        uncategorized=scope.uncategorized,
+    )
+    choices: dict[str, str] = {}
+    notes_by_id = {note.id: note for note in notes}
+    for note in notes:
+        if selected_note_ids is not None and note.id not in selected_note_ids:
+            continue
+
+        choices[f"{note.id}:title"] = note.ai_title
+        choices[f"{note.id}:tags"] = tags_to_text(note.tags)
+
+    raw_matches = sorted(
+        ((key, _partial_fuzzy_score(query, choice)) for key, choice in choices.items()),
+        key=lambda match: match[1],
+        reverse=True,
+    )[: RAG_LOCAL_MATCH_LIMIT * 4]
+    seen_note_ids: set[int] = set()
+    for key, score in raw_matches:
+        if accepted_count >= RAG_FINAL_CHUNK_LIMIT:
+            break
+        if score < RAG_FUZZY_SCORE_CUTOFF:
+            continue
+
+        note_id_text = str(key).split(":", maxsplit=1)[0]
+        if not note_id_text.isdecimal():
+            continue
+        note_id = int(note_id_text)
+        if note_id in seen_note_ids:
+            continue
+        seen_note_ids.add(note_id)
+
+        note = notes_by_id.get(note_id)
+        if note is None:
+            continue
+
+        accepted_count = _add_note_chunk_to_sources(
+            query,
+            match=ExactSearchMatch(note=note, matched_snippet=None),
+            match_type="fuzzy",
+            scope=scope,
+            source_chunks=source_chunks,
+            sources_by_note_id=sources_by_note_id,
+            accepted_count=accepted_count,
+        )
+
+    return accepted_count
+
+
+def _partial_fuzzy_score(query: str, choice: str) -> float:
+    normalized_query = query.casefold().strip()
+    normalized_choice = choice.casefold().strip()
+    if not normalized_query or not normalized_choice:
+        return 0.0
+    if normalized_query in normalized_choice:
+        return 100.0
+    if len(normalized_choice) <= len(normalized_query):
+        return SequenceMatcher(None, normalized_query, normalized_choice).ratio() * 100
+
+    window_width = len(normalized_query)
+    return max(
+        SequenceMatcher(
+            None,
+            normalized_query,
+            normalized_choice[start : start + window_width],
+        ).ratio()
+        * 100
+        for start in range(0, len(normalized_choice) - window_width + 1)
+    )
+
+
+def _add_note_chunk_to_sources(
+    query: str,
+    *,
+    match: ExactSearchMatch,
+    match_type: RagMatchType,
+    scope: CategoryScope,
+    source_chunks: dict[int, list[RagContextChunk]],
+    sources_by_note_id: dict[int, RagSource],
+    accepted_count: int,
+) -> int:
+    note = match.note
+    if not _note_matches_scope(note, scope):
+        return accepted_count
+
+    chunks = source_chunks.get(note.id)
+    if chunks is not None and len(chunks) >= RAG_MAX_CHUNKS_PER_NOTE:
+        return accepted_count
+
+    retrieval_chunk = _best_local_chunk_for_note(query, note, match.matched_snippet)
+    if retrieval_chunk is None:
+        return accepted_count
+    local_chunk_id = _local_chunk_id(note.id, retrieval_chunk, match_type)
+    if chunks is not None and any(
+        chunk.chunk_id == local_chunk_id or chunk.text == retrieval_chunk.text for chunk in chunks
+    ):
+        return accepted_count
+
+    if chunks is None:
+        chunks = []
+        source_chunks[note.id] = chunks
+        sources_by_note_id[note.id] = RagSource(
+            note_id=note.id,
+            title=note.ai_title,
+            date_added=note.date_added,
+            tags=tuple(note.tags),
+            chunks=(),
+        )
+
+    chunks.append(
+        _context_chunk_from_retrieval_chunk(
+            retrieval_chunk,
+            match_type=match_type,
+            chunk_id=local_chunk_id,
+        )
+    )
+    return accepted_count + 1
 
 
 def _add_selected_note_rescue_chunks(
@@ -196,12 +393,10 @@ def _add_selected_note_rescue_chunks(
             )
 
         chunks.append(
-            RagContextChunk(
-                chunk_id=f"note:{note.id}:selected:{rescue_chunk.chunk_index}",
-                chunk_index=rescue_chunk.chunk_index,
-                text=rescue_chunk.text,
-                distance=None,
+            _context_chunk_from_retrieval_chunk(
+                rescue_chunk,
                 match_type="selected",
+                chunk_id=f"note:{note.id}:selected:{rescue_chunk.chunk_index}",
             )
         )
         accepted_count += 1
@@ -215,6 +410,45 @@ def _best_rescue_chunk_for_note(query: str, note):
         return None
 
     return max(chunks, key=lambda chunk: _chunk_rescue_score(query, chunk.text))
+
+
+def _best_local_chunk_for_note(
+    query: str,
+    note,
+    matched_snippet: str | None,
+) -> RetrievalChunk | None:
+    chunks = _chunks_for_note(note)
+    if not chunks:
+        return None
+
+    needle = (matched_snippet or query).casefold()
+    for chunk in chunks:
+        if needle and needle in chunk.text.casefold():
+            return chunk
+
+    return max(chunks, key=lambda chunk: _chunk_rescue_score(query, chunk.text))
+
+
+def _context_chunk_from_retrieval_chunk(
+    chunk: RetrievalChunk,
+    *,
+    match_type: RagMatchType,
+    chunk_id: str,
+) -> RagContextChunk:
+    return RagContextChunk(
+        chunk_id=chunk_id,
+        chunk_index=chunk.chunk_index,
+        text=chunk.text,
+        distance=None,
+        match_type=match_type,
+        chunk_type=chunk.chunk_type,
+        source_start=chunk.source_start,
+        source_end=chunk.source_end,
+    )
+
+
+def _local_chunk_id(note_id: int, chunk: RetrievalChunk, match_type: RagMatchType) -> str:
+    return f"note:{note_id}:{match_type}:{chunk.chunk_index}"
 
 
 def _chunk_rescue_score(query: str, chunk_text: str) -> tuple[int, int]:
@@ -297,6 +531,19 @@ def _metadata_int(value: object) -> int | None:
         return value
     if isinstance(value, str) and value.isdecimal():
         return int(value)
+    return None
+
+
+def _metadata_source_offset(value: object) -> int | None:
+    offset = _metadata_int(value)
+    if offset is None or offset < 0:
+        return None
+    return offset
+
+
+def _metadata_chunk_type(value: object) -> ChunkType | None:
+    if value == "full" or value == "summary" or value == "content":
+        return cast(ChunkType, value)
     return None
 
 

@@ -381,6 +381,54 @@ def test_prepare_retrieval_context_rescues_selected_note_context_when_vector_mis
     assert "Unselected note" not in context.formatted_context
 
 
+def test_prepare_retrieval_context_adds_exact_local_evidence_when_vector_misses(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    note = create_note(
+        sqlite_path,
+        "The local-only deployment code is citron-427.",
+        ai_title="Deployment code",
+        tags=["release"],
+    )
+    create_note(sqlite_path, "Unrelated note body", ai_title="Other note")
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(monkeypatch, [], expected_query="user: citron-427")
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context("citron-427", settings=settings)
+
+    assert [source.note_id for source in context.sources] == [note.id]
+    chunk = context.sources[0].chunks[0]
+    assert chunk.match_type == "exact"
+    assert chunk.chunk_type == "full"
+    assert chunk.source_start == 0
+    assert chunk.source_end == len(note.original_text)
+    assert "citron-427" in context.formatted_context
+
+
+def test_prepare_retrieval_context_adds_fuzzy_title_or_tag_evidence(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    note = create_note(
+        sqlite_path,
+        "Keep the rollout checklist short.",
+        ai_title="Cerulean rollout checklist",
+        tags=["launch-plan"],
+    )
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(monkeypatch, [], expected_query="user: cerulean rolluot")
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context("cerulean rolluot", settings=settings)
+
+    assert [source.note_id for source in context.sources] == [note.id]
+    assert context.sources[0].chunks[0].match_type == "fuzzy"
+
+
 def test_prepare_retrieval_context_adds_selected_note_rescue_chunk_when_vector_hit_is_weak(
     sqlite_path: Path,
     monkeypatch: pytest.MonkeyPatch,
