@@ -90,6 +90,13 @@ export type AskSource = {
   note_id: number;
   title: string;
   date_added: string;
+  snippets: AskSourceSnippet[];
+};
+
+export type AskSourceSnippet = {
+  text: string;
+  match_type: "semantic" | "exact" | "fuzzy" | "selected";
+  chunk_index: number | null;
 };
 
 export type AskResponse = {

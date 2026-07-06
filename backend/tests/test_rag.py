@@ -309,7 +309,13 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
     )
 
     assert [source.note_id for source in context.sources] == [included.id]
-    assert [chunk.text for chunk in context.sources[0].chunks] == ["included chunk"]
+    assert [chunk.text for chunk in context.sources[0].chunks] == [
+        "included chunk",
+        (
+            f"Title: Included\nTags: none\nDate added: {included.date_added}\n"
+            "Summary: Included note body\nChunk: Included note body"
+        ),
+    ]
     assert FakeVectorStore.calls == [
         {
             "embedding": [0.1, 0.2, 0.3],
@@ -333,6 +339,81 @@ def test_prepare_retrieval_context_returns_empty_for_empty_selected_note_ids(
     assert context.sources == ()
     assert context.formatted_context == ""
     assert FakeVectorStore.calls == []
+
+
+def test_prepare_retrieval_context_rescues_selected_note_context_when_vector_misses(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = create_note(
+        sqlite_path,
+        (
+            "Bun should answer from this selected note. "
+            "The launch checklist needs QA before release."
+        ),
+        ai_title="Launch checklist",
+        short_summary="QA before release.",
+        tags=["launch"],
+    )
+    create_note(
+        sqlite_path,
+        "This unselected note must not be used for the answer.",
+        ai_title="Unselected note",
+    )
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(
+        monkeypatch,
+        [],
+        expected_query="user: What does the launch checklist need before release?",
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context(
+        "What does the launch checklist need before release?",
+        settings=settings,
+        note_ids=[selected.id],
+    )
+
+    assert [source.note_id for source in context.sources] == [selected.id]
+    assert len(context.sources[0].chunks) == 1
+    assert "launch checklist needs QA before release" in context.sources[0].chunks[0].text
+    assert "Unselected note" not in context.formatted_context
+
+
+def test_prepare_retrieval_context_adds_selected_note_rescue_chunk_when_vector_hit_is_weak(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = create_note(
+        sqlite_path,
+        (
+            "The unrelated opening paragraph is about inbox cleanup.\n\n"
+            "The launch checklist needs QA before release and signoff from Mira."
+        ),
+        ai_title="Launch checklist",
+        short_summary="QA before release.",
+        tags=["launch"],
+    )
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(
+        monkeypatch,
+        [_hit(selected.id, 0, "semantic hit from selected note but not the answer")],
+        expected_query="user: Who needs to sign off before release?",
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context(
+        "Who needs to sign off before release?",
+        settings=settings,
+        note_ids=[selected.id],
+    )
+
+    assert [source.note_id for source in context.sources] == [selected.id]
+    assert len(context.sources[0].chunks) == 2
+    assert "semantic hit from selected note but not the answer" in context.formatted_context
+    assert "signoff from Mira" in context.formatted_context
 
 
 def test_prepare_retrieval_context_filters_category_and_selected_note_ids(

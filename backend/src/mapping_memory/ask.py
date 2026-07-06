@@ -6,7 +6,7 @@ from mapping_memory.ai import ANSWER_FALLBACK, generate_grounded_answer
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.notes import get_category
 from mapping_memory.rag import RagSource, prepare_retrieval_context
-from mapping_memory.schemas import AskRequest, AskResponse, AskSource
+from mapping_memory.schemas import AskRequest, AskResponse, AskSource, AskSourceSnippet
 from mapping_memory.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,45 @@ def create_ask_router(settings: Settings) -> APIRouter:
 
 def _ask_sources(sources: tuple[RagSource, ...]) -> list[AskSource]:
     return [
-        AskSource(note_id=source.note_id, title=source.title, date_added=source.date_added)
+        AskSource(
+            note_id=source.note_id,
+            title=source.title,
+            date_added=source.date_added,
+            snippets=_source_snippets(source),
+        )
         for source in sources
     ]
+
+
+def _source_snippets(source: RagSource) -> list[AskSourceSnippet]:
+    snippets: list[AskSourceSnippet] = []
+    seen_texts: set[str] = set()
+    for chunk in source.chunks:
+        text = _snippet_text(chunk.text)
+        if not text or text in seen_texts:
+            continue
+
+        snippets.append(
+            AskSourceSnippet(
+                text=text,
+                match_type=chunk.match_type,
+                chunk_index=chunk.chunk_index,
+            )
+        )
+        seen_texts.add(text)
+
+    return snippets
+
+
+def _snippet_text(text: str, *, max_chars: int = 360) -> str:
+    marker = "Chunk:"
+    marker_index = text.find(marker)
+    snippet = text[marker_index + len(marker) :] if marker_index >= 0 else text
+    snippet = " ".join(snippet.split())
+    if len(snippet) <= max_chars:
+        return snippet
+
+    return f"{snippet[: max_chars - len('...')].rstrip()}..."
 
 
 def _validated_category_scope(request: AskRequest, *, settings: Settings) -> CategoryScope:

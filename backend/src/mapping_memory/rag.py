@@ -1,6 +1,7 @@
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from mapping_memory.category_scope import CategoryScope
 from mapping_memory.chunking import create_retrieval_chunks
@@ -14,6 +15,9 @@ RAG_RETRIEVAL_LIMIT = 20
 RAG_FALLBACK_RETRIEVAL_LIMIT = 100
 RAG_MAX_CHUNKS_PER_NOTE = 2
 RAG_FINAL_CHUNK_LIMIT = 8
+RAG_SELECTED_NOTE_RESCUE_LIMIT = 5
+
+RagMatchType = Literal["semantic", "exact", "fuzzy", "selected"]
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,7 @@ class RagContextChunk:
     chunk_index: int | None
     text: str
     distance: float | None
+    match_type: RagMatchType = "semantic"
 
 
 @dataclass(frozen=True)
@@ -66,6 +71,49 @@ def prepare_retrieval_context(
     sources_by_note_id: dict[int, RagSource] = {}
     accepted_count = 0
 
+    accepted_count = _add_vector_hits_to_sources(
+        hits,
+        settings=settings,
+        scope=scope,
+        selected_note_ids=selected_note_ids,
+        source_chunks=source_chunks,
+        sources_by_note_id=sources_by_note_id,
+        accepted_count=accepted_count,
+    )
+    if selected_note_ids is not None and len(selected_note_ids) <= RAG_SELECTED_NOTE_RESCUE_LIMIT:
+        accepted_count = _add_selected_note_rescue_chunks(
+            query,
+            settings=settings,
+            scope=scope,
+            selected_note_ids=note_ids or [],
+            source_chunks=source_chunks,
+            sources_by_note_id=sources_by_note_id,
+            accepted_count=accepted_count,
+        )
+
+    sources = tuple(
+        RagSource(
+            note_id=source.note_id,
+            title=source.title,
+            date_added=source.date_added,
+            tags=source.tags,
+            chunks=tuple(source_chunks[source.note_id]),
+        )
+        for source in sources_by_note_id.values()
+    )
+    return RagRetrievalContext(sources=sources, formatted_context=_format_context(sources))
+
+
+def _add_vector_hits_to_sources(
+    hits,
+    *,
+    settings: Settings,
+    scope: CategoryScope,
+    selected_note_ids: set[int] | None,
+    source_chunks: dict[int, list[RagContextChunk]],
+    sources_by_note_id: dict[int, RagSource],
+    accepted_count: int,
+) -> int:
     for hit in hits:
         if accepted_count >= RAG_FINAL_CHUNK_LIMIT:
             break
@@ -101,21 +149,87 @@ def prepare_retrieval_context(
                 chunk_index=_metadata_int(hit.metadata.get("chunk_index")),
                 text=hit.text,
                 distance=hit.distance,
+                match_type="semantic",
             )
         )
         accepted_count += 1
 
-    sources = tuple(
-        RagSource(
-            note_id=source.note_id,
-            title=source.title,
-            date_added=source.date_added,
-            tags=source.tags,
-            chunks=tuple(source_chunks[source.note_id]),
+    return accepted_count
+
+
+def _add_selected_note_rescue_chunks(
+    query: str,
+    *,
+    settings: Settings,
+    scope: CategoryScope,
+    selected_note_ids: Sequence[int],
+    source_chunks: dict[int, list[RagContextChunk]],
+    sources_by_note_id: dict[int, RagSource],
+    accepted_count: int,
+) -> int:
+    for note_id in selected_note_ids:
+        if accepted_count >= RAG_FINAL_CHUNK_LIMIT:
+            break
+        note = get_note(settings.sqlite_path, note_id)
+        if note is None or not _note_matches_scope(note, scope):
+            continue
+
+        chunks = source_chunks.get(note.id)
+        if chunks is not None and len(chunks) >= RAG_MAX_CHUNKS_PER_NOTE:
+            continue
+
+        rescue_chunk = _best_rescue_chunk_for_note(query, note)
+        if rescue_chunk is None:
+            continue
+        if chunks is not None and any(chunk.text == rescue_chunk.text for chunk in chunks):
+            continue
+
+        if chunks is None:
+            chunks = []
+            source_chunks[note.id] = chunks
+            sources_by_note_id[note.id] = RagSource(
+                note_id=note.id,
+                title=note.ai_title,
+                date_added=note.date_added,
+                tags=tuple(note.tags),
+                chunks=(),
+            )
+
+        chunks.append(
+            RagContextChunk(
+                chunk_id=f"note:{note.id}:selected:{rescue_chunk.chunk_index}",
+                chunk_index=rescue_chunk.chunk_index,
+                text=rescue_chunk.text,
+                distance=None,
+                match_type="selected",
+            )
         )
-        for source in sources_by_note_id.values()
-    )
-    return RagRetrievalContext(sources=sources, formatted_context=_format_context(sources))
+        accepted_count += 1
+
+    return accepted_count
+
+
+def _best_rescue_chunk_for_note(query: str, note):
+    chunks = _chunks_for_note(note)
+    if not chunks:
+        return None
+
+    return max(chunks, key=lambda chunk: _chunk_rescue_score(query, chunk.text))
+
+
+def _chunk_rescue_score(query: str, chunk_text: str) -> tuple[int, int]:
+    query_terms = _significant_terms(query)
+    chunk_terms = _significant_terms(chunk_text)
+    overlap = len(query_terms & chunk_terms)
+    return (overlap, -len(chunk_text))
+
+
+def _significant_terms(text: str) -> set[str]:
+    return {
+        term
+        for term in re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]{2,}", text.casefold())
+        if term not in {"the", "and", "for", "from", "with", "that", "this", "what"}
+    }
 
 
 def build_retrieval_query(question: str, history: list[AskHistoryMessage]) -> str:

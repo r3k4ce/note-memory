@@ -6,7 +6,7 @@
 uv sync --dev
 ```
 
-The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Startup initializes SQLite only; it does not import Markdown files from the vault or backfill Markdown files for older SQLite rows. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage.
+The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Startup initializes SQLite only; it does not import Markdown files from the vault or backfill Markdown files for older SQLite rows. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage. Ask uses Chroma for semantic retrieval and rescues explicitly selected notes from SQLite when vector retrieval misses them.
 
 > [!WARNING]
 > **Privacy and work data.**
@@ -114,7 +114,8 @@ semantic search and Ask retrieval.
 
 Chroma is rebuildable. Run the reindex command when the Chroma directory is
 missing, has been deleted, looks stale, or semantic search / Ask retrieval
-is not reflecting the notes saved in SQLite.
+is not reflecting the notes saved in SQLite. Reindex after retrieval changes so
+stored chunk metadata, including source offsets, is refreshed.
 
 Run from `backend/`:
 
@@ -144,7 +145,8 @@ retrieval chunk, and hybrid matches prefer local snippets when available. Pass
 `semantic=false` to skip embeddings and Chroma for local-only search.
 
 Ask a grounded question across all notes, only Uncategorized, one category, or
-selected note IDs:
+selected note IDs. Responses include cited sources with snippets from retrieved
+note evidence:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?"}'

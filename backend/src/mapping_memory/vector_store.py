@@ -52,6 +52,8 @@ def build_chunk_metadata(chunk: RetrievalChunk) -> ChunkMetadata:
         "ai_title": chunk.title,
         "tags": json.dumps(list(chunk.tags), separators=(",", ":")),
         "date_added": chunk.date_added,
+        "source_start": chunk.source_start if chunk.source_start is not None else -1,
+        "source_end": chunk.source_end if chunk.source_end is not None else -1,
         "category_id": category_id,
         "category_name": category_name,
         "category_scope": category_scope_value(chunk.category_id),

@@ -46,7 +46,8 @@ The choice persists in `localStorage`.
   Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
   Markdown and GFM syntax while preserving raw Markdown.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
-  Ask source scope, and cited answers whose sources open saved notes.
+  Ask source scope, cited answers, and source snippets whose note links open
+  saved notes.
 
 The backend stores notes locally in SQLite and writes saved notes as Markdown
 files with YAML frontmatter, asks an LLM for title, summary, and tags when
@@ -63,8 +64,9 @@ endpoints that return sourced results from your own note collection.
   generate missing files for older SQLite rows.
 - **Chroma is rebuildable.** The vector index in `data/chroma/` is a derived cache.
   It can be deleted at any time and re-created from SQLite. Search falls back to
-  local exact and fuzzy matching while the index is empty or unavailable; Ask
-  needs the retrieval index for sourced answers.
+  local exact and fuzzy matching while the index is empty or unavailable. Ask uses
+  Chroma for semantic retrieval and also rescues explicitly selected notes from
+  SQLite when vector retrieval misses them.
 - No cloud sync, no telemetry, no remote backup. The data folder is yours.
 
 ## Prerequisites
@@ -189,7 +191,7 @@ Walk through these once after a clean install:
 - [ ] `GET /notes` lists the saved note
 - [ ] `GET /notes/{id}` returns the same note
 - [ ] `GET /search?q=<term>` returns the note as a search hit and category scope params restrict results
-- [ ] `POST /ask` with a question returns an answer with at least one `sources` entry; category scope fields and `note_ids` restrict sources
+- [ ] `POST /ask` with a question returns an answer with at least one `sources` entry and snippet; category scope fields and `note_ids` restrict sources
 - [ ] `GET /notes?category_id=<id>` filters notes by category
 - [ ] `PATCH /notes/{id}` updates body/title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`
@@ -199,7 +201,7 @@ Walk through these once after a clean install:
 - [ ] Left sidebar Ask source checkboxes switch between all notes, category-selected notes, individual notes, and no selected notes
 - [ ] Center workspace creates notes, opens selected notes in the same editor surface, and edits the saved Markdown body plus YAML metadata frontmatter
 - [ ] Read Mode renders new-note drafts and saved-note bodies as Markdown in place
-- [ ] Right sidebar Ask/chat persists recent in-session turns and cites saved-note sources
+- [ ] Right sidebar Ask/chat persists recent in-session turns and cites saved-note sources with snippets
 - [ ] `uv run python -m mapping_memory.reindex` rebuilds Chroma from SQLite when run from `backend/` with `OPENAI_API_KEY`
 
 ## Where local data is stored
@@ -219,7 +221,8 @@ used by semantic search and Ask retrieval.
 
 Run the reindex command when `data/chroma/` is missing, has been deleted, looks
 stale, or semantic search / Ask retrieval is not reflecting the notes saved
-in SQLite.
+in SQLite. Reindex after Ask retrieval changes so stored chunk metadata, including
+source offsets, is refreshed.
 
 Run from `backend/`:
 

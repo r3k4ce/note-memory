@@ -76,6 +76,13 @@ describe("AskChat Ask Bun panel", () => {
               note_id: 7,
               title: "React textarea notes",
               date_added: "2026-07-04T01:02:03Z",
+              snippets: [
+                {
+                  text: "Use controlled textarea state for saved draft edits.",
+                  match_type: "semantic",
+                  chunk_index: 0,
+                },
+              ],
             },
           ],
         },
@@ -86,6 +93,7 @@ describe("AskChat Ask Bun panel", () => {
     expect(screen.getByRole("button", { name: /Reading/i })).toBeDisabled();
     expect(screen.getByLabelText("Ask a question about saved notes")).toBeDisabled();
     expect(screen.getByText("Sources · 1")).toBeInTheDocument();
+    expect(screen.getByText("Use controlled textarea state for saved draft edits.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open cited note 1: React textarea notes" }));
 
     expect(onSourceSelect).toHaveBeenCalledWith(7);

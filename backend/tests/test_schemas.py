@@ -1,13 +1,30 @@
 import pytest
 from pydantic import ValidationError
 
-from mapping_memory.schemas import AskRequest, NoteUpdate, SearchResult
+from mapping_memory.schemas import AskRequest, AskSource, NoteUpdate, SearchResult
 
 
 def test_ask_request_accepts_note_ids() -> None:
     ask_request = AskRequest.model_validate({"question": "What changed?", "note_ids": [1, 2, 3]})
 
     assert ask_request.note_ids == [1, 2, 3]
+
+
+def test_ask_source_accepts_grounding_snippets() -> None:
+    source = AskSource.model_validate(
+        {
+            "note_id": 1,
+            "title": "Saved note",
+            "date_added": "2026-07-02T12:00:00Z",
+            "snippets": [
+                {"text": "The relevant saved text.", "match_type": "selected", "chunk_index": 0}
+            ],
+        }
+    )
+
+    assert source.snippets[0].text == "The relevant saved text."
+    assert source.snippets[0].match_type == "selected"
+    assert source.snippets[0].chunk_index == 0
 
 
 @pytest.mark.parametrize("match_type", ["exact", "semantic", "hybrid", "fuzzy"])

@@ -22,6 +22,19 @@ type AssistantBubbleProps = {
   sources: AskSource[];
 };
 
+function formatMatchType(matchType: AskSource["snippets"][number]["match_type"]) {
+  if (matchType === "selected") {
+    return "Selected";
+  }
+  if (matchType === "semantic") {
+    return "Semantic";
+  }
+  if (matchType === "exact") {
+    return "Exact";
+  }
+  return "Fuzzy";
+}
+
 function SourceList({
   onSourceSelect,
   sources,
@@ -43,23 +56,41 @@ function SourceList({
       </div>
       <div className="mt-2 flex flex-col gap-1">
         {sources.map((source, index) => (
-          <button
-            aria-label={`Open cited note ${index + 1}: ${source.title}`}
-            className="group flex cursor-pointer items-center gap-2 rounded-card border border-border bg-bg px-3 py-2 text-left transition-all hover:border-border-strong hover:bg-surface hover:shadow-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1"
+          <div
+            className="rounded-card border border-border bg-bg transition-all hover:border-border-strong hover:bg-surface hover:shadow-soft"
             key={source.note_id}
-            onClick={() => onSourceSelect(source.note_id)}
-            type="button"
           >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-muted text-[11px] font-semibold tabular-nums text-accent">
-              {index + 1}
-            </span>
-            <FileText size={12} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">{source.title}</span>
-            <time className="shrink-0 text-xs tabular-nums text-text-muted" dateTime={source.date_added}>
-              {source.date_added.slice(0, 10)}
-            </time>
-            <ArrowUpRight size={12} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-px group-hover:-translate-y-px" aria-hidden="true" />
-          </button>
+            <button
+              aria-label={`Open cited note ${index + 1}: ${source.title}`}
+              className="group flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1"
+              onClick={() => onSourceSelect(source.note_id)}
+              type="button"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-muted text-[11px] font-semibold tabular-nums text-accent">
+                {index + 1}
+              </span>
+              <FileText size={12} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-primary">{source.title}</span>
+              <time className="shrink-0 text-xs tabular-nums text-text-muted" dateTime={source.date_added}>
+                {source.date_added.slice(0, 10)}
+              </time>
+              <ArrowUpRight size={12} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-px group-hover:-translate-y-px" aria-hidden="true" />
+            </button>
+            {source.snippets.length > 0 ? (
+              <div className="flex flex-col gap-1 border-t border-border px-3 py-2">
+                {source.snippets.map((snippet, snippetIndex) => (
+                  <div className="flex flex-col gap-1" key={`${source.note_id}:${snippetIndex}`}>
+                    <span className="text-[10px] font-semibold uppercase text-text-muted">
+                      {formatMatchType(snippet.match_type)}
+                    </span>
+                    <p className="line-clamp-3 text-xs leading-relaxed text-text-secondary">
+                      {snippet.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ))}
       </div>
     </div>

@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-06T02:19:11Z"
+    time_local: "2026-07-05T23:19:11-03:00"
+    summary: "Improved Ask Bun selected-note retrieval and source evidence snippets."
+    changed:
+      - "Added selected-note rescue retrieval in backend RAG so explicitly selected notes can contribute generated chunks from SQLite when Chroma vector hits miss or rank away relevant evidence."
+      - "Extended Ask sources with snippet evidence including text, match type, and chunk index; rendered snippets under cited notes in the Ask Bun sidebar."
+      - "Stored retrieval chunk source_start/source_end in Chroma metadata, requiring reindex for existing notes to refresh stored metadata."
+      - "Adjusted Bun answer instructions toward warm, cautious, note-grounded responses and documented selected-note rescue, snippets, and reindex guidance."
+    verification:
+      - "Ran ./scripts/check.sh: backend formatting/lint/pyright and 203 pytest tests passed with existing Starlette deprecation warnings; frontend 120 Vitest tests, lint, and build passed."
   - time_utc: "2026-07-06T01:41:58Z"
     time_local: "2026-07-05T22:41:58-03:00"
     summary: "Stopped automatic Markdown vault sync on app startup and cleaned local notes."

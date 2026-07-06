@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class CategoryCreate(BaseModel):
@@ -291,10 +291,26 @@ class AskRequest(BaseModel):
         return value
 
 
+class AskSourceSnippet(BaseModel):
+    text: str
+    match_type: Literal["semantic", "exact", "fuzzy", "selected"]
+    chunk_index: int | None = None
+
+    @field_validator("text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("snippet text must not be empty")
+
+        return stripped_value
+
+
 class AskSource(BaseModel):
     note_id: int
     title: str
     date_added: str
+    snippets: list[AskSourceSnippet] = Field(default_factory=list)
 
 
 class AskResponse(BaseModel):

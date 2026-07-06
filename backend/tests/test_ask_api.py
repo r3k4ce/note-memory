@@ -58,6 +58,7 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
                 "note_id": 7,
                 "title": "Source recreation",
                 "date_added": "2026-07-01T01:00:00Z",
+                "snippets": [{"text": "text", "match_type": "semantic", "chunk_index": 0}],
             }
         ],
     }
@@ -214,6 +215,10 @@ def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypat
             "note_id": selected.id,
             "title": "Selected note",
             "date_added": selected.date_added,
+            "snippets": [
+                {"text": "selected chunk", "match_type": "semantic", "chunk_index": 0},
+                {"text": "Selected note body", "match_type": "selected", "chunk_index": 0},
+            ],
         }
     ]
     assert "selected chunk" in captured["context"]
@@ -270,6 +275,10 @@ def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> N
             "note_id": matching.id,
             "title": "Matching note",
             "date_added": matching.date_added,
+            "snippets": [
+                {"text": "matching chunk", "match_type": "semantic", "chunk_index": 0},
+                {"text": "Matching note body", "match_type": "selected", "chunk_index": 0},
+            ],
         }
     ]
     assert FakeAskVectorStore.calls == [
@@ -307,8 +316,18 @@ def test_ask_without_note_ids_keeps_existing_unscoped_behavior(tmp_path, monkeyp
 
     assert response.status_code == 200
     assert response.json()["sources"] == [
-        {"note_id": first.id, "title": "First note", "date_added": first.date_added},
-        {"note_id": second.id, "title": "Second note", "date_added": second.date_added},
+        {
+            "note_id": first.id,
+            "title": "First note",
+            "date_added": first.date_added,
+            "snippets": [{"text": "first chunk", "match_type": "semantic", "chunk_index": 0}],
+        },
+        {
+            "note_id": second.id,
+            "title": "Second note",
+            "date_added": second.date_added,
+            "snippets": [{"text": "second chunk", "match_type": "semantic", "chunk_index": 0}],
+        },
     ]
     assert FakeAskVectorStore.calls == [{"embedding": [0.1, 0.2, 0.3], "limit": 20, "where": None}]
 
@@ -455,6 +474,7 @@ def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
             "note_id": 9,
             "title": "Retrieved card",
             "date_added": "2026-07-01T05:00:00Z",
+            "snippets": [{"text": "text", "match_type": "semantic", "chunk_index": 0}],
         }
     ]
 
