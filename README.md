@@ -278,6 +278,10 @@ uv run python -m pytest
 Pop-Location
 ```
 
+Live OpenAI API tests are skipped by default. Set
+`RUN_OPENAI_INTEGRATION_TESTS=1` when you intentionally want pytest to call the
+OpenAI API.
+
 To run format, lint, typecheck, and tests together (backend) plus tests, lint,
 and build (frontend), use the repo-level check script:
 

@@ -57,6 +57,8 @@ exclude = [
 ]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
 reportMissingTypeStubs = false
 
 [tool.pytest.ini_options]

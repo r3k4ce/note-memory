@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -64,6 +65,9 @@ def test_organize_mapping_text_returns_validated_metadata() -> None:
 
 
 def test_organize_mapping_text_calls_openai_api_with_real_key() -> None:
+    if os.getenv("RUN_OPENAI_INTEGRATION_TESTS") != "1":
+        pytest.skip("Set RUN_OPENAI_INTEGRATION_TESTS=1 to run live OpenAI API tests")
+
     settings = Settings()
     if settings.openai_api_key is None:
         pytest.skip("OPENAI_API_KEY is not configured")

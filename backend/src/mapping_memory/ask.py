@@ -1,4 +1,5 @@
 import logging
+from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -119,7 +120,10 @@ def _no_evidence_response() -> AskResponse:
 
 
 def _evidence_summary(sources: list[AskSource]) -> AskEvidenceSummary:
-    match_types = sorted({snippet.match_type for source in sources for snippet in source.snippets})
+    match_types = cast(
+        list[Literal["semantic", "exact", "fuzzy", "selected"]],
+        sorted({snippet.match_type for source in sources for snippet in source.snippets}),
+    )
     return AskEvidenceSummary(
         source_count=len(sources),
         snippet_count=sum(len(source.snippets) for source in sources),

@@ -1,4 +1,18 @@
 entries:
+  - time_utc: "2026-07-06T16:31:57Z"
+    time_local: "2026-07-06T13:31:57-03:00"
+    summary: "Stabilized backend test surface after TestClient hangs."
+    changed:
+      - "Added a pytest-local FastAPI client shim to avoid the installed Starlette/httpx2 TestClient and AnyIO sync-thread hangs while preserving existing request-style tests."
+      - "Gated the live OpenAI organizer test behind RUN_OPENAI_INTEGRATION_TESTS=1 so normal checks do not call the network when OPENAI_API_KEY is present."
+      - "Fixed the Ask evidence-summary match_types Pyright literal-list error."
+      - "Documented the live OpenAI test opt-in in README.md."
+    verification:
+      - "Ran backend ruff format --check and ruff check: passed."
+      - "Ran full backend pyright: 0 errors."
+      - "Ran full backend pytest with timeout: 218 passed, 1 skipped, 6 existing Starlette deprecation warnings."
+      - "Ran frontend Vitest suite: 123 passed; ran frontend lint and build: passed."
+      - "Ran UV_CACHE_DIR=/tmp/uv-cache ./scripts/check.sh: passed; plain ./scripts/check.sh was blocked by the sandbox's read-only /home/adrian/.cache/uv."
   - time_utc: "2026-07-06T04:53:56Z"
     time_local: "2026-07-06T01:53:56-03:00"
     summary: "Productized Ask Bun trust and evidence UX."
