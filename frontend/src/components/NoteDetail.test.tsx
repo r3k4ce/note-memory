@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { Note } from "../types";
@@ -7,19 +7,40 @@ import { NoteDetail } from "./NoteDetail";
 import type { MarkdownPaneProps } from "./MarkdownPane";
 
 vi.mock("./MarkdownPane", () => ({
-  MarkdownPane({ disabled, id, mode, onChange, value }: MarkdownPaneProps) {
+  MarkdownPane({
+    disabled,
+    id,
+    mode,
+    onChange,
+    toolbar,
+    value,
+  }: MarkdownPaneProps & { toolbar?: ReactNode }) {
     if (mode === "read") {
       return <div>{value}</div>;
     }
 
     return (
-      <textarea
-        aria-label="Markdown source"
-        disabled={disabled}
-        id={id}
-        onChange={(event) => onChange?.(event.target.value)}
-        value={value}
-      />
+      <div aria-label="Mock markdown pane">
+        {toolbar}
+        <textarea
+          aria-label="Markdown source"
+          disabled={disabled}
+          id={id}
+          onChange={(event) => onChange?.(event.target.value)}
+          value={value}
+        />
+      </div>
+    );
+  },
+}));
+
+vi.mock("./MarkdownPreview", () => ({
+  MarkdownPreview({ source, toolbar }: { source: string; toolbar?: ReactNode }) {
+    return (
+      <div aria-label="Markdown preview">
+        {toolbar}
+        {source}
+      </div>
     );
   },
 }));
@@ -97,6 +118,9 @@ describe("NoteDetail selected-note editing", () => {
     expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toContainElement(
       screen.getByLabelText("Save changes"),
     );
+    expect(screen.getByLabelText("Mock markdown pane")).toContainElement(
+      screen.getByRole("toolbar", { name: "Note toolbar" }),
+    );
 
     fireEvent.change(editor, {
       target: {
@@ -160,7 +184,7 @@ describe("NoteDetail selected-note editing", () => {
     expect(onSaveEdit).not.toHaveBeenCalled();
   });
 
-  test("hides edit actions in read mode while keeping note details", () => {
+  test("hides edit actions in read mode while showing the full markdown document", () => {
     renderDetail({ readMode: true });
 
     expect(screen.queryByLabelText("Regenerate details")).not.toBeInTheDocument();
@@ -168,6 +192,14 @@ describe("NoteDetail selected-note editing", () => {
     expect(screen.queryByLabelText("Cancel edit")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("New note")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Delete note")).not.toBeInTheDocument();
-    expect(screen.getByText("Details")).toBeInTheDocument();
+    expect(screen.queryByText("Details")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Markdown preview")).toContainElement(
+      screen.getByRole("toolbar", { name: "Note toolbar" }),
+    );
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("title: Initial title");
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("summary: Initial summary");
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("tags: alpha, beta");
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("category: Work");
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("Initial body");
   });
 });

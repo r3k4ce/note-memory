@@ -1,27 +1,41 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { AddNote } from "./AddNote";
 import type { MarkdownPaneHandle, MarkdownPaneProps } from "./MarkdownPane";
 
 vi.mock("./MarkdownPane", () => ({
-  MarkdownPane({ disabled, onChange, placeholder, value }: MarkdownPaneProps) {
+  MarkdownPane({
+    disabled,
+    onChange,
+    placeholder,
+    toolbar,
+    value,
+  }: MarkdownPaneProps & { toolbar?: ReactNode }) {
     return (
-      <textarea
-        aria-label="Markdown source"
-        disabled={disabled}
-        onChange={(event) => onChange?.(event.target.value)}
-        placeholder={placeholder}
-        value={value}
-      />
+      <div aria-label="Mock markdown pane">
+        {toolbar}
+        <textarea
+          aria-label="Markdown source"
+          disabled={disabled}
+          onChange={(event) => onChange?.(event.target.value)}
+          placeholder={placeholder}
+          value={value}
+        />
+      </div>
     );
   },
 }));
 
 vi.mock("./MarkdownPreview", () => ({
-  MarkdownPreview({ source }: { source: string }) {
-    return <div aria-label="Markdown preview">{source}</div>;
+  MarkdownPreview({ source, toolbar }: { source: string; toolbar?: ReactNode }) {
+    return (
+      <div aria-label="Markdown preview">
+        {toolbar}
+        {source}
+      </div>
+    );
   },
 }));
 
@@ -64,6 +78,9 @@ describe("AddNote copy", () => {
     expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toContainElement(
       screen.getByRole("button", { name: "Save note" }),
     );
+    expect(screen.getByLabelText("Mock markdown pane")).toContainElement(
+      screen.getByRole("toolbar", { name: "Note toolbar" }),
+    );
     expect(screen.getByPlaceholderText("Start writing your note in Markdown...")).toBeInTheDocument();
   });
 
@@ -81,7 +98,10 @@ describe("AddNote copy", () => {
 
     expect(screen.queryByRole("button", { name: "Save note" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Markdown source")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Markdown preview")).toContainElement(
+      screen.getByRole("toolbar", { name: "Note toolbar" }),
+    );
     expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("# Draft title");
-    expect(screen.getByLabelText("Markdown preview")).not.toHaveTextContent("title: Draft title");
+    expect(screen.getByLabelText("Markdown preview")).toHaveTextContent("title: Draft title");
   });
 });

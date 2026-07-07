@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   askQuestion,
+  createNote,
   createCategory,
   deleteCategory,
   searchNotes,
@@ -15,6 +16,7 @@ import App from "./App";
 import type { Category, Note, SearchResult } from "./types";
 
 const styleCss = readFileSync("src/style.css", "utf8");
+const markdownPaneSource = readFileSync("src/components/MarkdownPane.tsx", "utf8");
 
 const { categories, notes } = vi.hoisted(() => {
   const mockCategories: Category[] = [
@@ -99,6 +101,10 @@ vi.mock("./components/NoteWorkspace", () => ({
     note,
     onEditDirtyChange,
     onEdit,
+    onDraftTextChange,
+    onSave,
+    onSaveEdit,
+    draftText,
     readMode,
     toolbarControls,
   }: {
@@ -106,6 +112,16 @@ vi.mock("./components/NoteWorkspace", () => ({
     note: Note | null;
     onEditDirtyChange: (isDirty: boolean) => void;
     onEdit: () => void;
+    onDraftTextChange: (value: string) => void;
+    onSave: () => void;
+    onSaveEdit: (body: {
+      original_text: string;
+      ai_title: string;
+      short_summary: string;
+      tags: string[];
+      category_id: number | null;
+    }) => Promise<void>;
+    draftText: string;
     readMode: boolean;
     toolbarControls: ReactNode;
   }) {
@@ -114,12 +130,39 @@ vi.mock("./components/NoteWorkspace", () => ({
         {toolbarControls}
         <span>Workspace mode: {mode}</span>
         <span>Read mode: {String(readMode)}</span>
+        <span>Draft text: {draftText}</span>
         {note ? <span>Loaded note: {note.ai_title}</span> : null}
         <button onClick={onEdit} type="button">
           Mock edit
         </button>
         <button onClick={() => onEditDirtyChange(true)} type="button">
           Mock dirty
+        </button>
+        <button
+          onClick={() => onDraftTextChange(["---", "title: Saved note", "---", "", "Saved body"].join("\n"))}
+          type="button"
+        >
+          Mock draft
+        </button>
+        <button
+          onClick={onSave}
+          type="button"
+        >
+          Mock save note
+        </button>
+        <button
+          onClick={() =>
+            void onSaveEdit({
+              original_text: "Updated body",
+              ai_title: "Updated note",
+              short_summary: "Updated summary",
+              tags: ["updated"],
+              category_id: null,
+            })
+          }
+          type="button"
+        >
+          Mock save edit
         </button>
       </section>
     );
@@ -235,11 +278,17 @@ describe("App sidebar navigation", () => {
 
   test("shares workspace page shell edges across side panes and markdown panes", () => {
     const workspacePaneRule = styleCss.match(/\.workspace-side-pane\s*\{[^}]+\}/)?.[0] ?? "";
+    const markdownPageRule = styleCss.match(/\.markdown-page-surface\s*\{[^}]+\}/)?.[0] ?? "";
+    const noteToolbarOverlayRule = styleCss.match(/\.note-toolbar-overlay\s*\{[^}]+\}/)?.[0] ?? "";
     const workspaceShellRule = styleCss.match(/\.workspace-page-shell\s*\{[^}]+\}/)?.[0] ?? "";
     const collapsedPaneRule = styleCss.match(/\.workspace-side-pane-collapsed\s*\{[^}]+\}/)?.[0] ?? "";
 
     expect(styleCss).toContain("--spacing-workspace-page");
     expect(workspacePaneRule).toContain("margin-block: var(--spacing-workspace-page)");
+    expect(markdownPageRule).toContain("margin: var(--spacing-workspace-page) auto");
+    expect(markdownPageRule).toContain("overflow: hidden");
+    expect(noteToolbarOverlayRule).toContain("position: absolute");
+    expect(noteToolbarOverlayRule).toContain("top: 0");
     expect(workspaceShellRule).toContain("border: 1px solid var(--color-page-border)");
     expect(workspaceShellRule).toContain("border-radius: var(--radius-card)");
     expect(workspaceShellRule).toContain("box-shadow: var(--shadow-page)");
@@ -275,6 +324,8 @@ describe("App sidebar navigation", () => {
       "surface-card",
       "surface-input",
       "surface-popover",
+      "markdown-page-surface",
+      "note-toolbar-overlay",
       "markdown-codemirror",
       "markdown-codemirror-workspace",
       "workspace-side-pane",
@@ -283,8 +334,7 @@ describe("App sidebar navigation", () => {
       "note-toolbar-error",
       "note-slip",
       "note-preview",
-      "note-details",
-      "note-tag",
+      "note-frontmatter",
       "sidebar-row",
     ];
 
@@ -292,6 +342,45 @@ describe("App sidebar navigation", () => {
     for (const className of componentClassNames) {
       expect(componentsLayer).toContain(`.${className}`);
     }
+  });
+
+  test("keeps workspace edit and read surfaces on the same internal scroll contract", () => {
+    const workspaceEditorRule = styleCss.match(/\.markdown-codemirror-workspace\s*\{[^}]+\}/)?.[0] ?? "";
+    const workspaceScrollerRule =
+      styleCss.match(/\.markdown-codemirror-workspace \.cm-scroller\s*\{[^}]+\}/)?.[0] ?? "";
+    const notePreviewRule = styleCss.match(/\.note-preview\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(workspaceEditorRule).toContain("display: flex");
+    expect(workspaceEditorRule).toContain("flex-direction: column");
+    expect(workspaceScrollerRule).toContain("flex: 1");
+    expect(workspaceScrollerRule).toContain("height: auto");
+    expect(workspaceScrollerRule).toContain("overflow: auto");
+    expect(notePreviewRule).toContain("flex: 1");
+    expect(notePreviewRule).toContain("overflow-y: auto");
+    expect(notePreviewRule).toContain("min-height: 0");
+    expect(styleCss).toContain(".note-preview.prose");
+    expect(styleCss).not.toContain(".note-preview .prose");
+  });
+
+  test("scopes the editor viewport clamp outside the workspace markdown pane", () => {
+    const containedScrollerRule =
+      styleCss.match(/\.markdown-codemirror:not\(\.markdown-codemirror-workspace\) \.cm-scroller\s*\{[^}]+\}/)?.[0] ??
+      "";
+    const workspaceScrollerRule =
+      styleCss.match(/\.markdown-codemirror-workspace \.cm-scroller\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(containedScrollerRule).toContain("max-height: clamp(24rem, calc(100vh - 18rem), 40rem)");
+    expect(workspaceScrollerRule).toContain("max-height: none");
+    expect(markdownPaneSource).not.toContain('maxHeight: "clamp');
+  });
+
+  test("keeps read mode prose full width and frontmatter compact", () => {
+    const notePreviewProseRule = styleCss.match(/\.note-preview\.prose\s*\{[^}]+\}/)?.[0] ?? "";
+    const frontmatterRule = styleCss.match(/\.note-preview\.prose :where\(\.note-frontmatter\)\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(notePreviewProseRule).toContain("max-width: none");
+    expect(frontmatterRule).toContain("width: 100%");
+    expect(frontmatterRule).toContain("margin-top: 0");
   });
 
   test("focuses the text area while keeping resize handles available, then restores panes", async () => {
@@ -339,6 +428,44 @@ describe("App sidebar navigation", () => {
       expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
     });
     expect(screen.getByText("Read mode: false")).toBeInTheDocument();
+  });
+
+  test("keeps the selected read or edit mode when opening new notes and saving", async () => {
+    vi.mocked(createNote).mockResolvedValueOnce(notes[0]);
+    vi.mocked(updateNote).mockResolvedValueOnce({ ...notes[0], ai_title: "Updated note" });
+
+    render(<App />);
+
+    await expandCategory("Work");
+
+    fireEvent.click(screen.getByRole("button", { name: "Read Mode" }));
+    expect(screen.getByText("Read mode: true")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Work note/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Read mode: true")).toBeInTheDocument();
+
+    fireEvent.click(getSidebarNewNoteButton());
+    expect(screen.getByText("Workspace mode: new")).toBeInTheDocument();
+    expect(screen.getByText("Read mode: true")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock draft" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Saved body/)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mock save note" }));
+    await waitFor(() => {
+      expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Read mode: true")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock save edit" }));
+    await waitFor(() => {
+      expect(updateNote).toHaveBeenCalled();
+    });
+    expect(screen.getByText("Read mode: true")).toBeInTheDocument();
   });
 
   test("collapses and restores the notes sidebar by dragging its separator", async () => {

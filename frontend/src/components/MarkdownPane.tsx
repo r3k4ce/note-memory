@@ -3,11 +3,11 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { tags } from "@lezer/highlight";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
+import { MarkdownPageSurface } from "./MarkdownPageSurface";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { categoryCompletionExtension } from "../editor/categoryCompletion";
-import { frontmatterPreviewExtension } from "../editor/frontmatterPreview";
 import { markdownCodeLanguages } from "../editor/markdownCodeLanguages";
 import { markdownLivePreviewExtension } from "../editor/markdownLivePreview";
 import { THEME_MODE, type ThemeId } from "../hooks/useTheme";
@@ -25,6 +25,7 @@ export type MarkdownPaneProps = {
   id?: string;
   editorHandleRef?: RefObject<MarkdownPaneHandle | null>;
   placeholder?: string;
+  toolbar?: ReactNode;
   variant?: "contained" | "workspace";
 };
 
@@ -43,7 +44,7 @@ const markdownEditorTheme = EditorView.theme(
     },
     ".cm-content": {
       caretColor: "var(--color-text-primary)",
-      minHeight: "20rem",
+      minHeight: "24rem",
       padding: "0.875rem 1rem",
     },
     ".cm-line": {
@@ -51,7 +52,6 @@ const markdownEditorTheme = EditorView.theme(
     },
     ".cm-scroller": {
       fontFamily: "inherit",
-      maxHeight: "clamp(20rem, calc(100vh - 18rem), 36rem)",
       overflow: "auto",
     },
     ".cm-gutters": {
@@ -91,7 +91,6 @@ const markdownEditorExtensions = [
   markdownEditorTheme,
   syntaxHighlighting(markdownHighlightStyle),
   markdownLivePreviewExtension,
-  frontmatterPreviewExtension,
 ];
 
 const workspaceMarkdownEditorTheme = EditorView.theme({
@@ -100,11 +99,15 @@ const workspaceMarkdownEditorTheme = EditorView.theme({
     minHeight: "0",
   },
   ".cm-editor": {
-    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    flex: "1",
+    height: "auto",
     minHeight: "0",
   },
   ".cm-scroller": {
-    height: "100%",
+    flex: "1",
+    height: "auto",
     minHeight: "0",
     maxHeight: "none",
     overflow: "auto",
@@ -121,16 +124,13 @@ export function MarkdownPane({
   mode,
   onChange,
   placeholder,
+  toolbar,
   editorHandleRef,
   variant = "contained",
   value,
 }: MarkdownPaneProps) {
   if (mode === "read") {
-    return (
-      <div className="min-h-72 overflow-y-auto rounded-md bg-surface px-4 py-3">
-        <MarkdownPreview source={value} />
-      </div>
-    );
+    return <MarkdownPreview source={value} toolbar={toolbar} />;
   }
 
   const editable = !disabled && Boolean(onChange);
@@ -140,7 +140,7 @@ export function MarkdownPane({
     ? [...markdownEditorExtensions, ...categoryExtensions, workspaceMarkdownEditorTheme]
     : [...markdownEditorExtensions, ...categoryExtensions];
 
-  return (
+  const editor = (
     <CodeMirror
       aria-label="Markdown source"
       basicSetup={{
@@ -155,7 +155,7 @@ export function MarkdownPane({
         lineNumbers: false,
         lintKeymap: false,
       }}
-      className={`markdown-codemirror${isWorkspace ? " workspace-page-shell markdown-codemirror-workspace" : ""}${
+      className={`markdown-codemirror${isWorkspace ? " markdown-codemirror-workspace" : ""}${
         disabled ? " markdown-codemirror-disabled" : ""
       }`}
       editable={editable}
@@ -163,7 +163,7 @@ export function MarkdownPane({
       height={isWorkspace ? "100%" : "auto"}
       id={id}
       indentWithTab={false}
-      minHeight={isWorkspace ? "0" : "20rem"}
+      minHeight={isWorkspace ? "0" : "24rem"}
       onChange={(nextValue) => onChange?.(nextValue)}
       onCreateEditor={(view) => {
         if (editorHandleRef) {
@@ -178,4 +178,14 @@ export function MarkdownPane({
       value={value}
     />
   );
+
+  if (isWorkspace) {
+    return (
+      <MarkdownPageSurface toolbar={toolbar}>
+        {editor}
+      </MarkdownPageSurface>
+    );
+  }
+
+  return editor;
 }

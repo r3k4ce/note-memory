@@ -133,7 +133,6 @@ export function NoteDetail({
 
   const actionsDisabled = isDeleting || isSavingEdit || isRegeneratingDetails;
   const parsedDocument = parseNoteEditorDocument(documentText, note, categories);
-  const previewBody = readMode ? parsedDocument.update.original_text : "";
   const currentError = validationError ?? editError ?? deleteError;
 
   async function handleRegenerateDetails() {
@@ -190,69 +189,68 @@ export function NoteDetail({
     await onSaveEdit({ ...parsed.update, category_id: categoryId });
   }
 
-  return (
-    <article className="flex h-full min-h-0 w-full flex-col">
-      <NoteToolbar
-        actions={
-          readMode ? null : (
-            <>
-              <button
-                aria-label={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
-                className={TOOLBAR_BUTTON_CLASS}
-                disabled={actionsDisabled || !onRegenerateDetails}
-                onClick={() => void handleRegenerateDetails()}
-                title={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
-                type="button"
-              >
-                <RefreshCw aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                aria-label={isSavingEdit ? "Saving changes" : "Save changes"}
-                className={TOOLBAR_ACCENT_BUTTON_CLASS}
-                disabled={actionsDisabled}
-                onClick={() => void handleSaveEdit()}
-                title={isSavingEdit ? "Saving changes" : "Save changes"}
-                type="button"
-              >
-                <Save aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                aria-label="Cancel edit"
-                className={TOOLBAR_BUTTON_CLASS}
-                disabled={actionsDisabled}
-                onClick={onCancelEdit}
-                title="Cancel edit"
-                type="button"
-              >
-                <X aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                aria-label="New note"
-                className={TOOLBAR_BUTTON_CLASS}
-                disabled={actionsDisabled}
-                onClick={onNewNote}
-                title="New note"
-                type="button"
-              >
-                <Plus aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-              <button
-                aria-label={isDeleting ? "Deleting note" : "Delete note"}
-                className={`${TOOLBAR_BUTTON_CLASS} border border-error/20 text-error hover:bg-error-muted hover:text-error`}
-                disabled={actionsDisabled}
-                onClick={() => void onDelete(note.id)}
-                title={isDeleting ? "Deleting note" : "Delete note"}
-                type="button"
-              >
-                <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
-              </button>
-            </>
-          )
-        }
-        error={currentError}
-        status={
-          readMode ? null : (
-            <>
+  const toolbar = (
+    <NoteToolbar
+      actions={
+        readMode ? null : (
+          <>
+            <button
+              aria-label={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
+              className={TOOLBAR_BUTTON_CLASS}
+              disabled={actionsDisabled || !onRegenerateDetails}
+              onClick={() => void handleRegenerateDetails()}
+              title={isRegeneratingDetails ? "Regenerating details" : "Regenerate details"}
+              type="button"
+            >
+              <RefreshCw aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+            <button
+              aria-label={isSavingEdit ? "Saving changes" : "Save changes"}
+              className={TOOLBAR_ACCENT_BUTTON_CLASS}
+              disabled={actionsDisabled}
+              onClick={() => void handleSaveEdit()}
+              title={isSavingEdit ? "Saving changes" : "Save changes"}
+              type="button"
+            >
+              <Save aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+            <button
+              aria-label="Cancel edit"
+              className={TOOLBAR_BUTTON_CLASS}
+              disabled={actionsDisabled}
+              onClick={onCancelEdit}
+              title="Cancel edit"
+              type="button"
+            >
+              <X aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+            <button
+              aria-label="New note"
+              className={TOOLBAR_BUTTON_CLASS}
+              disabled={actionsDisabled}
+              onClick={onNewNote}
+              title="New note"
+              type="button"
+            >
+              <Plus aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+            <button
+              aria-label={isDeleting ? "Deleting note" : "Delete note"}
+              className={`${TOOLBAR_BUTTON_CLASS} border border-error/20 text-error hover:bg-error-muted hover:text-error`}
+              disabled={actionsDisabled}
+              onClick={() => void onDelete(note.id)}
+              title={isDeleting ? "Deleting note" : "Delete note"}
+              type="button"
+            >
+              <Trash2 aria-hidden="true" size={15} strokeWidth={2} />
+            </button>
+          </>
+        )
+      }
+      error={currentError}
+      status={
+        readMode ? null : (
+          <>
             <span className="truncate text-sm tabular-nums text-text-muted">
               {parsedDocument.update.original_text.trim()
                 ? `${parsedDocument.update.original_text.length} chars`
@@ -261,33 +259,18 @@ export function NoteDetail({
             <span className="rounded-md bg-surface-raised px-2 py-0.5 text-sm font-medium text-text-muted">
               {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
             </span>
-            </>
-          )
-        }
-        toolbarControls={toolbarControls}
-      />
+          </>
+        )
+      }
+      toolbarControls={toolbarControls}
+    />
+  );
 
-      {readMode ? (
-        <details className="surface-card note-details mx-5 mt-3 shrink-0 text-sm text-text-secondary">
-          <summary>Details</summary>
-          <div className="note-details-body">
-            <p className="whitespace-pre-wrap leading-relaxed">{parsedDocument.update.short_summary}</p>
-            {parsedDocument.update.tags.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Tags">
-                {parsedDocument.update.tags.map((tag) => (
-                  <span className="note-tag" key={tag}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </details>
-      ) : null}
-
+  return (
+    <article className="flex h-full min-h-0 w-full flex-col">
       {readMode ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <MarkdownPreview source={previewBody} />
+          <MarkdownPreview source={documentText} toolbar={toolbar} />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -300,6 +283,7 @@ export function NoteDetail({
               setDocumentText(value);
               setValidationError(null);
             }}
+            toolbar={toolbar}
             value={documentText}
             variant="workspace"
           />

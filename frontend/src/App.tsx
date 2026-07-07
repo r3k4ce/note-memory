@@ -362,7 +362,6 @@ export default function App() {
   const handleModeChange = useCallback((nextMode: AppMode) => {
     if (nextMode === "capture") {
       setWorkspaceMode("new");
-      setReadMode(false);
     } else if (nextMode === "search") {
       setSidebarTab("search");
       if (selectedNoteId !== null) {
@@ -377,7 +376,6 @@ export default function App() {
     setIsSelectedNoteEditDirty(false);
     setEditError(null);
     setSelectedNoteId(noteId);
-    setReadMode(false);
     setWorkspaceMode("edit-selected");
   }, []);
 
@@ -1015,7 +1013,6 @@ export default function App() {
       setDraftText(createBlankNoteEditorDocument());
       setSelectedNote(savedNote);
       setSelectedNoteId(savedNote.id);
-      setReadMode(false);
       setWorkspaceMode("edit-selected");
     } catch (error) {
       setSaveError(getErrorMessage(error, "Couldn't save the note."));
@@ -1035,7 +1032,6 @@ export default function App() {
     setDetailError(null);
     setDeleteError(null);
     setEditError(null);
-    setReadMode(false);
     setWorkspaceMode("new");
   }, [confirmDiscardSelectedNoteEdit]);
 
@@ -1098,7 +1094,6 @@ export default function App() {
       setSelectedCategoryFilter(savedCategoryFilter);
       setDraftCategoryId(savedNote.category?.id ?? null);
       setIsSelectedNoteEditDirty(false);
-      setReadMode(false);
       setWorkspaceMode("edit-selected");
     } catch (error) {
       setEditError(getErrorMessage(error, "Couldn't save your changes."));

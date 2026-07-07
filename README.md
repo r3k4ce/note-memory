@@ -97,7 +97,16 @@ Pop-Location
 ```powershell
 Push-Location frontend
 npm install
+npx playwright install chromium
 Pop-Location
+```
+
+On Linux hosts that do not already have Chromium runtime libraries, install the
+Playwright browser dependencies before running the e2e checks:
+
+```bash
+cd frontend
+npx playwright install-deps chromium
 ```
 
 ### 3. Environment variables

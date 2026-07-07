@@ -21,6 +21,7 @@ data/vault/*
 # Frontend
 node_modules/
 dist/
+test-results/
 
 # Tool caches
 .pytest_cache/

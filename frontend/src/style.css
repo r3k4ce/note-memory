@@ -47,7 +47,7 @@
   --color-page: #fdfaf4;
   --color-page-border: #e0d5c0;
   --shadow-page: 0 2px 8px -2px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.04);
-  --spacing-workspace-page: clamp(1rem, 2vw, 2rem);
+  --spacing-workspace-page: clamp(0.75rem, 1.4vw, 1.25rem);
 
   /* Soft panel surface */
   --color-panel-soft: #f7eed8;
@@ -275,47 +275,88 @@ body {
 
 .markdown-codemirror .cm-editor {
   background: transparent;
-  min-height: 20rem;
+  min-height: 24rem;
 }
 
 .markdown-codemirror .cm-scroller {
   scrollbar-gutter: stable;
 }
 
+.markdown-codemirror:not(.markdown-codemirror-workspace) .cm-scroller {
+  max-height: clamp(24rem, calc(100vh - 18rem), 40rem);
+}
+
 @media (min-width: 48rem) {
   .markdown-codemirror .cm-editor {
-    min-height: 24rem;
+    min-height: 28rem;
   }
 }
 
 /* Workspace layout */
-.markdown-codemirror-workspace {
+.markdown-page-surface {
+  position: relative;
   flex: 1;
   min-height: 0;
   width: 100%;
   max-width: 48rem;
   margin: var(--spacing-workspace-page) auto;
   background-color: var(--color-page);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.markdown-codemirror-workspace:focus-within {
+.note-toolbar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.markdown-page-surface:focus-within {
   border-color: var(--color-page-border);
   box-shadow: var(--shadow-elevated);
 }
 
-.markdown-codemirror-workspace .cm-editor,
-.markdown-codemirror-workspace .cm-scroller {
-  height: 100%;
+.markdown-codemirror-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.markdown-codemirror-workspace:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.markdown-codemirror-workspace .cm-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: auto;
   min-height: 0;
 }
 
 .markdown-codemirror-workspace .cm-scroller {
+  flex: 1;
+  height: auto;
+  min-height: 0;
   max-height: none;
+  overflow: auto;
 }
 
 .markdown-codemirror-workspace .cm-content {
   min-height: 100%;
-  padding: clamp(1.5rem, 5vw, 4rem);
+  padding: 4.5rem clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
 }
 
 /* Workspace side panes mirror the center markdown page without overlaying it. */
@@ -376,15 +417,16 @@ body {
   flex: 1;
   min-height: 0;
   width: 100%;
-  max-width: 48rem;
-  margin: var(--spacing-workspace-page) auto;
-  padding: 1.5rem clamp(1.5rem, 5vw, 4rem) !important;
-  background-color: var(--color-page);
+  max-width: none;
+  margin: 0;
+  padding: 4.5rem clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem) !important;
+  background-color: transparent;
   overflow-y: auto;
 }
 
 /* Theme-aware prose color tokens */
-.note-preview .prose {
+.note-preview.prose {
+  max-width: none;
   --tw-prose-body: var(--color-text-secondary);
   --tw-prose-headings: var(--color-text-primary);
   --tw-prose-lead: var(--color-text-secondary);
@@ -404,71 +446,43 @@ body {
 }
 
 /* Prose content spacing — gentle notebook rhythm */
-.note-preview .prose :where(p):not(:where([class~="not-prose"] *)) {
+.note-preview.prose :where(p):not(:where([class~="not-prose"] *)) {
   margin-block: 1em;
 }
-.note-preview .prose :where(h1, h2, h3, h4) {
+.note-preview.prose :where(h1, h2, h3, h4) {
   margin-top: 1.8em;
   margin-bottom: 0.6em;
 }
-.note-preview .prose :where(hr) {
+.note-preview.prose :where(hr) {
   margin-block: 2em;
   border-color: var(--color-border);
 }
-.note-preview .prose :where(blockquote) {
+.note-preview.prose :where(blockquote) {
   font-style: normal;
   border-left-width: 3px;
   border-left-color: var(--color-accent-muted);
   padding-inline-start: 1rem;
 }
-.note-preview .prose :where(code):not(:where(pre code, [class~="not-prose"] *))::before,
-.note-preview .prose :where(code):not(:where(pre code, [class~="not-prose"] *))::after {
+.note-preview.prose :where(code):not(:where(pre code, [class~="not-prose"] *))::before,
+.note-preview.prose :where(code):not(:where(pre code, [class~="not-prose"] *))::after {
   content: "";
 }
-.note-preview .prose :where(pre) {
+.note-preview.prose :where(pre) {
   border-radius: 0.5rem;
   padding: 0.85rem 1rem;
 }
-.note-preview .prose :where(ul > li, ol > li) {
-  margin-block: 0.35em;
-}
-
-/* Read-mode details card */
-.note-details {
-  color: var(--color-text-secondary);
-}
-
-.note-details > summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 0.6rem 0.9rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.note-preview.prose :where(.note-frontmatter) {
+  width: 100%;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
   color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
-
-.note-details > summary::-webkit-details-marker {
-  display: none;
-}
-
-.note-details[open] > summary {
-  border-bottom: 1px solid var(--color-border);
-}
-
-.note-details-body {
-  padding: 0.75rem 0.9rem 0.9rem;
-}
-
-.note-tag {
-  border: 1px solid var(--color-border);
-  background-color: var(--color-bg);
-  color: var(--color-text-secondary);
-  border-radius: 9999px;
-  padding: 0.2rem 0.7rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+.note-preview.prose :where(ul > li, ol > li) {
+  margin-block: 0.35em;
 }
 
 /* Shared sidebar row rhythm — used by All notes, Uncategorized, and category folder rows */

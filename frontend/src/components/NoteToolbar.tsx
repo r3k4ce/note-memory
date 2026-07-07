@@ -15,7 +15,7 @@ export const TOOLBAR_ACCENT_BUTTON_CLASS =
 
 export function NoteToolbar({ actions, error, status, toolbarControls }: NoteToolbarProps) {
   return (
-    <div className="relative shrink-0">
+    <div className="note-toolbar-overlay">
       <div
         aria-label="Note toolbar"
         className="flex min-h-[2.75rem] items-center justify-between gap-3.5 px-3 py-2"

@@ -3,7 +3,6 @@ import { Save } from "lucide-react";
 
 import { APP_SHORTCUTS } from "../hooks/useKeyboardShortcuts";
 import type { Category } from "../types";
-import { getNoteEditorBody } from "../editor/noteEditorDocument";
 import { MarkdownPane, type MarkdownPaneHandle } from "./MarkdownPane";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { NoteToolbar, TOOLBAR_ACCENT_BUTTON_CLASS } from "./NoteToolbar";
@@ -32,15 +31,10 @@ export function AddNote({
   toolbarControls,
 }: AddNoteProps) {
   const statusText = draftText.trim() ? `${draftText.length} chars` : `${APP_SHORTCUTS.capture.label} to focus`;
-
-  return (
-    <div className="flex h-full min-h-0 flex-col" aria-labelledby="add-note-title">
-      <h2 className="sr-only" id="add-note-title">
-        New note
-      </h2>
-      <NoteToolbar
-        actions={
-          readMode ? null : (
+  const toolbar = (
+    <NoteToolbar
+      actions={
+        readMode ? null : (
           <button
             aria-label={isSaving ? "Saving..." : "Save note"}
             className={TOOLBAR_ACCENT_BUTTON_CLASS}
@@ -51,19 +45,22 @@ export function AddNote({
           >
             <Save aria-hidden="true" size={15} strokeWidth={2} />
           </button>
-          )
-        }
-        error={error}
-        status={
-          readMode ? null : (
-            <span className="min-w-0 truncate text-sm text-text-muted">{statusText}</span>
-          )
-        }
-        toolbarControls={toolbarControls}
-      />
+        )
+      }
+      error={error}
+      status={readMode ? null : <span className="min-w-0 truncate text-sm text-text-muted">{statusText}</span>}
+      toolbarControls={toolbarControls}
+    />
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col" aria-labelledby="add-note-title">
+      <h2 className="sr-only" id="add-note-title">
+        New note
+      </h2>
       {readMode ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <MarkdownPreview source={getNoteEditorBody(draftText)} />
+          <MarkdownPreview source={draftText} toolbar={toolbar} />
         </div>
       ) : (
         <MarkdownPane
@@ -73,6 +70,7 @@ export function AddNote({
           mode="edit"
           onChange={onDraftTextChange}
           placeholder="Start writing your note in Markdown..."
+          toolbar={toolbar}
           value={draftText}
           variant="workspace"
         />
