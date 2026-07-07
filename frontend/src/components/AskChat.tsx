@@ -59,7 +59,7 @@ function SourceList({
       <div className="mt-2 flex flex-col gap-1">
         {sources.map((source, index) => (
           <div
-            className="rounded-card border border-border bg-bg transition-all hover:border-border-strong hover:bg-surface hover:shadow-soft"
+            className="surface-card bg-bg transition-all hover:border-border-strong hover:bg-surface hover:shadow-soft"
             key={source.note_id}
           >
             <button
@@ -298,10 +298,10 @@ export function AskChat({
         <div ref={transcriptEndRef} />
       </div>
 
-      <form aria-busy={isPending} className="flex shrink-0 flex-col gap-2 pt-2" onSubmit={handleSubmit}>
+      <form aria-busy={isPending} className="surface-card flex shrink-0 flex-col gap-2 p-3" onSubmit={handleSubmit}>
         <textarea
           aria-label="Ask a question about saved notes"
-          className="w-full resize-none overflow-y-auto rounded-md border border-border bg-bg px-3.5 py-3.5 text-[14px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+          className="surface-input w-full resize-none overflow-y-auto bg-bg px-3.5 py-3.5 text-[14px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:bg-surface-hover disabled:opacity-60"
           disabled={isPending}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={handleKeyDown}

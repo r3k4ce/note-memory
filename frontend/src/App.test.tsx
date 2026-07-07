@@ -169,6 +169,32 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
+function getCssBlock(source: string, selector: string) {
+  const selectorIndex = source.indexOf(selector);
+  if (selectorIndex === -1) {
+    return "";
+  }
+
+  const blockStart = source.indexOf("{", selectorIndex);
+  if (blockStart === -1) {
+    return "";
+  }
+
+  let depth = 0;
+  for (let index = blockStart; index < source.length; index += 1) {
+    if (source[index] === "{") {
+      depth += 1;
+    } else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(selectorIndex, index + 1);
+      }
+    }
+  }
+
+  return "";
+}
+
 describe("App sidebar navigation", () => {
   test("renders resizable pane separators and workspace layout controls", async () => {
     render(<App />);
@@ -199,20 +225,73 @@ describe("App sidebar navigation", () => {
 
     expect(screen.getByRole("complementary", { name: "Notes sidebar" })).toHaveClass(
       "workspace-side-pane",
+      "workspace-page-shell",
     );
     expect(screen.getByRole("complementary", { name: "Bun pane" })).toHaveClass(
       "workspace-side-pane",
+      "workspace-page-shell",
     );
   });
 
-  test("keeps side pane shell edges aligned without vertical pane borders", () => {
+  test("shares workspace page shell edges across side panes and markdown panes", () => {
     const workspacePaneRule = styleCss.match(/\.workspace-side-pane\s*\{[^}]+\}/)?.[0] ?? "";
+    const workspaceShellRule = styleCss.match(/\.workspace-page-shell\s*\{[^}]+\}/)?.[0] ?? "";
+    const collapsedPaneRule = styleCss.match(/\.workspace-side-pane-collapsed\s*\{[^}]+\}/)?.[0] ?? "";
 
     expect(styleCss).toContain("--spacing-workspace-page");
     expect(workspacePaneRule).toContain("margin-block: var(--spacing-workspace-page)");
-    expect(workspacePaneRule).toContain("border-block: 1px solid var(--color-page-border)");
-    expect(workspacePaneRule).not.toContain("box-shadow: var(--shadow-page)");
-    expect(workspacePaneRule).not.toContain("border: 1px solid var(--color-page-border)");
+    expect(workspaceShellRule).toContain("border: 1px solid var(--color-page-border)");
+    expect(workspaceShellRule).toContain("border-radius: var(--radius-card)");
+    expect(workspaceShellRule).toContain("box-shadow: var(--shadow-page)");
+    expect(collapsedPaneRule).toContain("border-color: transparent");
+    expect(collapsedPaneRule).toContain("box-shadow: none");
+  });
+
+  test("keeps reusable surface styling on explicit classes instead of broad selectors", () => {
+    const markdownBaseRules = styleCss.match(/\.markdown-codemirror\s*\{/g) ?? [];
+    const surfaceCardRule = styleCss.match(/\.surface-card\s*\{[^}]+\}/)?.[0] ?? "";
+    const surfaceInputRule = styleCss.match(/\.surface-input\s*\{[^}]+\}/)?.[0] ?? "";
+    const surfacePopoverRule = styleCss.match(/\.surface-popover\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(markdownBaseRules).toHaveLength(1);
+    expect(surfaceCardRule).toContain("background-color: var(--color-surface)");
+    expect(surfaceCardRule).toContain("border: 1px solid var(--color-border)");
+    expect(surfaceInputRule).toContain("min-height: 2.25rem");
+    expect(surfaceInputRule).toContain("border: 1px solid var(--color-border)");
+    expect(surfacePopoverRule).toContain("box-shadow: var(--shadow-soft)");
+    expect(styleCss).not.toContain('[aria-labelledby="ask-title"] > div');
+    expect(styleCss).not.toContain('section[aria-labelledby="ask-title"] form');
+    expect(styleCss).not.toContain('[role="separator"] > div');
+    expect(styleCss).not.toContain('[role="menu"]');
+    expect(styleCss).not.toContain('input[type="text"]');
+    expect(styleCss).not.toContain('input[type="search"]');
+    expect(styleCss).not.toContain("input:not([type])");
+  });
+
+  test("places reusable component classes in Tailwind's components layer", () => {
+    const componentsLayer = getCssBlock(styleCss, "@layer components");
+    const componentClassNames = [
+      "workspace-page-shell",
+      "surface-card",
+      "surface-input",
+      "surface-popover",
+      "markdown-codemirror",
+      "markdown-codemirror-workspace",
+      "workspace-side-pane",
+      "workspace-side-pane-collapsed",
+      "resize-handle-grip",
+      "note-toolbar-error",
+      "note-slip",
+      "note-preview",
+      "note-details",
+      "note-tag",
+      "sidebar-row",
+    ];
+
+    expect(componentsLayer).not.toBe("");
+    for (const className of componentClassNames) {
+      expect(componentsLayer).toContain(`.${className}`);
+    }
   });
 
   test("focuses the text area while keeping resize handles available, then restores panes", async () => {

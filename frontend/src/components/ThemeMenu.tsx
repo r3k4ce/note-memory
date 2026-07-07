@@ -60,7 +60,7 @@ export function ThemeMenu() {
       </button>
       {isOpen ? (
         <div
-          className="absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] rounded-md bg-bg px-1.5 py-1.5 shadow-elevated"
+          className="surface-popover absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] bg-bg px-1.5 py-1.5"
           role="menu"
         >
           {variants.map((variantId) => {

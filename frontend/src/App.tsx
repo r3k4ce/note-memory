@@ -53,6 +53,7 @@ import {
 import { AskChat } from "./components/AskChat";
 import { NoteWorkspace, type NoteWorkspaceMode } from "./components/NoteWorkspace";
 import { NoteCard } from "./components/NoteCard";
+import { TOOLBAR_BUTTON_CLASS } from "./components/NoteToolbar";
 import { SearchBar } from "./components/SearchBar";
 import { ThemeMenu } from "./components/ThemeMenu";
 import {
@@ -101,6 +102,12 @@ const RIGHT_PANE_DEFAULT_WIDTH = 352;
 const RIGHT_PANE_MIN_WIDTH = 280;
 const RIGHT_PANE_MAX_WIDTH = 448;
 const PANE_COLLAPSE_THRESHOLD = 96;
+const SIDEBAR_ACCENT_BUTTON_CLASS =
+  "inline-flex items-center justify-center bg-accent text-black transition-colors hover:bg-accent-hover disabled:opacity-40";
+const SIDEBAR_ACCENT_ICON_BUTTON_CLASS =
+  "rounded p-1.5 text-accent transition-colors hover:bg-surface-hover disabled:opacity-40";
+const SIDEBAR_SMALL_ACTION_BUTTON_CLASS =
+  "rounded p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40";
 
 function clampPaneWidth(width: number, minWidth: number, maxWidth: number): number {
   if (width < PANE_COLLAPSE_THRESHOLD) {
@@ -129,7 +136,7 @@ function PaneResizeHandle({
       role="separator"
       tabIndex={0}
     >
-      <div className="relative flex h-8 w-3.5 items-center justify-center rounded-md bg-bg text-text-muted shadow-sm transition-colors group-hover:text-text-secondary">
+      <div className="resize-handle-grip relative flex h-8 w-3.5 items-center justify-center bg-bg text-text-muted transition-colors group-hover:text-text-secondary">
         <GripVertical aria-hidden="true" size={13} strokeWidth={1.75} />
       </div>
     </div>
@@ -271,10 +278,10 @@ export default function App() {
   const askScopeSummary = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
   const askChatScopeLabel = formatAskChatScopeLabel(askNoteScope, notes.length);
   const isAskNoteScopeEmpty = askNoteScope.mode === "custom" && askNoteScope.noteIds.length === 0;
-  const leftPaneClassName = `workspace-side-pane flex shrink-0 flex-col overflow-hidden transition-[width] duration-150 ease-out ${
+  const leftPaneClassName = `workspace-page-shell workspace-side-pane flex shrink-0 flex-col overflow-hidden transition-[width] duration-150 ease-out ${
     leftPaneWidth === 0 ? "workspace-side-pane-collapsed" : ""
   }`;
-  const rightPaneClassName = `workspace-side-pane hidden min-h-0 shrink-0 overflow-hidden py-5 transition-[width,padding] duration-150 ease-out lg:flex ${
+  const rightPaneClassName = `workspace-page-shell workspace-side-pane hidden min-h-0 shrink-0 overflow-hidden py-5 transition-[width,padding] duration-150 ease-out lg:flex ${
     rightPaneWidth === 0 ? "workspace-side-pane-collapsed px-0" : "px-5"
   }`;
 
@@ -1140,7 +1147,7 @@ export default function App() {
     <>
       <button
         aria-label={readMode ? "Edit Mode" : "Read Mode"}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className={TOOLBAR_BUTTON_CLASS}
         onClick={() => setReadMode((currentMode) => !currentMode)}
         title={readMode ? "Edit Mode" : "Read Mode"}
         type="button"
@@ -1153,7 +1160,7 @@ export default function App() {
       </button>
       <button
         aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+        className={TOOLBAR_BUTTON_CLASS}
         onClick={toggleTextAreaFocus}
         title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
         type="button"
@@ -1182,7 +1189,7 @@ export default function App() {
 
         <div className="shrink-0 px-3 py-2.5">
           <button
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent px-3 py-3 text-[14px] font-semibold text-black shadow-soft transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className={`${SIDEBAR_ACCENT_BUTTON_CLASS} w-full gap-1.5 rounded-xl px-3 py-3 text-[14px] font-semibold shadow-soft disabled:cursor-not-allowed`}
             disabled={isSaving || isSavingEdit || isDeleting}
             onClick={handleNewNote}
             type="button"
@@ -1275,13 +1282,13 @@ export default function App() {
             {isCategoryManagerOpen ? (
               <div
                 aria-label="Manage categories"
-                className="mt-2 rounded-md bg-surface p-2"
+                className="surface-card mt-2 p-2"
                 role="region"
               >
                 <form className="flex gap-1.5" onSubmit={handleCreateCategory}>
                   <input
                     aria-label="New category name"
-                    className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:border-border-strong focus:bg-surface disabled:opacity-60"
+                    className="surface-input min-w-0 flex-1 bg-bg px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:bg-surface disabled:opacity-60"
                     disabled={isSavingCategory}
                     onChange={(event) => {
                       setCategoryDraft(event.target.value);
@@ -1292,7 +1299,7 @@ export default function App() {
                   />
                   <button
                     aria-label="Add category"
-                    className="inline-flex items-center justify-center rounded-md bg-accent px-2.5 py-2 text-black transition-colors hover:bg-accent-hover disabled:opacity-40"
+                    className={`${SIDEBAR_ACCENT_BUTTON_CLASS} rounded-md px-2.5 py-2`}
                     disabled={isSavingCategory}
                     type="submit"
                   >
@@ -1315,7 +1322,7 @@ export default function App() {
                             >
                               <input
                                 aria-label="Category name"
-                                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[13px] text-text-primary outline-none transition-colors focus:border-border-strong focus:bg-surface-hover disabled:opacity-60"
+                                className="surface-input min-w-0 flex-1 bg-surface px-2.5 py-1.5 text-[13px] text-text-primary outline-none transition-colors focus:bg-surface-hover disabled:opacity-60"
                                 disabled={isUpdatingCategory}
                                 onChange={(event) => {
                                   setCategoryEditDraft(event.target.value);
@@ -1325,7 +1332,7 @@ export default function App() {
                               />
                               <button
                                 aria-label="Save category"
-                                className="rounded p-1.5 text-accent transition-colors hover:bg-surface-hover disabled:opacity-40"
+                                className={SIDEBAR_ACCENT_ICON_BUTTON_CLASS}
                                 disabled={isUpdatingCategory}
                                 type="submit"
                               >
@@ -1333,7 +1340,7 @@ export default function App() {
                               </button>
                               <button
                                 aria-label="Cancel category rename"
-                                className="rounded p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
+                                className={SIDEBAR_SMALL_ACTION_BUTTON_CLASS}
                                 disabled={isUpdatingCategory}
                                 onClick={() => {
                                   setEditingCategoryId(null);
@@ -1355,7 +1362,7 @@ export default function App() {
                               </span>
                               <button
                                 aria-label={`Rename ${category.name}`}
-                                className="rounded p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40"
+                                className={SIDEBAR_SMALL_ACTION_BUTTON_CLASS}
                                 disabled={isUpdatingCategory || deletingCategoryId !== null}
                                 onClick={() => {
                                   setEditingCategoryId(category.id);
@@ -1368,7 +1375,7 @@ export default function App() {
                               </button>
                               <button
                                 aria-label={`Delete ${category.name}`}
-                                className="rounded p-1.5 text-text-muted transition-colors hover:bg-error-muted hover:text-error disabled:opacity-40"
+                                className={`${SIDEBAR_SMALL_ACTION_BUTTON_CLASS} hover:bg-error-muted hover:text-error`}
                                 disabled={isUpdatingCategory || deletingCategoryId !== null}
                                 onClick={() => void handleDeleteCategory(category, noteCount)}
                                 type="button"

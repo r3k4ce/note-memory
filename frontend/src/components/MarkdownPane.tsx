@@ -155,7 +155,7 @@ export function MarkdownPane({
         lineNumbers: false,
         lintKeymap: false,
       }}
-      className={`markdown-codemirror${isWorkspace ? " markdown-codemirror-workspace" : ""}${
+      className={`markdown-codemirror${isWorkspace ? " workspace-page-shell markdown-codemirror-workspace" : ""}${
         disabled ? " markdown-codemirror-disabled" : ""
       }`}
       editable={editable}

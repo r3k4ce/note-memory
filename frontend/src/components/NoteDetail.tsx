@@ -268,7 +268,7 @@ export function NoteDetail({
       />
 
       {readMode ? (
-        <details className="note-details mx-5 mt-3 shrink-0 text-sm text-text-secondary">
+        <details className="surface-card note-details mx-5 mt-3 shrink-0 text-sm text-text-secondary">
           <summary>Details</summary>
           <div className="note-details-body">
             <p className="whitespace-pre-wrap leading-relaxed">{parsedDocument.update.short_summary}</p>

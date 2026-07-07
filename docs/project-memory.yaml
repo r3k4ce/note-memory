@@ -1,4 +1,42 @@
 entries:
+  - time_utc: "2026-07-07T03:02:02Z"
+    time_local: "2026-07-07T00:02:05-03:00"
+    summary: "Moved reusable Tailwind semantic classes into the components layer."
+    changed:
+      - "Wrapped shared frontend/src/style.css class rules in @layer components so normal Tailwind utilities can override reusable component styling."
+      - "Kept theme tokens, browser globals, scrollbar styling, selection styling, and theme variables outside the components layer."
+      - "Added App.test.tsx regression coverage that reusable surface, workspace, editor, note, and sidebar classes live in @layer components."
+    verification:
+      - "Confirmed npm test -- App.test.tsx failed before the CSS change because @layer components was missing."
+      - "Ran npm test -- App.test.tsx from frontend/: 34 passed."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv."
+      - "Reran ./scripts/check.sh with approved uv cache access: backend checks and 218 passed/1 skipped tests, frontend 127 tests/lint/build passed."
+  - time_utc: "2026-07-07T02:55:27Z"
+    time_local: "2026-07-06T23:55:27-03:00"
+    summary: "Completed the follow-up styling organization pass."
+    changed:
+      - "Reorganized frontend/src/style.css into theme, global, shared surface, workspace, markdown/editor, and component-specific sections."
+      - "Consolidated duplicate markdown-codemirror base rules and moved surface visuals off broad role, ARIA, and generic input selectors."
+      - "Added explicit resize-handle styling and shared App button class constants for toolbar, accent, and sidebar action patterns."
+      - "Extended App.test.tsx CSS regression coverage for explicit surface classes and absence of the removed broad selectors."
+    verification:
+      - "Confirmed the new App.test.tsx regression failed before production edits because markdown-codemirror still had duplicate base rules."
+      - "Ran npm test -- App.test.tsx from frontend/: 33 passed."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv."
+      - "Reran ./scripts/check.sh with approved uv cache access: backend checks and 218 passed/1 skipped tests, frontend 126 tests/lint/build passed."
+  - time_utc: "2026-07-07T02:45:31Z"
+    time_local: "2026-07-06T23:45:31-03:00"
+    summary: "Refactored workspace and common UI surfaces onto shared styling classes."
+    changed:
+      - "Added shared workspace-page-shell, surface-card, surface-input, and surface-popover CSS classes."
+      - "Applied the shared page shell to the notes sidebar, Bun pane, workspace Markdown editor, and read-mode Markdown preview so their border, radius, and shadow come from one rule."
+      - "Moved note cards, note details, category manager, Ask input/source cards, search input, and theme menu toward shared surface classes without changing data flow or APIs."
+      - "Updated App.test.tsx coverage to assert side panes use the shared shell and collapsed panes still hide border and shadow."
+    verification:
+      - "Confirmed the updated App.test.tsx expectations failed before implementation because workspace-page-shell was missing."
+      - "Ran npm test -- App.test.tsx from frontend/: 32 passed."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv."
+      - "Reran ./scripts/check.sh with approved uv cache access: backend checks and 218 passed/1 skipped tests, frontend 125 tests/lint/build passed."
   - time_utc: "2026-07-07T02:06:58Z"
     time_local: "2026-07-06T23:06:58-03:00"
     summary: "Removed remaining full-height vertical separator visuals between side panes and the workspace."

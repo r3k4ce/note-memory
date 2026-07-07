@@ -59,7 +59,7 @@ export function NoteCard({
       <div className="relative">
         <button
           aria-selected={selected}
-          className="note-slip group flex w-full items-center gap-2 px-4 py-3 pr-9 text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
+          className="surface-card note-slip group flex w-full items-center gap-2 px-4 py-3 pr-9 text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
           draggable={draggable}
           onClick={() => onSelect(note.id)}
           onDragEnd={onDragEnd}
@@ -94,7 +94,7 @@ export function NoteCard({
     <div className="relative">
       <button
         aria-selected={selected}
-        className="note-slip group w-full p-4 pr-10 text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
+        className="surface-card note-slip group w-full p-4 pr-10 text-left transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 hover:shadow-elevated"
         onClick={() => onSelect(note.id)}
         type="button"
       >
