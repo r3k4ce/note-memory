@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -12,6 +13,8 @@ import {
 } from "./api";
 import App from "./App";
 import type { Category, Note, SearchResult } from "./types";
+
+const styleCss = readFileSync("src/style.css", "utf8");
 
 const { categories, notes } = vi.hoisted(() => {
   const mockCategories: Category[] = [
@@ -174,10 +177,42 @@ describe("App sidebar navigation", () => {
       expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
-    expect(screen.getByRole("separator", { name: "Resize Bun" })).toBeInTheDocument();
+    const sidebarSeparator = screen.getByRole("separator", { name: "Resize notes sidebar" });
+    const bunSeparator = screen.getByRole("separator", { name: "Resize Bun" });
+
+    expect(sidebarSeparator).toBeInTheDocument();
+    expect(bunSeparator).toBeInTheDocument();
+    expect(sidebarSeparator.innerHTML).not.toContain("inset-y-0");
+    expect(sidebarSeparator.innerHTML).not.toContain("w-px");
+    expect(bunSeparator.innerHTML).not.toContain("inset-y-0");
+    expect(bunSeparator.innerHTML).not.toContain("w-px");
     expect(screen.queryByRole("button", { name: "Show all panes" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
+  });
+
+  test("frames both side panes with the cohesive workspace shell", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("complementary", { name: "Notes sidebar" })).toHaveClass(
+      "workspace-side-pane",
+    );
+    expect(screen.getByRole("complementary", { name: "Bun pane" })).toHaveClass(
+      "workspace-side-pane",
+    );
+  });
+
+  test("keeps side pane shell edges aligned without vertical pane borders", () => {
+    const workspacePaneRule = styleCss.match(/\.workspace-side-pane\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(styleCss).toContain("--spacing-workspace-page");
+    expect(workspacePaneRule).toContain("margin-block: var(--spacing-workspace-page)");
+    expect(workspacePaneRule).toContain("border-block: 1px solid var(--color-page-border)");
+    expect(workspacePaneRule).not.toContain("box-shadow: var(--shadow-page)");
+    expect(workspacePaneRule).not.toContain("border: 1px solid var(--color-page-border)");
   });
 
   test("focuses the text area while keeping resize handles available, then restores panes", async () => {

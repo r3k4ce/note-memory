@@ -1,4 +1,40 @@
 entries:
+  - time_utc: "2026-07-07T02:06:58Z"
+    time_local: "2026-07-06T23:06:58-03:00"
+    summary: "Removed remaining full-height vertical separator visuals between side panes and the workspace."
+    changed:
+      - "Removed the PaneResizeHandle full-height inset-y-0 w-px decorative divider while preserving the ARIA separator wrapper, drag behavior, cursor, focus ring, and grip icon."
+      - "Removed the workspace-side-pane page shadow so side panes no longer create vertical shadow edges next to the center pane."
+      - "Extended App.test.tsx regression coverage to assert resize separators stay rendered without the full-height divider classes and side-pane CSS does not use the page shadow."
+    verification:
+      - "Confirmed the new App.test.tsx assertions failed before implementation for the divider markup and side-pane shadow."
+      - "Ran npm run test -- App.test.tsx --run from frontend/: 32 passed."
+      - "Ran frontend npm run typecheck, npm run test (125 passed), npm run lint, and npm run build: all passed."
+      - "First ./scripts/check.sh run needed approved uv cache access, then hit one non-reproducible markdownLivePreview Vitest failure; reran the focused test and full frontend test successfully."
+      - "Reran ./scripts/check.sh with approved uv cache access: backend checks and 218 passed/1 skipped tests, frontend 125 tests/lint/build passed."
+  - time_utc: "2026-07-07T01:51:38Z"
+    time_local: "2026-07-06T22:51:38-03:00"
+    summary: "Removed side-pane vertical shell borders and aligned pane bottoms with the markdown page."
+    changed:
+      - "Added a shared --spacing-workspace-page token used by the workspace editor, read preview, and side panes."
+      - "Changed side-pane shell borders from full borders to block-only borders so the resizer remains but pane-to-center vertical lines are removed."
+      - "Added App.test.tsx CSS regression coverage for shared workspace margins and no full side-pane border."
+      - "Added a minimal frontend test-only node:fs type shim for reading style.css in Vitest without adding Node types globally."
+    verification:
+      - "Ran npm run test -- App.test.tsx --run from frontend/: 32 passed."
+      - "Ran frontend npm run typecheck, npm run test (125 passed), npm run lint, and npm run build: all passed."
+      - "Ran ./scripts/check.sh with approved uv cache access: backend checks and 218 passed/1 skipped tests, frontend 125 tests/lint/build passed."
+  - time_utc: "2026-07-07T01:35:36Z"
+    time_local: "2026-07-06T22:35:36-03:00"
+    summary: "Framed both side panes as cohesive workspace shells."
+    changed:
+      - "Added shared workspace-side-pane classes to the notes sidebar and Bun pane while preserving existing width state, resize handles, collapse threshold, and Focus Mode behavior."
+      - "Styled side panes with page-border tone, matching radius, panel-soft surface, and page shadow; collapsed panes now hide their frame and shadow."
+      - "Added App.test.tsx coverage that both complementary panes use the cohesive shell class."
+    verification:
+      - "Ran npm run test -- App.test.tsx --run from frontend/: 31 passed."
+      - "Ran frontend npm run typecheck, npm run test (124 passed), npm run lint, and npm run build: all passed."
+      - "Ran ./scripts/check.sh with approved uv cache access: backend checks and 218 passed/1 skipped tests, frontend 124 tests/lint/build passed."
   - time_utc: "2026-07-06T17:10:00Z"
     time_local: "2026-07-06T14:10:00-03:00"
     summary: "Loosened notebook shell spacing and widened pane defaults."

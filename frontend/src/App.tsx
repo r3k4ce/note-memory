@@ -129,7 +129,6 @@ function PaneResizeHandle({
       role="separator"
       tabIndex={0}
     >
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-border-strong" />
       <div className="relative flex h-8 w-3.5 items-center justify-center rounded-md bg-bg text-text-muted shadow-sm transition-colors group-hover:text-text-secondary">
         <GripVertical aria-hidden="true" size={13} strokeWidth={1.75} />
       </div>
@@ -272,6 +271,12 @@ export default function App() {
   const askScopeSummary = formatAskNoteScopeSelectedCount(askNoteScope, notes.length);
   const askChatScopeLabel = formatAskChatScopeLabel(askNoteScope, notes.length);
   const isAskNoteScopeEmpty = askNoteScope.mode === "custom" && askNoteScope.noteIds.length === 0;
+  const leftPaneClassName = `workspace-side-pane flex shrink-0 flex-col overflow-hidden transition-[width] duration-150 ease-out ${
+    leftPaneWidth === 0 ? "workspace-side-pane-collapsed" : ""
+  }`;
+  const rightPaneClassName = `workspace-side-pane hidden min-h-0 shrink-0 overflow-hidden py-5 transition-[width,padding] duration-150 ease-out lg:flex ${
+    rightPaneWidth === 0 ? "workspace-side-pane-collapsed px-0" : "px-5"
+  }`;
 
   const updateLeftPaneWidth = useCallback((width: number) => {
     const nextWidth = clampPaneWidth(width, LEFT_PANE_MIN_WIDTH, LEFT_PANE_MAX_WIDTH);
@@ -1162,7 +1167,7 @@ export default function App() {
     <div className="flex h-screen bg-bg text-text-primary">
       <aside
         aria-label="Notes sidebar"
-        className="flex shrink-0 flex-col overflow-hidden bg-bg transition-[width] duration-150 ease-out"
+        className={leftPaneClassName}
         style={{ width: leftPaneWidth }}
       >
         <div className="shrink-0 border-b border-border px-3 py-6">
@@ -1629,9 +1634,7 @@ export default function App() {
 
       <aside
         aria-label="Bun pane"
-        className={`hidden min-h-0 shrink-0 overflow-hidden bg-bg py-5 transition-[width,padding] duration-150 ease-out lg:flex ${
-          rightPaneWidth === 0 ? "px-0" : "px-5"
-        }`}
+        className={rightPaneClassName}
         style={{ width: rightPaneWidth }}
       >
         <AskChat

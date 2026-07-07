@@ -46,6 +46,7 @@
   --color-page: #fdfaf4;
   --color-page-border: #e0d5c0;
   --shadow-page: 0 2px 8px -2px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.04);
+  --spacing-workspace-page: clamp(1rem, 2vw, 2rem);
 
   /* Soft panel surface */
   --color-panel-soft: #f7eed8;
@@ -245,7 +246,7 @@ body {
   min-height: 0;
   width: 100%;
   max-width: 48rem;
-  margin: clamp(1rem, 2vw, 2rem) auto;
+  margin: var(--spacing-workspace-page) auto;
   border: 1px solid var(--color-page-border);
   border-radius: var(--radius-card);
   background-color: var(--color-page);
@@ -272,11 +273,31 @@ body {
   padding: clamp(1.5rem, 5vw, 4rem);
 }
 
-/* Soft panel tone on the two side panes */
-aside[aria-label="Notes sidebar"],
-aside[aria-label="Bun pane"] {
+/* Workspace side panes mirror the center markdown page without overlaying it. */
+.workspace-side-pane {
+  margin-block: var(--spacing-workspace-page);
+  border-block: 1px solid var(--color-page-border);
+  border-radius: var(--radius-card);
   background-color: var(--color-panel-soft);
-  transition: background-color var(--duration-150) var(--ease-out);
+  transition:
+    background-color var(--duration-150) var(--ease-out),
+    border-color var(--duration-150) var(--ease-out),
+    box-shadow var(--duration-150) var(--ease-out),
+    margin var(--duration-150) var(--ease-out);
+}
+
+.workspace-side-pane:first-child {
+  margin-left: var(--spacing-workspace-page);
+}
+
+.workspace-side-pane:last-child {
+  margin-right: var(--spacing-workspace-page);
+}
+
+.workspace-side-pane-collapsed {
+  margin-inline: 0;
+  border-block-color: transparent;
+  box-shadow: none;
 }
 
 /* Soft surface tone + radius on inner cards */
@@ -364,7 +385,7 @@ textarea:focus-visible {
   min-height: 0;
   width: 100%;
   max-width: 48rem;
-  margin: clamp(1rem, 2vw, 2rem) auto;
+  margin: var(--spacing-workspace-page) auto;
   padding: 1.5rem clamp(1.5rem, 5vw, 4rem) !important;
   border: 1px solid var(--color-page-border);
   border-radius: var(--radius-card);
