@@ -48,6 +48,7 @@
   --color-page-border: #e0d5c0;
   --shadow-page: 0 2px 8px -2px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.04);
   --spacing-workspace-page: clamp(0.75rem, 1.4vw, 1.25rem);
+  --spacing-markdown-page-top: 5rem;
 
   /* Soft panel surface */
   --color-panel-soft: #f7eed8;
@@ -306,6 +307,34 @@ body {
   overflow: hidden;
 }
 
+.markdown-page-surface::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--spacing-markdown-page-top);
+  z-index: 1;
+  pointer-events: none;
+  background-color: var(--color-page);
+  -webkit-mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.8) 3rem, rgba(0, 0, 0, 0.45) 4.25rem, transparent 5rem);
+  mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.8) 3rem, rgba(0, 0, 0, 0.45) 4.25rem, transparent 5rem);
+}
+
+.markdown-page-surface::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3rem;
+  z-index: 1;
+  pointer-events: none;
+  background-color: var(--color-page);
+  -webkit-mask-image: linear-gradient(to top, black, transparent);
+  mask-image: linear-gradient(to top, black, transparent);
+}
+
 .note-toolbar-overlay {
   position: absolute;
   top: 0;
@@ -356,7 +385,7 @@ body {
 
 .markdown-codemirror-workspace .cm-content {
   min-height: 100%;
-  padding: 4.5rem clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
+  padding: var(--spacing-markdown-page-top) clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem) !important;
 }
 
 /* Workspace side panes mirror the center markdown page without overlaying it. */
@@ -419,7 +448,7 @@ body {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 4.5rem clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem) !important;
+  padding: var(--spacing-markdown-page-top) clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem) !important;
   background-color: transparent;
   overflow-y: auto;
 }

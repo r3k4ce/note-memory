@@ -296,6 +296,35 @@ describe("App sidebar navigation", () => {
     expect(collapsedPaneRule).toContain("box-shadow: none");
   });
 
+  test("keeps markdown surface scroll fades passive and below the toolbar", () => {
+    const beforeFadeRule = getCssBlock(styleCss, ".markdown-page-surface::before");
+    const afterFadeRule = getCssBlock(styleCss, ".markdown-page-surface::after");
+    const noteToolbarOverlayRule = styleCss.match(/\.note-toolbar-overlay\s*\{[^}]+\}/)?.[0] ?? "";
+
+    expect(beforeFadeRule).not.toBe("");
+    expect(afterFadeRule).not.toBe("");
+    for (const fadeRule of [beforeFadeRule, afterFadeRule]) {
+      expect(fadeRule).toContain('content: ""');
+      expect(fadeRule).toContain("position: absolute");
+      expect(fadeRule).toContain("pointer-events: none");
+      expect(fadeRule).toContain("background-color: var(--color-page)");
+      expect(fadeRule).toContain("mask-image: linear-gradient");
+      expect(fadeRule).toContain("-webkit-mask-image: linear-gradient");
+      expect(fadeRule).toContain("z-index: 1");
+    }
+    expect(beforeFadeRule).toContain("top: 0");
+    expect(beforeFadeRule).toContain("height: var(--spacing-markdown-page-top)");
+    expect(beforeFadeRule).toContain(
+      "mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.8) 3rem, rgba(0, 0, 0, 0.45) 4.25rem, transparent 5rem)",
+    );
+    expect(beforeFadeRule).toContain(
+      "-webkit-mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.8) 3rem, rgba(0, 0, 0, 0.45) 4.25rem, transparent 5rem)",
+    );
+    expect(afterFadeRule).toContain("bottom: 0");
+    expect(afterFadeRule).toContain("height: 3rem");
+    expect(noteToolbarOverlayRule).toContain("z-index: 10");
+  });
+
   test("keeps reusable surface styling on explicit classes instead of broad selectors", () => {
     const markdownBaseRules = styleCss.match(/\.markdown-codemirror\s*\{/g) ?? [];
     const surfaceCardRule = styleCss.match(/\.surface-card\s*\{[^}]+\}/)?.[0] ?? "";
@@ -348,16 +377,25 @@ describe("App sidebar navigation", () => {
     const workspaceEditorRule = styleCss.match(/\.markdown-codemirror-workspace\s*\{[^}]+\}/)?.[0] ?? "";
     const workspaceScrollerRule =
       styleCss.match(/\.markdown-codemirror-workspace \.cm-scroller\s*\{[^}]+\}/)?.[0] ?? "";
+    const workspaceContentRule =
+      styleCss.match(/\.markdown-codemirror-workspace \.cm-content\s*\{[^}]+\}/)?.[0] ?? "";
     const notePreviewRule = styleCss.match(/\.note-preview\s*\{[^}]+\}/)?.[0] ?? "";
 
+    expect(styleCss).toContain("--spacing-markdown-page-top: 5rem");
     expect(workspaceEditorRule).toContain("display: flex");
     expect(workspaceEditorRule).toContain("flex-direction: column");
     expect(workspaceScrollerRule).toContain("flex: 1");
     expect(workspaceScrollerRule).toContain("height: auto");
     expect(workspaceScrollerRule).toContain("overflow: auto");
+    expect(workspaceContentRule).toContain(
+      "padding: var(--spacing-markdown-page-top) clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem)",
+    );
     expect(notePreviewRule).toContain("flex: 1");
     expect(notePreviewRule).toContain("overflow-y: auto");
     expect(notePreviewRule).toContain("min-height: 0");
+    expect(notePreviewRule).toContain(
+      "padding: var(--spacing-markdown-page-top) clamp(1.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem) !important",
+    );
     expect(styleCss).toContain(".note-preview.prose");
     expect(styleCss).not.toContain(".note-preview .prose");
   });
