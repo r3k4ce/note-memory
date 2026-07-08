@@ -874,7 +874,7 @@ export default function App() {
     const pendingMessage: ChatMessage = {
       id: pendingMessageId,
       role: "assistant",
-      content: "I'm finding the right notes...\nI'm checking the evidence...\nI'm drafting a grounded answer...",
+      content: "I'm sniffing through the right notes…\nI'm checking the evidence…\nI'm drafting a grounded answer…",
       sources: [],
     };
 
@@ -1201,7 +1201,7 @@ export default function App() {
   }
 
   const searchStatus = isSearching
-    ? "Bun is searching..."
+    ? "Bun is searching…"
     : searchError
       ? "Search hit a snag"
       : searchResults.length === 0
@@ -1246,7 +1246,14 @@ export default function App() {
       >
         <div className="shrink-0 border-b border-border px-3 py-6">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="bun-mark" aria-label="Notebun Bun mark" role="img">
+              <span className="bun-mark-ear bun-mark-ear-left" aria-hidden="true" />
+              <span className="bun-mark-ear bun-mark-ear-right" aria-hidden="true" />
+              <span className="bun-mark-face" aria-hidden="true">
+                <span className="bun-mark-eye bun-mark-eye-left" />
+                <span className="bun-mark-eye bun-mark-eye-right" />
+              </span>
+            </span>
             <span className="text-lg font-semibold tracking-tight text-text-primary">Notebun</span>
             <span className="ml-auto">
               <ThemeMenu />
@@ -1355,6 +1362,7 @@ export default function App() {
                 <form className="flex gap-1.5" onSubmit={handleCreateCategory}>
                   <input
                     aria-label="New category name"
+                    autoComplete="off"
                     className="surface-input min-w-0 flex-1 bg-bg px-2.5 py-2 text-[13px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:bg-surface disabled:opacity-60"
                     disabled={isSavingCategory}
                     onChange={(event) => {
@@ -1389,6 +1397,7 @@ export default function App() {
                             >
                               <input
                                 aria-label="Category name"
+                                autoComplete="off"
                                 className="surface-input min-w-0 flex-1 bg-surface px-2.5 py-1.5 text-[13px] text-text-primary outline-none transition-colors focus:bg-surface-hover disabled:opacity-60"
                                 disabled={isUpdatingCategory}
                                 onChange={(event) => {
@@ -1469,14 +1478,14 @@ export default function App() {
           {isBrowseTab && isLoadingNotes ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-              Opening your notebook...
+              Opening your notebook…
             </div>
           ) : null}
 
           {isSearchTab && isSearching ? (
             <div className="flex items-center gap-2 px-2 py-3 text-xs text-text-muted">
               <div className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-              Bun is searching...
+              Bun is searching…
             </div>
           ) : null}
 
@@ -1526,7 +1535,7 @@ export default function App() {
                 <input
                   aria-label="Use all notes for Ask"
                   checked={askNoteScope.mode === "all"}
-                  className="ml-2.5 h-4 w-4 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                  className="ask-scope-checkbox ml-2.5 shrink-0 rounded border-border bg-surface accent-accent"
                   onChange={handleToggleAllAskNotes}
                   type="checkbox"
                 />
@@ -1569,7 +1578,7 @@ export default function App() {
                       <input
                         aria-label={`Use ${folder.label} category for Ask`}
                         checked={isFolderAskSelected}
-                        className="ml-2.5 h-3.5 w-3.5 shrink-0 rounded border-border bg-surface accent-accent opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
+                        className="ask-scope-checkbox ml-2.5 shrink-0 rounded border-border bg-surface accent-accent disabled:opacity-30"
                         disabled={folderNoteIds.length === 0}
                         onChange={() =>
                           handleSetAskSourceNotesSelected(folderNoteIds, !isFolderAskSelected)

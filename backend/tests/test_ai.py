@@ -180,6 +180,9 @@ def test_answer_system_prompt_sets_bun_voice_without_weakening_grounding() -> No
     assert "not frequent" in prompt
     assert "bun found" in prompt
     assert "warm, composed, concise, and evidence-first" in prompt
+    assert "lightly playful" in prompt
+    assert "bun-flavored words sparingly" in prompt
+    assert "sniffed out" in prompt
     assert "short orienting phrase" in prompt
     assert "avoid puns" in prompt
     assert "mascot lore" in prompt

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { DragEvent } from "react";
+import { formatCompactNoteDate } from "../dateFormat";
 import type { NoteCardData, SearchResult } from "../types";
 
 type NoteCardSearchMetadata = Partial<Pick<SearchResult, "match_type" | "matched_snippet">>;
@@ -40,11 +41,12 @@ export function NoteCard({
 }: NoteCardProps) {
   const matchedSnippet = note.matched_snippet?.trim();
   const matchTypeLabel = note.match_type ? MATCH_TYPE_LABELS[note.match_type] : null;
+  const compactDate = formatCompactNoteDate(note.date_added);
   const askScopeCheckbox = showAskScopeCheckbox ? (
     <input
       aria-label={`Use ${note.ai_title} for Ask`}
       checked={askScopeSelected}
-        className="absolute right-3 top-3 h-4 w-4 rounded border-border bg-surface accent-accent opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+      className="ask-scope-checkbox absolute right-2.5 top-2.5 rounded border-border bg-surface accent-accent"
       onChange={(event) => {
         event.stopPropagation();
         onAskScopeToggle(note.id);
@@ -82,7 +84,7 @@ export function NoteCard({
             {note.ai_title}
           </span>
           <time className="shrink-0 tabular-nums text-[12px] text-text-muted" dateTime={note.date_added}>
-            {note.date_added.slice(5, 10)}
+            {compactDate}
           </time>
         </button>
         {askScopeCheckbox}
@@ -110,7 +112,7 @@ export function NoteCard({
             className="shrink-0 text-[12px] tabular-nums text-text-muted"
             dateTime={note.date_added}
           >
-            {note.date_added.slice(5, 10)}
+            {compactDate}
           </time>
         </div>
         <p className="mb-1.5 line-clamp-2 text-sm leading-relaxed text-text-secondary">

@@ -2,6 +2,7 @@ import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, FileText, Quote, Send, Sparkles, TriangleAlert } from "lucide-react";
 
+import { formatNoteDate } from "../dateFormat";
 import type { AskSource, ChatMessage } from "../types";
 
 type AskChatProps = {
@@ -59,7 +60,7 @@ function SourceList({
       <div className="mt-2 flex flex-col gap-1">
         {sources.map((source, index) => (
           <div
-            className="surface-card bg-bg transition-all hover:border-border-strong hover:bg-surface hover:shadow-soft"
+            className="surface-card bg-bg transition-[background-color,border-color,box-shadow] hover:border-border-strong hover:bg-surface hover:shadow-soft"
             key={source.note_id}
           >
             <button
@@ -74,7 +75,7 @@ function SourceList({
               <FileText size={12} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-text-primary">{source.title}</span>
               <time className="shrink-0 text-xs tabular-nums text-text-muted" dateTime={source.date_added}>
-                {source.date_added.slice(0, 10)}
+                {formatNoteDate(source.date_added)}
               </time>
               <ArrowUpRight size={12} strokeWidth={2} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-px group-hover:-translate-y-px" aria-hidden="true" />
             </button>
@@ -141,7 +142,7 @@ function CitationChips({
 function AssistantBubble({ content, isPending, onSourceSelect, sources, status }: AssistantBubbleProps) {
   const displayContent =
     status === "no_evidence"
-      ? "I couldn't find that in this notebook yet. Try selecting a note or using a phrase you remember."
+      ? "I couldn't sniff that out in this notebook yet. Try selecting a note or using a phrase you remember."
       : content;
 
   return (
@@ -198,10 +199,10 @@ export function AskChat({
   const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
   const composerStatus = submitDisabledMessage ?? (isPending ? "I'm reading your notes…" : null);
   const emptyHelper = hasNotes
-    ? "Ask Bun to recall decisions, trace sources, or find gaps in the selected notes."
-    : "Save your first note, then Bun can help recall it later.";
+    ? "Ask Bun to sniff out decisions, trace sources, or spot gaps in the selected notes."
+    : "Save your first note, then Bun can start sniffing through it.";
   const promptChips = [
-    "What did I save today?",
+    "What did Bun tuck away today?",
     "Find decisions with sources",
     "What still needs follow-up?",
   ];
@@ -252,7 +253,7 @@ export function AskChat({
           Ask Bun
         </h2>
         <span className="inline-flex items-center rounded-full bg-accent-muted px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
-          Searching · {scopeLabel}
+          Sniffing through {scopeLabel}
         </span>
       </header>
 
@@ -309,7 +310,7 @@ export function AskChat({
             disabled={isPending}
             onChange={(event) => setQuestion(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your notes..."
+            placeholder="Ask Bun about your notes…"
             ref={askRef}
             rows={2}
             value={question}

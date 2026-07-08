@@ -81,13 +81,13 @@ describe("AddNote copy", () => {
     expect(screen.getByLabelText("Mock markdown pane")).toContainElement(
       screen.getByRole("toolbar", { name: "Note toolbar" }),
     );
-    expect(screen.getByPlaceholderText("Start writing your note in Markdown...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Start writing your note in Markdown…")).toBeInTheDocument();
   });
 
   test("uses saving copy while the note is being saved", () => {
     renderAddNote({ isSaving: true });
 
-    expect(screen.getByRole("button", { name: "Saving..." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeInTheDocument();
   });
 
   test("previews the unsaved draft in read mode", () => {

@@ -49,16 +49,16 @@ describe("AskChat Ask Bun panel", () => {
     const { onSubmit } = renderAskChat();
 
     expect(screen.getByRole("heading", { name: "Ask Bun" })).toBeInTheDocument();
-    expect(screen.getByText("Searching · All notes")).toBeInTheDocument();
+    expect(screen.getByText("Sniffing through All notes")).toBeInTheDocument();
     expect(
-      screen.getByText("Ask Bun to recall decisions, trace sources, or find gaps in the selected notes."),
+      screen.getByText("Ask Bun to sniff out decisions, trace sources, or spot gaps in the selected notes."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "What did I save today?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What did Bun tuck away today?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Find decisions with sources" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What still needs follow-up?" })).toBeInTheDocument();
 
     const textarea = screen.getByLabelText("Ask a question about saved notes");
-    expect(screen.getByPlaceholderText("Ask about your notes...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Ask Bun about your notes…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send question" })).toBeDisabled();
     expect(screen.queryByText("Enter to send · Shift+Enter for a new line")).not.toBeInTheDocument();
 
@@ -103,6 +103,7 @@ describe("AskChat Ask Bun panel", () => {
     expect(screen.getByLabelText("Ask a question about saved notes")).toBeDisabled();
     expect(screen.getByText("I'm reading your notes…")).toBeInTheDocument();
     expect(screen.getByText("Read 1 card")).toBeInTheDocument();
+    expect(screen.getByText("Jul 4, 2026")).toBeInTheDocument();
     expect(screen.getByText("Use controlled textarea state for saved draft edits.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open cited note 1: React textarea notes" }));
 
@@ -115,14 +116,14 @@ describe("AskChat Ask Bun panel", () => {
         {
           id: "assistant:pending",
           role: "assistant",
-          content: "I'm finding the right notes...\nI'm checking the evidence...\nI'm drafting a grounded answer...",
+          content: "I'm sniffing through the right notes…\nI'm checking the evidence…\nI'm drafting a grounded answer…",
           sources: [],
         },
       ],
       pendingMessageId: "assistant:pending",
     });
 
-    expect(screen.getByText(/I'm finding the right notes/)).toBeInTheDocument();
+    expect(screen.getByText(/I'm sniffing through the right notes/)).toBeInTheDocument();
     expect(screen.getByText(/I'm checking the evidence/)).toBeInTheDocument();
     expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
   });
@@ -142,7 +143,7 @@ describe("AskChat Ask Bun panel", () => {
 
     expect(
       screen.getByText(
-        "I couldn't find that in this notebook yet. Try selecting a note or using a phrase you remember.",
+        "I couldn't sniff that out in this notebook yet. Try selecting a note or using a phrase you remember.",
       ),
     ).toBeInTheDocument();
   });
@@ -197,6 +198,6 @@ describe("AskChat Ask Bun panel", () => {
       />,
     );
 
-    expect(screen.getByText("Save your first note, then Bun can help recall it later.")).toBeInTheDocument();
+    expect(screen.getByText("Save your first note, then Bun can start sniffing through it.")).toBeInTheDocument();
   });
 });

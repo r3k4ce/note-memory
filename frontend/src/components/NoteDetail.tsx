@@ -109,7 +109,7 @@ export function NoteDetail({
       <div className="flex h-full items-center justify-center py-20">
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-          Opening your note...
+          Opening your note…
         </div>
       </div>
     );

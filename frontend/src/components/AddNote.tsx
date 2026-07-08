@@ -38,11 +38,11 @@ export function AddNote({
       actions={
         readMode ? null : (
           <button
-            aria-label={isSaving ? "Saving..." : "Save note"}
+            aria-label={isSaving ? "Saving…" : "Save note"}
             className={TOOLBAR_ACCENT_BUTTON_CLASS}
             disabled={isSaving}
             onClick={onSave}
-            title={isSaving ? "Saving..." : "Save note"}
+            title={isSaving ? "Saving…" : "Save note"}
             type="button"
           >
             <Save aria-hidden="true" size={15} strokeWidth={2} />
@@ -71,7 +71,7 @@ export function AddNote({
           editorHandleRef={captureRef}
           mode="edit"
           onChange={onDraftTextChange}
-          placeholder="Start writing your note in Markdown..."
+          placeholder="Start writing your note in Markdown…"
           surfaceRef={surfaceRef}
           toolbar={toolbar}
           value={draftText}

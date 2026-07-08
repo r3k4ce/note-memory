@@ -618,6 +618,7 @@ describe("App sidebar navigation", () => {
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
     const title = screen.getByText("Notebun");
+    const brandMark = within(sidebar).getByLabelText("Notebun Bun mark");
     const newNote = within(sidebar).getByRole("button", { name: "New note" });
 
     await waitFor(() => {
@@ -632,6 +633,10 @@ describe("App sidebar navigation", () => {
     const askAllNotes = within(tree).getByRole("checkbox", { name: "Use all notes for Ask" });
 
     expect(sidebar).toContainElement(title);
+    expect(brandMark).toHaveClass("bun-mark");
+    expect(brandMark.querySelector(".bun-mark-ear-left")).not.toBeNull();
+    expect(brandMark.querySelector(".bun-mark-ear-right")).not.toBeNull();
+    expect(brandMark.querySelector(".bun-mark-face")).not.toBeNull();
     expect(sidebar).toContainElement(newNote);
     expect(title.compareDocumentPosition(newNote)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.queryByText("Ask sources")).not.toBeInTheDocument();
@@ -679,6 +684,15 @@ describe("App sidebar navigation", () => {
       expect(createCategory).toHaveBeenCalledWith("Research");
     });
     expect(screen.getByRole("button", { name: "Research" })).toBeInTheDocument();
+  });
+
+  test("adds product polish primitives without transition-all or sliced visible dates", () => {
+    expect(styleCss).toContain(".bun-mark");
+    expect(styleCss).toContain(".ask-scope-checkbox");
+    expect(styleCss).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(styleCss).not.toContain("transition-all");
+    expect(readFileSync("src/components/NoteCard.tsx", "utf8")).not.toContain("date_added.slice");
+    expect(readFileSync("src/components/AskChat.tsx", "utf8")).not.toContain("date_added.slice");
   });
 
   test("renames categories from the collapsed browse manager", async () => {
@@ -831,7 +845,7 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
     fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
 
-    expect(await screen.findByText(/I'm finding the right notes/)).toBeInTheDocument();
+    expect(await screen.findByText(/I'm sniffing through the right notes/)).toBeInTheDocument();
     expect(screen.getByText(/I'm checking the evidence/)).toBeInTheDocument();
     expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
 
@@ -847,7 +861,7 @@ describe("App sidebar navigation", () => {
 
     ask.resolve(askResponse);
     await waitFor(() => {
-      expect(screen.queryByText(/I'm finding the right notes/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/I'm sniffing through the right notes/)).not.toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
@@ -895,7 +909,7 @@ describe("App sidebar navigation", () => {
     const noteRow = screen.getByRole("button", { name: /Work note/ });
 
     expect(noteRow).toHaveTextContent("Work note");
-    expect(noteRow).toHaveTextContent("07-03");
+    expect(noteRow).toHaveTextContent("Jul 3");
     expect(noteRow).not.toHaveTextContent("A note about work.");
     expect(noteRow).not.toHaveTextContent("work");
     expect(screen.getByRole("checkbox", { name: "Use Work note for Ask" })).toBeInTheDocument();
@@ -1006,7 +1020,7 @@ describe("App sidebar navigation", () => {
 
     expect(screen.queryByText("Search results", { selector: "span" })).not.toBeInTheDocument();
     expect(screen.getByText("Results for “work”", { selector: "span" })).toBeInTheDocument();
-    expect(screen.getByText("Bun is searching...", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Bun is searching…", { selector: "span" })).toBeInTheDocument();
 
     search.resolve([]);
   });

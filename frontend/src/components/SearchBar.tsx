@@ -33,9 +33,10 @@ export function SearchBar({
         />
         <input
           aria-label="Search notes"
+          autoComplete="off"
           className="surface-input w-full bg-surface py-2.5 pl-9 pr-9 text-[14px] text-text-primary placeholder:text-text-muted outline-none transition-colors focus:bg-surface-hover disabled:opacity-60"
           onChange={(event) => onChange(event.target.value)}
-          placeholder={isSearching ? "Searching..." : "Search your notebook..."}
+          placeholder={isSearching ? "Searching…" : "Search your notebook…"}
           ref={searchRef}
           type="search"
           value={query}

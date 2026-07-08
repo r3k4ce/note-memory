@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-08T21:11:07Z"
+    time_local: "2026-07-08T18:11:07-03:00"
+    summary: "Polished Notebun product shell and Bun personality."
+    changed:
+      - "Replaced the sidebar dot with a CSS Bun mark, added checkbox/focus/reduced-motion polish, removed transition-all, and switched visible note/source dates to Intl.DateTimeFormat."
+      - "Warmed Ask Bun UI copy, source dates, no-evidence text, prompt chips, pending copy, search/loading ellipses, and form autocomplete details without API shape changes."
+      - "Adjusted the grounded answer prompt to allow sparse lightly playful Bun wording while preserving saved-note-only fallback and citation rules."
+      - "Added focused frontend/backend coverage for the Bun mark, Ask copy, date formatting, polish primitives, and prompt voice boundary."
+    verification:
+      - "Confirmed focused frontend tests failed before implementation, then passed: npm test -- src/components/AskChat.test.tsx --run, npm test -- src/App.test.tsx --run, npm test -- src/components/AddNote.test.tsx --run."
+      - "Confirmed focused backend prompt test failed before implementation; after implementation, the assertion passed but the subset command remained nonzero because repo-wide coverage applies to partial pytest runs."
+      - "Ran env -u HTTP_PROXY -u http_proxy -u HTTPS_PROXY -u https_proxy NO_PROXY='*' ./scripts/check.sh: backend format/lint/typecheck/219 passed/1 skipped tests, frontend 134 tests, Playwright 2 tests, lint, and build passed."
   - time_utc: "2026-07-08T03:15:00Z"
     time_local: "2026-07-08T00:15:01-03:00"
     summary: "Gave Bun a calmer notebook-companion voice in Ask answers and panel copy."
