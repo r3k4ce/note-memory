@@ -194,6 +194,7 @@ export function AskChat({
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
   const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
+  const composerStatus = submitDisabledMessage ?? (isPending ? "Bun is reading your notes…" : null);
   const emptyHelper = hasNotes
     ? "Ask Bun about the notes selected in your notebook index."
     : "Save your first note, then Bun can help answer questions about it.";
@@ -298,32 +299,31 @@ export function AskChat({
         <div ref={transcriptEndRef} />
       </div>
 
-      <form aria-busy={isPending} className="surface-card flex shrink-0 flex-col gap-2 p-3" onSubmit={handleSubmit}>
-        <textarea
-          aria-label="Ask a question about saved notes"
-          className="surface-input w-full resize-none overflow-y-auto bg-bg px-3.5 py-3.5 text-[14px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:bg-surface-hover disabled:opacity-60"
-          disabled={isPending}
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about your notes..."
-          ref={askRef}
-          rows={2}
-          value={question}
-        />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="min-w-0 flex-1 text-xs leading-relaxed text-text-muted">
-            {submitDisabledMessage
-              ?? (isPending
-                 ? "Bun is reading your notes…"
-                  : "Enter to send · Shift+Enter for a new line")}
-          </span>
+      <form aria-busy={isPending} className="shrink-0" onSubmit={handleSubmit}>
+        <div className="relative">
+          <textarea
+            aria-label="Ask a question about saved notes"
+            className="surface-input w-full resize-none overflow-y-auto bg-bg px-3.5 pb-8 pl-3.5 pr-12 pt-3.5 text-[14px] leading-relaxed text-text-primary placeholder:text-text-muted outline-none transition-colors focus:bg-surface-hover disabled:opacity-60"
+            disabled={isPending}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your notes..."
+            ref={askRef}
+            rows={2}
+            value={question}
+          />
+          {composerStatus ? (
+            <span className="pointer-events-none absolute bottom-2.5 left-3.5 max-w-[calc(100%-4rem)] truncate text-xs leading-relaxed text-text-muted">
+              {composerStatus}
+            </span>
+          ) : null}
           <button
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2.5 text-[14px] font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Send question"
+            className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-md text-accent transition-colors hover:bg-accent-muted hover:text-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:text-text-muted disabled:opacity-45"
             disabled={isSendDisabled}
             type="submit"
           >
-            <Send size={13} strokeWidth={2} />
-            {isPending ? "Reading…" : "Send"}
+            <Send size={15} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
       </form>

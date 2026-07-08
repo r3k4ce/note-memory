@@ -55,9 +55,12 @@ describe("AskChat Ask Bun panel", () => {
 
     const textarea = screen.getByLabelText("Ask a question about saved notes");
     expect(screen.getByPlaceholderText("Ask about your notes...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send question" })).toBeDisabled();
+    expect(screen.queryByText("Enter to send · Shift+Enter for a new line")).not.toBeInTheDocument();
 
     fireEvent.change(textarea, { target: { value: "What did I save about React?" } });
     expect(textarea).toHaveValue("What did I save about React?");
+    expect(screen.getByRole("button", { name: "Send question" })).toBeEnabled();
 
     fireEvent.keyDown(textarea, { key: "Enter" });
 
@@ -92,8 +95,9 @@ describe("AskChat Ask Bun panel", () => {
       pendingMessageId: "assistant:pending",
     });
 
-    expect(screen.getByRole("button", { name: /Reading/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send question" })).toBeDisabled();
     expect(screen.getByLabelText("Ask a question about saved notes")).toBeDisabled();
+    expect(screen.getByText("Bun is reading your notes…")).toBeInTheDocument();
     expect(screen.getByText("Bun read 1 card")).toBeInTheDocument();
     expect(screen.getByText("Use controlled textarea state for saved draft edits.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open cited note 1: React textarea notes" }));
@@ -167,6 +171,6 @@ describe("AskChat Ask Bun panel", () => {
     });
 
     expect(screen.getByText("Select at least one note for Ask")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send question" })).toBeDisabled();
   });
 });

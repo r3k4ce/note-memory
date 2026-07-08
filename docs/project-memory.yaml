@@ -1,4 +1,17 @@
 entries:
+  - time_utc: "2026-07-08T02:58:37Z"
+    time_local: "2026-07-07T23:58:37-03:00"
+    summary: "Simplified the Ask Bun composer into a bare textarea-surface control."
+    changed:
+      - "Removed the visible outer surface-card wrapper from the AskChat composer form while keeping the textarea as the visible input surface."
+      - "Moved pending and custom disabled status text inside the composer bottom-left and removed the ready-state keyboard shortcut hint."
+      - "Changed the submit control to an icon-only semantic button positioned bottom-right inside the textarea surface, preserving existing submit disable rules and Enter handling."
+      - "Updated AskChat tests for the Send question accessible button, removed ready hint, pending status, and disabled states."
+    verification:
+      - "Confirmed npm run test -- AskChat.test.tsx --run failed before implementation because the send button was still text-labeled and the shortcut hint still rendered."
+      - "Ran npm run test -- AskChat.test.tsx --run from frontend/: 6 passed."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv."
+      - "Reran ./scripts/check.sh with approved uv cache and local dev server/browser access: backend checks and 218 passed/1 skipped tests, frontend 132 tests, e2e, lint, and build passed."
   - time_utc: "2026-07-08T00:58:18Z"
     time_local: "2026-07-07T21:58:18-03:00"
     summary: "Kept desktop resize grips inside the sidebar-to-markdown visual gutters."
