@@ -53,7 +53,7 @@ function SourceList({
       <div className="flex items-center gap-1.5">
         <Quote size={11} strokeWidth={2} className="text-text-muted" aria-hidden="true" />
         <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-          Bun read {sources.length} {sources.length === 1 ? "card" : "cards"}
+          Read {sources.length} {sources.length === 1 ? "card" : "cards"}
         </p>
       </div>
       <div className="mt-2 flex flex-col gap-1">
@@ -140,7 +140,9 @@ function CitationChips({
 
 function AssistantBubble({ content, isPending, onSourceSelect, sources, status }: AssistantBubbleProps) {
   const displayContent =
-    status === "no_evidence" ? "Bun couldn't find that in this notebook yet." : content;
+    status === "no_evidence"
+      ? "I couldn't find that in this notebook yet. Try selecting a note or using a phrase you remember."
+      : content;
 
   return (
     <div className="flex justify-start">
@@ -194,14 +196,14 @@ export function AskChat({
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
   const isSendDisabled = !trimmedQuestion || isPending || isSubmitDisabled;
-  const composerStatus = submitDisabledMessage ?? (isPending ? "Bun is reading your notes…" : null);
+  const composerStatus = submitDisabledMessage ?? (isPending ? "I'm reading your notes…" : null);
   const emptyHelper = hasNotes
-    ? "Ask Bun about the notes selected in your notebook index."
-    : "Save your first note, then Bun can help answer questions about it.";
+    ? "Ask Bun to recall decisions, trace sources, or find gaps in the selected notes."
+    : "Save your first note, then Bun can help recall it later.";
   const promptChips = [
     "What did I save today?",
     "Find decisions with sources",
-    "What is still missing?",
+    "What still needs follow-up?",
   ];
 
   useEffect(() => {

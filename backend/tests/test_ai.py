@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from mapping_memory.ai import (
+    ANSWER_FALLBACK,
+    ANSWER_SYSTEM_PROMPT,
     OrganizerMetadata,
     OrganizerResponseError,
     OrganizerUnavailableError,
@@ -166,3 +168,32 @@ def test_missing_api_key_raises_without_crashing_app_layer(tmp_path: Path) -> No
     assert response.status_code == 200
     with pytest.raises(OrganizerUnavailableError, match="OPENAI_API_KEY"):
         organize_mapping_text("note text", settings=settings)
+
+
+def test_answer_system_prompt_sets_bun_voice_without_weakening_grounding() -> None:
+    prompt = ANSWER_SYSTEM_PROMPT.lower()
+
+    assert "calm notebook companion" in prompt
+    assert "local-first notes app" in prompt
+    assert "use first person" in prompt
+    assert "i found" in prompt
+    assert "not frequent" in prompt
+    assert "bun found" in prompt
+    assert "warm, composed, concise, and evidence-first" in prompt
+    assert "short orienting phrase" in prompt
+    assert "avoid puns" in prompt
+    assert "mascot lore" in prompt
+    assert "jokes" in prompt
+    assert "exclamation-heavy" in prompt
+    assert "unsupported reassurance" in prompt
+    assert "style examples" in prompt
+    assert "not facts" in prompt
+    assert "i found a saved decision" in prompt
+
+    assert "use saved-note context as the only factual source" in prompt
+    assert "do not use outside knowledge" in prompt
+    assert f"say exactly: {ANSWER_FALLBACK}".lower() in prompt
+    assert "do not invent policies, rules, or decisions" in prompt
+    assert "cite supporting sources as [1], [2]" in prompt
+    assert "only cite a source number when that source directly supports the sentence" in prompt
+    assert "when evidence is weak, missing, or ambiguous" in prompt

@@ -50,8 +50,12 @@ describe("AskChat Ask Bun panel", () => {
 
     expect(screen.getByRole("heading", { name: "Ask Bun" })).toBeInTheDocument();
     expect(screen.getByText("Searching · All notes")).toBeInTheDocument();
+    expect(
+      screen.getByText("Ask Bun to recall decisions, trace sources, or find gaps in the selected notes."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What did I save today?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Find decisions with sources" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What still needs follow-up?" })).toBeInTheDocument();
 
     const textarea = screen.getByLabelText("Ask a question about saved notes");
     expect(screen.getByPlaceholderText("Ask about your notes...")).toBeInTheDocument();
@@ -97,8 +101,8 @@ describe("AskChat Ask Bun panel", () => {
 
     expect(screen.getByRole("button", { name: "Send question" })).toBeDisabled();
     expect(screen.getByLabelText("Ask a question about saved notes")).toBeDisabled();
-    expect(screen.getByText("Bun is reading your notes…")).toBeInTheDocument();
-    expect(screen.getByText("Bun read 1 card")).toBeInTheDocument();
+    expect(screen.getByText("I'm reading your notes…")).toBeInTheDocument();
+    expect(screen.getByText("Read 1 card")).toBeInTheDocument();
     expect(screen.getByText("Use controlled textarea state for saved draft edits.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open cited note 1: React textarea notes" }));
 
@@ -111,16 +115,16 @@ describe("AskChat Ask Bun panel", () => {
         {
           id: "assistant:pending",
           role: "assistant",
-          content: "Bun is finding notes...\nBun is checking snippets...\nBun is writing...",
+          content: "I'm finding the right notes...\nI'm checking the evidence...\nI'm drafting a grounded answer...",
           sources: [],
         },
       ],
       pendingMessageId: "assistant:pending",
     });
 
-    expect(screen.getByText(/Bun is finding notes/)).toBeInTheDocument();
-    expect(screen.getByText(/Bun is checking snippets/)).toBeInTheDocument();
-    expect(screen.getByText(/Bun is writing/)).toBeInTheDocument();
+    expect(screen.getByText(/I'm finding the right notes/)).toBeInTheDocument();
+    expect(screen.getByText(/I'm checking the evidence/)).toBeInTheDocument();
+    expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
   });
 
   test("shows friendly no-evidence state", () => {
@@ -136,7 +140,11 @@ describe("AskChat Ask Bun panel", () => {
       ],
     });
 
-    expect(screen.getByText("Bun couldn't find that in this notebook yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "I couldn't find that in this notebook yet. Try selecting a note or using a phrase you remember.",
+      ),
+    ).toBeInTheDocument();
   });
 
   test("opens notes from citation chips", () => {
@@ -167,10 +175,28 @@ describe("AskChat Ask Bun panel", () => {
   test("keeps custom disabled message visible when Ask has no selected notes", () => {
     renderAskChat({
       isSubmitDisabled: true,
-      submitDisabledMessage: "Select at least one note for Ask",
+      submitDisabledMessage: "Select at least one note for Bun.",
     });
 
-    expect(screen.getByText("Select at least one note for Ask")).toBeInTheDocument();
+    expect(screen.getByText("Select at least one note for Bun.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send question" })).toBeDisabled();
+  });
+
+  test("shows first-note helper when there are no notes", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <AskChat
+        askRef={createRef<HTMLTextAreaElement>()}
+        hasNotes={false}
+        messages={[]}
+        onSourceSelect={vi.fn()}
+        onSubmit={onSubmit}
+        pendingMessageId={null}
+        scopeLabel="All notes"
+      />,
+    );
+
+    expect(screen.getByText("Save your first note, then Bun can help recall it later.")).toBeInTheDocument();
   });
 });

@@ -874,7 +874,7 @@ export default function App() {
     const pendingMessage: ChatMessage = {
       id: pendingMessageId,
       role: "assistant",
-      content: "Bun is finding notes...\nBun is checking snippets...\nBun is writing...",
+      content: "I'm finding the right notes...\nI'm checking the evidence...\nI'm drafting a grounded answer...",
       sources: [],
     };
 
@@ -1724,7 +1724,7 @@ export default function App() {
           pendingMessageId={askPendingMessageId}
           isSubmitDisabled={isAskNoteScopeEmpty}
           scopeLabel={askChatScopeLabel}
-          submitDisabledMessage={isAskNoteScopeEmpty ? "Pick at least one note for Bun." : undefined}
+          submitDisabledMessage={isAskNoteScopeEmpty ? "Select at least one note for Bun." : undefined}
         />
       </aside>
     </div>

@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-08T03:15:00Z"
+    time_local: "2026-07-08T00:15:01-03:00"
+    summary: "Gave Bun a calmer notebook-companion voice in Ask answers and panel copy."
+    changed:
+      - "Expanded the grounded answer system prompt with Bun identity, first-person style guidance, no-cutesy boundaries, style-only examples, and unchanged saved-note-only fallback/citation rules."
+      - "Updated AskChat and App-owned Ask status, no-evidence, helper, source heading, starter chip, and selected-note disabled copy."
+      - "Added backend prompt assertions and frontend copy coverage for the new Ask Bun voice."
+    verification:
+      - "Confirmed uv run pytest tests/test_ai.py tests/test_ask_api.py failed before implementation on the new prompt assertions; after implementation, tests passed but the partial command exited nonzero because repo-wide coverage was below 80% for that subset."
+      - "Confirmed npm run test -- AskChat.test.tsx App.test.tsx --run failed before implementation on the new copy assertions; after implementation, it passed with 46 tests."
   - time_utc: "2026-07-08T02:58:37Z"
     time_local: "2026-07-07T23:58:37-03:00"
     summary: "Simplified the Ask Bun composer into a bare textarea-surface control."

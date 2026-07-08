@@ -13,7 +13,7 @@ import {
   updateNote,
 } from "./api";
 import App from "./App";
-import type { Category, Note, SearchResult } from "./types";
+import type { AskResponse, Category, Note, SearchResult } from "./types";
 
 const styleCss = readFileSync("src/style.css", "utf8");
 const markdownPaneSource = readFileSync("src/components/MarkdownPane.tsx", "utf8");
@@ -74,11 +74,13 @@ vi.mock("./api", () => ({
 vi.mock("./components/AskChat", () => ({
   AskChat({
     isSubmitDisabled,
+    messages,
     onSubmit,
     scopeLabel,
     submitDisabledMessage,
   }: {
     isSubmitDisabled?: boolean;
+    messages: { content: string }[];
     onSubmit: (question: string) => void;
     scopeLabel: string;
     submitDisabledMessage?: string;
@@ -87,6 +89,9 @@ vi.mock("./components/AskChat", () => ({
       <section aria-label="Ask chat">
         <span>Mock Ask scope: {scopeLabel}</span>
         {submitDisabledMessage ? <span>{submitDisabledMessage}</span> : null}
+        {messages.map((message, index) => (
+          <span key={`${index}:${message.content}`}>{message.content}</span>
+        ))}
         <button disabled={isSubmitDisabled} onClick={() => onSubmit("What did I save?")} type="button">
           Mock ask
         </button>
@@ -807,12 +812,14 @@ describe("App sidebar navigation", () => {
   });
 
   test("uses visible Ask source selections for payloads without browse category scope", async () => {
-    vi.mocked(askQuestion).mockResolvedValue({
+    const ask = deferred<AskResponse>();
+    vi.mocked(askQuestion).mockReturnValue(ask.promise);
+    const askResponse: AskResponse = {
       answer: "Saved notes mention work.",
       status: "answered",
       evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
       sources: [],
-    });
+    };
 
     render(<App />);
 
@@ -824,6 +831,10 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Work" }));
     fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
 
+    expect(await screen.findByText(/I'm finding the right notes/)).toBeInTheDocument();
+    expect(screen.getByText(/I'm checking the evidence/)).toBeInTheDocument();
+    expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
+
     await waitFor(() => {
       expect(askQuestion).toHaveBeenCalledWith(
         expect.not.objectContaining({
@@ -834,10 +845,15 @@ describe("App sidebar navigation", () => {
       );
     });
 
+    ask.resolve(askResponse);
+    await waitFor(() => {
+      expect(screen.queryByText(/I'm finding the right notes/)).not.toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
 
     expect(screen.getByText("No notes selected")).toBeInTheDocument();
-    expect(screen.getByText("Pick at least one note for Bun.")).toBeInTheDocument();
+    expect(screen.getByText("Select at least one note for Bun.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mock ask" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use Work category for Ask" }));
@@ -850,6 +866,8 @@ describe("App sidebar navigation", () => {
     await waitFor(() => {
       expect(askQuestion).toHaveBeenLastCalledWith(expect.objectContaining({ note_ids: [10] }));
     });
+
+    ask.resolve(askResponse);
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
 
