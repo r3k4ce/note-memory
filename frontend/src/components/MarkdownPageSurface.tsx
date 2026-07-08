@@ -1,13 +1,14 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 type MarkdownPageSurfaceProps = {
   children: ReactNode;
+  surfaceRef?: Ref<HTMLDivElement>;
   toolbar?: ReactNode;
 };
 
-export function MarkdownPageSurface({ children, toolbar }: MarkdownPageSurfaceProps) {
+export function MarkdownPageSurface({ children, surfaceRef, toolbar }: MarkdownPageSurfaceProps) {
   return (
-    <div className="workspace-page-shell markdown-page-surface">
+    <div className="workspace-page-shell markdown-page-surface" ref={surfaceRef}>
       {toolbar}
       {children}
     </div>

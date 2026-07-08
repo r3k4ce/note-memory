@@ -96,6 +96,54 @@ function expectMarkdownSurfaceFades(fadeStyles: Awaited<ReturnType<typeof getMar
   expect(fadeStyles.after.maskImage).toContain("to top");
 }
 
+async function getResizeGripGeometry(page: Page) {
+  return page.evaluate(() => {
+    const leftSidebar = document.querySelector('[aria-label="Notes sidebar"]');
+    const markdownSurface = document.querySelector(".markdown-page-surface");
+    const rightSidebar = document.querySelector('[aria-label="Bun pane"]');
+    const leftGrip = document.querySelector('[role="separator"][aria-label="Resize notes sidebar"]');
+    const rightGrip = document.querySelector('[role="separator"][aria-label="Resize Bun"]');
+    if (
+      !(leftSidebar instanceof HTMLElement) ||
+      !(markdownSurface instanceof HTMLElement) ||
+      !(rightSidebar instanceof HTMLElement) ||
+      !(leftGrip instanceof HTMLElement) ||
+      !(rightGrip instanceof HTMLElement)
+    ) {
+      throw new Error("Missing resize grip geometry target");
+    }
+
+    const toBounds = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        centerX: rect.left + rect.width / 2,
+      };
+    };
+
+    return {
+      leftGrip: toBounds(leftGrip),
+      leftSidebar: toBounds(leftSidebar),
+      markdownSurface: toBounds(markdownSurface),
+      rightGrip: toBounds(rightGrip),
+      rightSidebar: toBounds(rightSidebar),
+      viewportWidth: window.innerWidth,
+    };
+  });
+}
+
+function expectGripCenterInGap(
+  grip: { centerX: number },
+  leftBound: number,
+  rightBound: number,
+) {
+  expect(grip.centerX).toBeGreaterThanOrEqual(leftBound - 1);
+  expect(grip.centerX).toBeLessThanOrEqual(rightBound + 1);
+  expect(Math.abs(grip.centerX - (leftBound + rightBound) / 2)).toBeLessThanOrEqual(1);
+}
+
 test("long markdown documents use the full shared page surface in edit and read mode", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page);
@@ -185,4 +233,57 @@ test("long markdown documents use the full shared page surface in edit and read 
   expect(readGeometry.text).toContain("title: Long workspace note");
   expect(readGeometry.scrolledText).toContain("Section 80");
   expectMarkdownSurfaceFades(await getMarkdownSurfaceFadeStyles(page));
+});
+
+test("desktop resize grips stay in the visual gutters", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Work" }).click();
+  await page.getByRole("button", { name: "Long workspace note" }).click();
+  await expect(page.getByLabel("Markdown source")).toBeVisible();
+
+  const initialGeometry = await getResizeGripGeometry(page);
+  expectGripCenterInGap(
+    initialGeometry.leftGrip,
+    initialGeometry.leftSidebar.right,
+    initialGeometry.markdownSurface.left,
+  );
+  expectGripCenterInGap(
+    initialGeometry.rightGrip,
+    initialGeometry.markdownSurface.right,
+    initialGeometry.rightSidebar.left,
+  );
+
+  await page.getByRole("separator", { name: "Resize notes sidebar" }).dragTo(page.locator("body"), {
+    force: true,
+    targetPosition: { x: 420, y: 450 },
+  });
+  await page.getByRole("separator", { name: "Resize Bun" }).dragTo(page.locator("body"), {
+    force: true,
+    targetPosition: { x: 1080, y: 450 },
+  });
+  await page.waitForTimeout(250);
+
+  const draggedGeometry = await getResizeGripGeometry(page);
+  expectGripCenterInGap(
+    draggedGeometry.leftGrip,
+    draggedGeometry.leftSidebar.right,
+    draggedGeometry.markdownSurface.left,
+  );
+  expectGripCenterInGap(
+    draggedGeometry.rightGrip,
+    draggedGeometry.markdownSurface.right,
+    draggedGeometry.rightSidebar.left,
+  );
+
+  await page.getByRole("button", { name: "Focus Mode" }).click();
+  await page.waitForTimeout(250);
+
+  const collapsedGeometry = await getResizeGripGeometry(page);
+  expect(collapsedGeometry.leftSidebar.width).toBeLessThanOrEqual(2);
+  expect(collapsedGeometry.rightSidebar.width).toBeLessThanOrEqual(2);
+  expect(collapsedGeometry.leftGrip.centerX).toBeCloseTo(0, 0);
+  expect(collapsedGeometry.rightGrip.centerX).toBeCloseTo(collapsedGeometry.viewportWidth, 0);
 });

@@ -1,11 +1,12 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 import { MarkdownPageSurface } from "./MarkdownPageSurface";
 
 type MarkdownPreviewProps = {
   source: string;
+  surfaceRef?: Ref<HTMLDivElement>;
   toolbar?: ReactNode;
 };
 
@@ -30,11 +31,11 @@ function splitLeadingFrontmatter(source: string): { body: string; frontmatter: s
   };
 }
 
-export function MarkdownPreview({ source, toolbar }: MarkdownPreviewProps) {
+export function MarkdownPreview({ source, surfaceRef, toolbar }: MarkdownPreviewProps) {
   const { body, frontmatter } = splitLeadingFrontmatter(source);
 
   return (
-    <MarkdownPageSurface toolbar={toolbar}>
+    <MarkdownPageSurface surfaceRef={surfaceRef} toolbar={toolbar}>
       <div className="note-preview prose max-w-none overflow-x-auto prose-headings:text-text-primary prose-headings:font-semibold prose-p:text-text-secondary prose-strong:text-text-primary prose-a:text-accent prose-a:underline prose-blockquote:border-accent-muted prose-blockquote:text-text-secondary prose-blockquote:not-italic prose-code:text-text-primary prose-code:rounded prose-code:bg-surface-raised prose-code:px-1 prose-code:py-0.5 prose-pre:border prose-pre:border-border prose-pre:bg-bg prose-pre:rounded-md prose-ul:text-text-secondary prose-ol:text-text-secondary prose-hr:border-border prose-th:border-border">
         {frontmatter ? (
           <pre className="note-frontmatter">

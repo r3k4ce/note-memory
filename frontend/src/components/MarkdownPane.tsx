@@ -3,7 +3,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { tags } from "@lezer/highlight";
-import type { ReactNode, RefObject } from "react";
+import type { ReactNode, Ref, RefObject } from "react";
 
 import { MarkdownPageSurface } from "./MarkdownPageSurface";
 import { MarkdownPreview } from "./MarkdownPreview";
@@ -25,6 +25,7 @@ export type MarkdownPaneProps = {
   id?: string;
   editorHandleRef?: RefObject<MarkdownPaneHandle | null>;
   placeholder?: string;
+  surfaceRef?: Ref<HTMLDivElement>;
   toolbar?: ReactNode;
   variant?: "contained" | "workspace";
 };
@@ -124,13 +125,14 @@ export function MarkdownPane({
   mode,
   onChange,
   placeholder,
+  surfaceRef,
   toolbar,
   editorHandleRef,
   variant = "contained",
   value,
 }: MarkdownPaneProps) {
   if (mode === "read") {
-    return <MarkdownPreview source={value} toolbar={toolbar} />;
+    return <MarkdownPreview source={value} surfaceRef={surfaceRef} toolbar={toolbar} />;
   }
 
   const editable = !disabled && Boolean(onChange);
@@ -181,7 +183,7 @@ export function MarkdownPane({
 
   if (isWorkspace) {
     return (
-      <MarkdownPageSurface toolbar={toolbar}>
+      <MarkdownPageSurface surfaceRef={surfaceRef} toolbar={toolbar}>
         {editor}
       </MarkdownPageSurface>
     );

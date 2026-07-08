@@ -46,6 +46,7 @@ type NoteWorkspaceProps = {
   editError: string | null;
   onEditDirtyChange: (isDirty: boolean) => void;
   editResetKey: number;
+  surfaceRef?: RefObject<HTMLDivElement | null>;
 };
 
 export function NoteWorkspace({
@@ -75,6 +76,7 @@ export function NoteWorkspace({
   editError,
   onEditDirtyChange,
   editResetKey,
+  surfaceRef,
 }: NoteWorkspaceProps) {
   if (mode === "new") {
     return (
@@ -88,6 +90,7 @@ export function NoteWorkspace({
           onDraftTextChange={onDraftTextChange}
           onSave={onSave}
           readMode={readMode}
+          surfaceRef={surfaceRef}
           toolbarControls={toolbarControls}
         />
       </div>
@@ -116,6 +119,7 @@ export function NoteWorkspace({
         onNewNote={onNewNote}
         onSaveEdit={onSaveEdit}
         readMode={readMode}
+        surfaceRef={surfaceRef}
         toolbarControls={toolbarControls}
       />
     </div>

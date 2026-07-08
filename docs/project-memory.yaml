@@ -1,4 +1,19 @@
 entries:
+  - time_utc: "2026-07-08T00:58:18Z"
+    time_local: "2026-07-07T21:58:18-03:00"
+    summary: "Kept desktop resize grips inside the sidebar-to-markdown visual gutters."
+    changed:
+      - "Threaded an optional markdown page surface ref through MarkdownPageSurface, MarkdownPreview, MarkdownPane, AddNote, NoteDetail, NoteWorkspace, and App."
+      - "Changed App resize separators from flex gutter lanes to small absolute grip controls positioned from measured sidebar, markdown surface, and workspace root bounds."
+      - "Kept existing pane width state, drag math, collapse thresholds, Focus Mode restore behavior, and ARIA separator labels."
+      - "Extended App and Playwright layout coverage for grip-only controls, drag behavior, gutter positioning, and collapsed edge placement."
+    verification:
+      - "Confirmed npm run test -- App.test.tsx --run failed before implementation because separators still used the old relative w-2 flex lane."
+      - "Initial Playwright focused run failed in sandbox because Vite could not listen on 127.0.0.1:5173; reran with approved local dev server/browser access and fixed the new geometry coverage."
+      - "Ran npm run test -- App.test.tsx --run from frontend/: 39 passed."
+      - "Ran npx playwright test e2e/markdown-layout.spec.ts from frontend/ with approved local dev server/browser access: 2 passed."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv."
+      - "Reran ./scripts/check.sh with approved uv cache and local dev server/browser access: backend checks and 218 passed/1 skipped tests, frontend 132 tests, e2e, lint, and build passed."
   - time_utc: "2026-07-08T00:37:30Z"
     time_local: "2026-07-07T21:37:30-03:00"
     summary: "Made the markdown toolbar fade more visible and smoother."

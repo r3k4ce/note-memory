@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode, type RefObject } from "react";
 import { Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 
 import {
@@ -38,6 +38,7 @@ type NoteDetailProps = {
     category_id: number | null;
   }) => Promise<void>;
   readMode?: boolean;
+  surfaceRef?: RefObject<HTMLDivElement | null>;
   toolbarControls: ReactNode;
 };
 
@@ -83,6 +84,7 @@ export function NoteDetail({
   onRegenerateDetails,
   onSaveEdit,
   readMode = false,
+  surfaceRef,
   toolbarControls,
 }: NoteDetailProps) {
   const [documentText, setDocumentText] = useState(() => (note ? noteToDocument(note) : ""));
@@ -270,7 +272,7 @@ export function NoteDetail({
     <article className="flex h-full min-h-0 w-full flex-col">
       {readMode ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <MarkdownPreview source={documentText} toolbar={toolbar} />
+          <MarkdownPreview source={documentText} surfaceRef={surfaceRef} toolbar={toolbar} />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
@@ -283,6 +285,7 @@ export function NoteDetail({
               setDocumentText(value);
               setValidationError(null);
             }}
+            surfaceRef={surfaceRef}
             toolbar={toolbar}
             value={documentText}
             variant="workspace"

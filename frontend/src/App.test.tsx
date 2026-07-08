@@ -251,6 +251,10 @@ describe("App sidebar navigation", () => {
 
     expect(sidebarSeparator).toBeInTheDocument();
     expect(bunSeparator).toBeInTheDocument();
+    expect(sidebarSeparator).toHaveClass("absolute", "h-8", "w-3.5");
+    expect(bunSeparator).toHaveClass("absolute", "h-8", "w-3.5");
+    expect(sidebarSeparator).not.toHaveClass("w-2");
+    expect(bunSeparator).not.toHaveClass("w-2");
     expect(sidebarSeparator.innerHTML).not.toContain("inset-y-0");
     expect(sidebarSeparator.innerHTML).not.toContain("w-px");
     expect(bunSeparator.innerHTML).not.toContain("inset-y-0");

@@ -16,6 +16,7 @@ type AddNoteProps = {
   onDraftTextChange: (value: string) => void;
   onSave: () => void;
   readMode?: boolean;
+  surfaceRef?: RefObject<HTMLDivElement | null>;
   toolbarControls: ReactNode;
 };
 
@@ -28,6 +29,7 @@ export function AddNote({
   onDraftTextChange,
   onSave,
   readMode = false,
+  surfaceRef,
   toolbarControls,
 }: AddNoteProps) {
   const statusText = draftText.trim() ? `${draftText.length} chars` : `${APP_SHORTCUTS.capture.label} to focus`;
@@ -60,7 +62,7 @@ export function AddNote({
       </h2>
       {readMode ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <MarkdownPreview source={draftText} toolbar={toolbar} />
+          <MarkdownPreview source={draftText} surfaceRef={surfaceRef} toolbar={toolbar} />
         </div>
       ) : (
         <MarkdownPane
@@ -70,6 +72,7 @@ export function AddNote({
           mode="edit"
           onChange={onDraftTextChange}
           placeholder="Start writing your note in Markdown..."
+          surfaceRef={surfaceRef}
           toolbar={toolbar}
           value={draftText}
           variant="workspace"

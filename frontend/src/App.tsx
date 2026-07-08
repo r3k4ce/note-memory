@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -88,10 +89,15 @@ type NoteDropTarget = {
 type PaneSide = "left" | "right";
 type PaneResizeHandleProps = {
   className?: string;
+  left: number;
   label: string;
   maxWidth: number;
   onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
   width: number;
+};
+type GripPositions = {
+  left: number;
+  right: number;
 };
 
 const ASK_HISTORY_MESSAGE_LIMIT = 6;
@@ -119,6 +125,7 @@ function clampPaneWidth(width: number, minWidth: number, maxWidth: number): numb
 
 function PaneResizeHandle({
   className = "flex",
+  left,
   label,
   maxWidth,
   onResizeStart,
@@ -131,14 +138,13 @@ function PaneResizeHandle({
       aria-valuemax={maxWidth}
       aria-valuemin={0}
       aria-valuenow={width}
-      className={`group relative w-2 shrink-0 cursor-col-resize items-center justify-center bg-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${className}`}
+      className={`resize-handle-grip group absolute top-1/2 z-20 h-8 w-3.5 shrink-0 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center bg-bg text-text-muted transition-colors hover:text-text-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${className}`}
       onPointerDown={onResizeStart}
       role="separator"
+      style={{ left }}
       tabIndex={0}
     >
-      <div className="resize-handle-grip relative flex h-8 w-3.5 items-center justify-center bg-bg text-text-muted transition-colors group-hover:text-text-secondary">
-        <GripVertical aria-hidden="true" size={13} strokeWidth={1.75} />
-      </div>
+      <GripVertical aria-hidden="true" size={13} strokeWidth={1.75} />
     </div>
   );
 }
@@ -233,6 +239,10 @@ export default function App() {
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
   const [leftPaneWidth, setLeftPaneWidth] = useState(LEFT_PANE_DEFAULT_WIDTH);
   const [rightPaneWidth, setRightPaneWidth] = useState(RIGHT_PANE_DEFAULT_WIDTH);
+  const [gripPositions, setGripPositions] = useState<GripPositions>({
+    left: LEFT_PANE_DEFAULT_WIDTH,
+    right: 0,
+  });
 
   const searchRequestId = useRef(0);
   const liveSearchTimeoutId = useRef<number | null>(null);
@@ -243,6 +253,10 @@ export default function App() {
   const lastLeftPaneWidthRef = useRef(LEFT_PANE_DEFAULT_WIDTH);
   const lastRightPaneWidthRef = useRef(RIGHT_PANE_DEFAULT_WIDTH);
   const captureRef = useRef<MarkdownPaneHandle>(null);
+  const workspaceRootRef = useRef<HTMLDivElement>(null);
+  const leftSidebarRef = useRef<HTMLElement>(null);
+  const rightSidebarRef = useRef<HTMLElement>(null);
+  const markdownSurfaceRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
 
@@ -300,6 +314,63 @@ export default function App() {
     }
     setRightPaneWidth(nextWidth);
   }, []);
+
+  const updateGripPositions = useCallback(() => {
+    const workspaceRoot = workspaceRootRef.current;
+    const leftSidebar = leftSidebarRef.current;
+    const rightSidebar = rightSidebarRef.current;
+    const markdownSurface = markdownSurfaceRef.current;
+    if (!workspaceRoot || !leftSidebar || !rightSidebar || !markdownSurface) {
+      return;
+    }
+
+    const rootRect = workspaceRoot.getBoundingClientRect();
+    const leftSidebarRect = leftSidebar.getBoundingClientRect();
+    const rightSidebarRect = rightSidebar.getBoundingClientRect();
+    const markdownSurfaceRect = markdownSurface.getBoundingClientRect();
+    const nextPositions = {
+      left:
+        leftPaneWidth === 0
+          ? 0
+          : (leftSidebarRect.right + markdownSurfaceRect.left) / 2 - rootRect.left,
+      right:
+        rightPaneWidth === 0
+          ? rootRect.width
+          : (markdownSurfaceRect.right + rightSidebarRect.left) / 2 - rootRect.left,
+    };
+
+    setGripPositions((currentPositions) =>
+      Math.abs(currentPositions.left - nextPositions.left) < 0.5 &&
+      Math.abs(currentPositions.right - nextPositions.right) < 0.5
+        ? currentPositions
+        : nextPositions,
+    );
+  }, [leftPaneWidth, rightPaneWidth]);
+
+  useLayoutEffect(() => {
+    let animationFrameId: number | null = null;
+    const startedAt = performance.now();
+
+    function updateDuringPaneTransition() {
+      updateGripPositions();
+      if (performance.now() - startedAt < 200) {
+        animationFrameId = window.requestAnimationFrame(updateDuringPaneTransition);
+      }
+    }
+
+    updateDuringPaneTransition();
+
+    return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [updateGripPositions]);
+
+  useEffect(() => {
+    window.addEventListener("resize", updateGripPositions);
+    return () => window.removeEventListener("resize", updateGripPositions);
+  }, [updateGripPositions]);
 
   const startPaneResize = useCallback(
     (side: PaneSide, event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1166,10 +1237,11 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen bg-bg text-text-primary">
+    <div className="relative flex h-screen bg-bg text-text-primary" ref={workspaceRootRef}>
       <aside
         aria-label="Notes sidebar"
         className={leftPaneClassName}
+        ref={leftSidebarRef}
         style={{ width: leftPaneWidth }}
       >
         <div className="shrink-0 border-b border-border px-3 py-6">
@@ -1582,6 +1654,7 @@ export default function App() {
       </aside>
 
       <PaneResizeHandle
+        left={gripPositions.left}
         label="Resize notes sidebar"
         maxWidth={LEFT_PANE_MAX_WIDTH}
         onResizeStart={(event) => startPaneResize("left", event)}
@@ -1621,6 +1694,7 @@ export default function App() {
             onSaveEdit={handleSaveSelectedNoteEdit}
             readMode={readMode}
             saveError={saveError}
+            surfaceRef={markdownSurfaceRef}
             toolbarControls={toolbarControls}
           />
         </div>
@@ -1628,6 +1702,7 @@ export default function App() {
 
       <PaneResizeHandle
         className="hidden lg:flex"
+        left={gripPositions.right}
         label="Resize Bun"
         maxWidth={RIGHT_PANE_MAX_WIDTH}
         onResizeStart={(event) => startPaneResize("right", event)}
@@ -1637,6 +1712,7 @@ export default function App() {
       <aside
         aria-label="Bun pane"
         className={rightPaneClassName}
+        ref={rightSidebarRef}
         style={{ width: rightPaneWidth }}
       >
         <AskChat
