@@ -28,10 +28,10 @@ The workspace includes a theme switcher in the sidebar header. The Sun/Moon
 icon toggles between light and dark; the small chevron next to it opens a menu
 of variants for the current mode. Available themes:
 
-- **Midnight** (dark, default) — zinc surfaces with an amber accent.
-- **Forest** (dark) — moss-green surfaces with a lime accent.
-- **Daylight** (light) — neutral light surfaces with an amber accent.
-- **Solarized** (light) — classic Solarized Light palette with a blue accent.
+- **Cocoa** (dark, default) — cocoa-brown surfaces with a matte paper workspace background.
+- **Matcha** (dark) — muted olive surfaces with a washi-paper workspace background.
+- **Biscuit** (light) — warm cream surfaces with a handmade-paper workspace background.
+- **Honey** (light) — golden parchment surfaces with a waxed-paper workspace background.
 
 The choice persists in `localStorage`.
 

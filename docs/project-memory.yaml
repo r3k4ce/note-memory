@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-08T22:24:52Z"
+    time_local: "2026-07-08T19:24:52-03:00"
+    summary: "Replaced workspace gutter patterns with realistic theme background textures."
+    changed:
+      - "Added four generated PNG texture assets under frontend/src/assets/backgrounds for Biscuit, Cocoa, Matcha, and Honey workspace backgrounds."
+      - "Changed per-theme workspace CSS variables to use one raster image URL, cover sizing, centered positioning, and no-repeat on .workspace-root only."
+      - "Updated README theme names/descriptions and frontend CSS coverage for distinct PNG URLs plus solid pane/page surfaces."
+    verification:
+      - "Confirmed npm run test -- App.test.tsx failed before implementation on old gradient/SVG textures and missing no-repeat, then passed with 42 tests."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv."
+      - "Reran ./scripts/check.sh with approved cache access: backend format/lint/typecheck/219 passed/1 skipped tests, frontend 136 tests, Playwright 2 tests, lint, and build passed."
+      - "Started Vite at http://127.0.0.1:5174 and inspected all four themes with Playwright screenshots and computed styles."
   - time_utc: "2026-07-08T21:11:07Z"
     time_local: "2026-07-08T18:11:07-03:00"
     summary: "Polished Notebun product shell and Bun personality."

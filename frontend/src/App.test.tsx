@@ -269,12 +269,13 @@ describe("App sidebar navigation", () => {
   });
 
   test("frames both side panes with the cohesive workspace shell", async () => {
-    render(<App />);
+    const { container } = render(<App />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
     });
 
+    expect(container.firstElementChild).toHaveClass("workspace-root");
     expect(screen.getByRole("complementary", { name: "Notes sidebar" })).toHaveClass(
       "workspace-side-pane",
       "workspace-page-shell",
@@ -283,6 +284,52 @@ describe("App sidebar navigation", () => {
       "workspace-side-pane",
       "workspace-page-shell",
     );
+  });
+
+  test("defines distinct theme photo textures only for the workspace background layer", () => {
+    const defaultThemeRule = getCssBlock(styleCss, "@theme");
+    const darkThemeRule = getCssBlock(styleCss, '[data-theme="dark"]');
+    const forestThemeRule = getCssBlock(styleCss, '[data-theme="forest"]');
+    const solarizedThemeRule = getCssBlock(styleCss, '[data-theme="solarized"]');
+    const themeRules = [defaultThemeRule, darkThemeRule, forestThemeRule, solarizedThemeRule];
+    const textureImages = themeRules.map(
+      (rule) => rule.match(/--workspace-bg-image:\s*([^;]+);/)?.[1] ?? "",
+    );
+
+    for (const rule of themeRules) {
+      expect(rule).toContain("--workspace-bg-image:");
+      expect(rule).toContain("--workspace-bg-size:");
+      expect(rule).toContain("--workspace-bg-position:");
+      expect(rule).not.toContain("gradient(");
+      expect(rule).not.toContain("data:image/svg+xml");
+    }
+    expect(new Set(textureImages).size).toBe(themeRules.length);
+    expect(textureImages).toEqual([
+      'url("./assets/backgrounds/workspace-biscuit.png")',
+      'url("./assets/backgrounds/workspace-cocoa.png")',
+      'url("./assets/backgrounds/workspace-matcha.png")',
+      'url("./assets/backgrounds/workspace-honey.png")',
+    ]);
+  });
+
+  test("keeps workspace textures behind solid pane and page surfaces", () => {
+    const workspaceRootRule = getCssBlock(styleCss, ".workspace-root");
+    const workspaceCenterRule = getCssBlock(styleCss, ".workspace-center");
+    const workspacePaneRule = getCssBlock(styleCss, ".workspace-side-pane");
+    const markdownPageRule = getCssBlock(styleCss, ".markdown-page-surface");
+    const workspaceShellRule = getCssBlock(styleCss, ".workspace-page-shell");
+
+    expect(workspaceRootRule).toContain("background-color: var(--color-bg)");
+    expect(workspaceRootRule).toContain("background-image: var(--workspace-bg-image)");
+    expect(workspaceRootRule).toContain("background-size: var(--workspace-bg-size)");
+    expect(workspaceRootRule).toContain("background-position: var(--workspace-bg-position)");
+    expect(workspaceRootRule).toContain("background-repeat: no-repeat");
+    expect(workspaceCenterRule).toContain("background: transparent");
+    expect(workspacePaneRule).toContain("background-color: var(--color-panel-soft)");
+    expect(markdownPageRule).toContain("background-color: var(--color-page)");
+    expect(workspaceShellRule).not.toContain("background-image");
+    expect(workspacePaneRule).not.toContain("background-image");
+    expect(markdownPageRule).not.toContain("background-image");
   });
 
   test("shares workspace page shell edges across side panes and markdown panes", () => {

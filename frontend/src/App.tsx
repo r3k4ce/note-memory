@@ -1237,7 +1237,7 @@ export default function App() {
   );
 
   return (
-    <div className="relative flex h-screen bg-bg text-text-primary" ref={workspaceRootRef}>
+    <div className="workspace-root relative flex h-screen text-text-primary" ref={workspaceRootRef}>
       <aside
         aria-label="Notes sidebar"
         className={leftPaneClassName}
@@ -1670,7 +1670,7 @@ export default function App() {
         width={leftPaneWidth}
       />
 
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-bg">
+      <main className="workspace-center flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-hidden">
           <NoteWorkspace
             captureRef={captureRef}

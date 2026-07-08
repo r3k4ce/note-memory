@@ -53,6 +53,11 @@
   /* Soft panel surface */
   --color-panel-soft: #f8ecd5;
 
+  /* Workspace texture (biscuit paper) */
+  --workspace-bg-image: url("./assets/backgrounds/workspace-biscuit.png");
+  --workspace-bg-size: cover;
+  --workspace-bg-position: center;
+
   /* Motion */
   --duration-150: 150ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -97,6 +102,11 @@
   --shadow-page: 0 4px 14px -3px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
 
   --color-panel-soft: #21160f;
+
+  /* Workspace texture (cocoa paper) */
+  --workspace-bg-image: url("./assets/backgrounds/workspace-cocoa.png");
+  --workspace-bg-size: cover;
+  --workspace-bg-position: center;
 }
 
 [data-theme="forest"] {
@@ -131,6 +141,11 @@
   --shadow-page: 0 4px 14px -3px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
 
   --color-panel-soft: #161e15;
+
+  /* Workspace texture (matcha paper) */
+  --workspace-bg-image: url("./assets/backgrounds/workspace-matcha.png");
+  --workspace-bg-size: cover;
+  --workspace-bg-position: center;
 }
 
 [data-theme="solarized"] {
@@ -165,6 +180,11 @@
   --shadow-page: 0 2px 8px -2px rgb(0 0 0 / 0.07), 0 1px 3px -1px rgb(0 0 0 / 0.04);
 
   --color-panel-soft: #f5e5bd;
+
+  /* Workspace texture (honey parchment) */
+  --workspace-bg-image: url("./assets/backgrounds/workspace-honey.png");
+  --workspace-bg-size: cover;
+  --workspace-bg-position: center;
 }
 
 /* Global browser behavior */
@@ -210,6 +230,18 @@ body {
 
 @layer components {
 /* Shared surface primitives */
+.workspace-root {
+  background-color: var(--color-bg);
+  background-image: var(--workspace-bg-image);
+  background-size: var(--workspace-bg-size);
+  background-position: var(--workspace-bg-position);
+  background-repeat: no-repeat;
+}
+
+.workspace-center {
+  background: transparent;
+}
+
 .workspace-page-shell {
   border: 1px solid var(--color-page-border);
   border-radius: var(--radius-card);
