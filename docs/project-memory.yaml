@@ -1,4 +1,17 @@
 entries:
+  - time_utc: "2026-07-09T18:33:19Z"
+    time_local: "2026-07-09T15:33:19-03:00"
+    summary: "Added desktop default snapping for pane resize drags."
+    changed:
+      - "Added snap-aware pane width resolution in frontend/src/App.tsx for 320px notes sidebar and 352px Bun defaults within a 16px desktop-only drag zone, while preserving the 96px collapse threshold."
+      - "Tracked the active resized side and drag-only snapped state so the active grip gets a subtle accent highlight while magnetized."
+      - "Extended App unit coverage and markdown layout Playwright coverage for snapping, continuous resizing outside the snap zone, narrow viewport behavior, collapse, and Focus Mode restore."
+      - "Waited for the existing pane width transition in the Playwright drag helper before sampling geometry to keep the parallel e2e file deterministic."
+    verification:
+      - "Confirmed npm run test -- App.test.tsx --run failed before implementation on missing snapped widths/class, then passed with 47 tests."
+      - "Initial npm run test:e2e -- markdown-layout.spec.ts could not start the Vite web server in sandbox; reran with approved local dev server/browser access and NO_PROXY for localhost."
+      - "After adding the transition wait, confirmed env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost npm run test:e2e -- markdown-layout.spec.ts passed with 5 tests."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv; approved env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost ./scripts/check.sh passed backend 219 passed/1 skipped, frontend 141 tests, Playwright 5 tests, lint, and build."
   - time_utc: "2026-07-09T17:13:15Z"
     time_local: "2026-07-09T14:13:15-03:00"
     summary: "Kept desktop pane-to-markdown gaps fixed during workspace resizing."

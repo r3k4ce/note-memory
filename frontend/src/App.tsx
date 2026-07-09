@@ -93,6 +93,7 @@ type PaneResizeHandleProps = {
   label: string;
   maxWidth: number;
   onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  snapped?: boolean;
   width: number;
 };
 type GripPositions = {
@@ -108,6 +109,8 @@ const RIGHT_PANE_DEFAULT_WIDTH = 352;
 const RIGHT_PANE_MIN_WIDTH = 280;
 const RIGHT_PANE_MAX_WIDTH = 448;
 const PANE_COLLAPSE_THRESHOLD = 96;
+const PANE_DEFAULT_SNAP_THRESHOLD = 16;
+const DESKTOP_RESIZE_BREAKPOINT = 1024;
 const SIDEBAR_ACCENT_BUTTON_CLASS =
   "inline-flex items-center justify-center bg-accent text-black transition-colors hover:bg-accent-hover disabled:opacity-40";
 const SIDEBAR_ACCENT_ICON_BUTTON_CLASS =
@@ -115,12 +118,22 @@ const SIDEBAR_ACCENT_ICON_BUTTON_CLASS =
 const SIDEBAR_SMALL_ACTION_BUTTON_CLASS =
   "rounded p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-secondary disabled:opacity-40";
 
-function clampPaneWidth(width: number, minWidth: number, maxWidth: number): number {
+function resolvePaneWidth(
+  width: number,
+  minWidth: number,
+  maxWidth: number,
+  defaultWidth: number,
+  shouldSnap: boolean,
+): { snapped: boolean; width: number } {
   if (width < PANE_COLLAPSE_THRESHOLD) {
-    return 0;
+    return { snapped: false, width: 0 };
   }
 
-  return Math.min(Math.max(width, minWidth), maxWidth);
+  if (shouldSnap && Math.abs(width - defaultWidth) <= PANE_DEFAULT_SNAP_THRESHOLD) {
+    return { snapped: true, width: defaultWidth };
+  }
+
+  return { snapped: false, width: Math.min(Math.max(width, minWidth), maxWidth) };
 }
 
 function PaneResizeHandle({
@@ -129,6 +142,7 @@ function PaneResizeHandle({
   label,
   maxWidth,
   onResizeStart,
+  snapped = false,
   width,
 }: PaneResizeHandleProps) {
   return (
@@ -138,7 +152,9 @@ function PaneResizeHandle({
       aria-valuemax={maxWidth}
       aria-valuemin={0}
       aria-valuenow={width}
-      className={`resize-handle-grip group absolute top-1/2 z-20 h-8 w-3.5 shrink-0 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center bg-bg text-text-muted transition-colors hover:text-text-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${className}`}
+      className={`resize-handle-grip group absolute top-1/2 z-20 h-8 w-3.5 shrink-0 -translate-x-1/2 -translate-y-1/2 cursor-col-resize items-center justify-center bg-bg text-text-muted transition-colors hover:text-text-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+        snapped ? "resize-handle-grip-snapped" : ""
+      } ${className}`}
       onPointerDown={onResizeStart}
       role="separator"
       style={{ left }}
@@ -243,6 +259,8 @@ export default function App() {
     left: LEFT_PANE_DEFAULT_WIDTH,
     right: 0,
   });
+  const [activeResizeSide, setActiveResizeSide] = useState<PaneSide | null>(null);
+  const [snappedResizeSide, setSnappedResizeSide] = useState<PaneSide | null>(null);
 
   const searchRequestId = useRef(0);
   const liveSearchTimeoutId = useRef<number | null>(null);
@@ -299,19 +317,33 @@ export default function App() {
     rightPaneWidth === 0 ? "workspace-side-pane-collapsed px-0" : "px-5"
   }`;
 
-  const updateLeftPaneWidth = useCallback((width: number) => {
-    const nextWidth = clampPaneWidth(width, LEFT_PANE_MIN_WIDTH, LEFT_PANE_MAX_WIDTH);
+  const updateLeftPaneWidth = useCallback((width: number, shouldSnap = false) => {
+    const { snapped, width: nextWidth } = resolvePaneWidth(
+      width,
+      LEFT_PANE_MIN_WIDTH,
+      LEFT_PANE_MAX_WIDTH,
+      LEFT_PANE_DEFAULT_WIDTH,
+      shouldSnap,
+    );
     if (nextWidth > 0) {
       lastLeftPaneWidthRef.current = nextWidth;
     }
+    setSnappedResizeSide(snapped ? "left" : null);
     setLeftPaneWidth(nextWidth);
   }, []);
 
-  const updateRightPaneWidth = useCallback((width: number) => {
-    const nextWidth = clampPaneWidth(width, RIGHT_PANE_MIN_WIDTH, RIGHT_PANE_MAX_WIDTH);
+  const updateRightPaneWidth = useCallback((width: number, shouldSnap = false) => {
+    const { snapped, width: nextWidth } = resolvePaneWidth(
+      width,
+      RIGHT_PANE_MIN_WIDTH,
+      RIGHT_PANE_MAX_WIDTH,
+      RIGHT_PANE_DEFAULT_WIDTH,
+      shouldSnap,
+    );
     if (nextWidth > 0) {
       lastRightPaneWidthRef.current = nextWidth;
     }
+    setSnappedResizeSide(snapped ? "right" : null);
     setRightPaneWidth(nextWidth);
   }, []);
 
@@ -376,18 +408,21 @@ export default function App() {
     (side: PaneSide, event: ReactPointerEvent<HTMLDivElement>) => {
       event.preventDefault();
       event.currentTarget.setPointerCapture?.(event.pointerId);
+      setActiveResizeSide(side);
+      setSnappedResizeSide(null);
 
       const startX = event.clientX;
       const startWidth = side === "left" ? leftPaneWidth : rightPaneWidth;
+      const shouldSnapToDefault = window.innerWidth >= DESKTOP_RESIZE_BREAKPOINT;
 
       function handlePointerMove(moveEvent: PointerEvent) {
         const deltaX = moveEvent.clientX - startX;
         const nextWidth = side === "left" ? startWidth + deltaX : startWidth - deltaX;
 
         if (side === "left") {
-          updateLeftPaneWidth(nextWidth);
+          updateLeftPaneWidth(nextWidth, shouldSnapToDefault);
         } else {
-          updateRightPaneWidth(nextWidth);
+          updateRightPaneWidth(nextWidth, shouldSnapToDefault);
         }
       }
 
@@ -395,6 +430,8 @@ export default function App() {
         window.removeEventListener("pointermove", handlePointerMove);
         window.removeEventListener("pointerup", stopResize);
         window.removeEventListener("pointercancel", stopResize);
+        setActiveResizeSide(null);
+        setSnappedResizeSide(null);
       }
 
       window.addEventListener("pointermove", handlePointerMove);
@@ -1667,6 +1704,7 @@ export default function App() {
         label="Resize notes sidebar"
         maxWidth={LEFT_PANE_MAX_WIDTH}
         onResizeStart={(event) => startPaneResize("left", event)}
+        snapped={activeResizeSide === "left" && snappedResizeSide === "left"}
         width={leftPaneWidth}
       />
 
@@ -1715,6 +1753,7 @@ export default function App() {
         label="Resize Bun"
         maxWidth={RIGHT_PANE_MAX_WIDTH}
         onResizeStart={(event) => startPaneResize("right", event)}
+        snapped={activeResizeSide === "right" && snappedResizeSide === "right"}
         width={rightPaneWidth}
       />
 

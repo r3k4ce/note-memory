@@ -578,6 +578,11 @@ body {
   box-shadow: var(--shadow-soft);
 }
 
+.resize-handle-grip-snapped {
+  color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-soft), var(--shadow-soft);
+}
+
 .note-toolbar-error {
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-soft);

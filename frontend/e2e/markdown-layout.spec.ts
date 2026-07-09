@@ -193,6 +193,37 @@ function expectGapToStayFixed(actualGap: number, expectedGap: number) {
   expect(Math.abs(actualGap - expectedGap)).toBeLessThanOrEqual(1);
 }
 
+async function getPaneWidths(page: Page) {
+  return page.evaluate(() => {
+    const leftSidebar = document.querySelector('[aria-label="Notes sidebar"]');
+    const rightSidebar = document.querySelector('[aria-label="Bun pane"]');
+    if (!(leftSidebar instanceof HTMLElement) || !(rightSidebar instanceof HTMLElement)) {
+      throw new Error("Missing pane width target");
+    }
+
+    return {
+      left: leftSidebar.getBoundingClientRect().width,
+      right: rightSidebar.getBoundingClientRect().width,
+    };
+  });
+}
+
+async function dragGripBy(page: Page, label: string, deltaX: number) {
+  const grip = page.getByRole("separator", { name: label });
+  const box = await grip.boundingBox();
+  if (!box) {
+    throw new Error(`Missing ${label} grip box`);
+  }
+
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaX, startY, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+}
+
 test("long markdown documents use the full shared page surface in edit and read mode", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page);
@@ -359,6 +390,42 @@ test("desktop resize grips stay in the visual gutters", async ({ page }) => {
   expect(collapsedGeometry.rightSidebar.width).toBeLessThanOrEqual(2);
   expect(collapsedGeometry.leftGrip.centerX).toBeCloseTo(0, 0);
   expect(collapsedGeometry.rightGrip.centerX).toBeCloseTo(collapsedGeometry.viewportWidth, 0);
+});
+
+test("desktop resize grips snap panes to their default widths near the magnet zone", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Work" }).click();
+  await page.getByRole("button", { name: "Long workspace note" }).click();
+  await expect(page.getByLabel("Markdown source")).toBeVisible();
+
+  await dragGripBy(page, "Resize notes sidebar", 40);
+  expect((await getPaneWidths(page)).left).toBeCloseTo(360, 0);
+
+  await dragGripBy(page, "Resize notes sidebar", -45);
+  expect((await getPaneWidths(page)).left).toBeCloseTo(320, 0);
+
+  await dragGripBy(page, "Resize Bun", -40);
+  expect((await getPaneWidths(page)).right).toBeCloseTo(392, 0);
+
+  await dragGripBy(page, "Resize Bun", 45);
+  expect((await getPaneWidths(page)).right).toBeCloseTo(352, 0);
+});
+
+test("pane resize snapping is disabled below the desktop breakpoint", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 900 });
+  await mockApi(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Work" }).click();
+  await page.getByRole("button", { name: "Long workspace note" }).click();
+  await expect(page.getByLabel("Markdown source")).toBeVisible();
+
+  await dragGripBy(page, "Resize notes sidebar", -14);
+
+  expect((await getPaneWidths(page)).left).toBeCloseTo(306, 0);
 });
 
 test("markdown side fades stay disabled on narrow viewports", async ({ page }) => {

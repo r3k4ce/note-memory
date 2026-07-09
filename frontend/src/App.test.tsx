@@ -441,6 +441,7 @@ describe("App sidebar navigation", () => {
       "workspace-side-pane",
       "workspace-side-pane-collapsed",
       "resize-handle-grip",
+      "resize-handle-grip-snapped",
       "note-toolbar-error",
       "note-slip",
       "note-preview",
@@ -525,6 +526,140 @@ describe("App sidebar navigation", () => {
     expect(sidebar).toHaveStyle({ width: "320px" });
     expect(assistant).toHaveStyle({ width: "352px" });
     expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
+  });
+
+  test("snaps the notes sidebar to its desktop default while dragged near it", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+    const separator = screen.getByRole("separator", { name: "Resize notes sidebar" });
+
+    fireEvent.pointerDown(separator, { clientX: 320, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 306, pointerId: 1 });
+
+    expect(sidebar).toHaveStyle({ width: "320px" });
+    expect(separator).toHaveClass("resize-handle-grip-snapped");
+
+    fireEvent.pointerMove(window, { clientX: 292, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(sidebar).toHaveStyle({ width: "292px" });
+    expect(separator).not.toHaveClass("resize-handle-grip-snapped");
+  });
+
+  test("snaps the Bun pane to its desktop default while dragged near it", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const assistant = screen.getByRole("complementary", { name: "Bun pane" });
+    const separator = screen.getByRole("separator", { name: "Resize Bun" });
+
+    fireEvent.pointerDown(separator, { clientX: 900, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 915, pointerId: 1 });
+
+    expect(assistant).toHaveStyle({ width: "352px" });
+    expect(separator).toHaveClass("resize-handle-grip-snapped");
+
+    fireEvent.pointerMove(window, { clientX: 929, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(assistant).toHaveStyle({ width: "323px" });
+    expect(separator).not.toHaveClass("resize-handle-grip-snapped");
+  });
+
+  test("keeps desktop pane resizing continuous outside the default snap zone", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+    const assistant = screen.getByRole("complementary", { name: "Bun pane" });
+
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize notes sidebar" }), {
+      clientX: 320,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(window, { clientX: 337, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(sidebar).toHaveStyle({ width: "337px" });
+
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize Bun" }), {
+      clientX: 900,
+      pointerId: 2,
+    });
+    fireEvent.pointerMove(window, { clientX: 883, pointerId: 2 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    expect(assistant).toHaveStyle({ width: "369px" });
+  });
+
+  test("does not snap pane resizing below the desktop breakpoint", async () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 900 });
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+      });
+
+      const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+
+      fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize notes sidebar" }), {
+        clientX: 320,
+        pointerId: 1,
+      });
+      fireEvent.pointerMove(window, { clientX: 306, pointerId: 1 });
+      fireEvent.pointerUp(window, { pointerId: 1 });
+
+      expect(sidebar).toHaveStyle({ width: "306px" });
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+    }
+  });
+
+  test("Focus Mode restores snapped desktop default pane widths", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
+    const assistant = screen.getByRole("complementary", { name: "Bun pane" });
+
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize notes sidebar" }), {
+      clientX: 320,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(window, { clientX: 306, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    fireEvent.pointerDown(screen.getByRole("separator", { name: "Resize Bun" }), {
+      clientX: 900,
+      pointerId: 2,
+    });
+    fireEvent.pointerMove(window, { clientX: 915, pointerId: 2 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Focus Mode" }));
+    expect(sidebar).toHaveStyle({ width: "0px" });
+    expect(assistant).toHaveStyle({ width: "0px" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
+    expect(sidebar).toHaveStyle({ width: "320px" });
+    expect(assistant).toHaveStyle({ width: "352px" });
   });
 
   test("toggles read mode from the top toolbar for new notes and selected notes", async () => {
