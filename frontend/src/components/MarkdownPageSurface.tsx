@@ -10,6 +10,7 @@ export function MarkdownPageSurface({ children, surfaceRef, toolbar }: MarkdownP
   return (
     <div className="workspace-page-shell markdown-page-surface" ref={surfaceRef}>
       {toolbar}
+      <div className="markdown-page-side-fades" aria-hidden="true" />
       {children}
     </div>
   );

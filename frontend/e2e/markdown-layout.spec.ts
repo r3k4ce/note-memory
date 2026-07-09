@@ -39,13 +39,19 @@ async function mockApi(page: Page) {
 async function getMarkdownSurfaceFadeStyles(page: Page) {
   return page.evaluate(() => {
     const pageSurface = document.querySelector(".markdown-page-surface");
+    const sideFades = document.querySelector(".markdown-page-side-fades");
     const toolbarOverlay = document.querySelector(".note-toolbar-overlay");
-    if (!(pageSurface instanceof HTMLElement) || !(toolbarOverlay instanceof HTMLElement)) {
+    if (
+      !(pageSurface instanceof HTMLElement) ||
+      !(sideFades instanceof HTMLElement) ||
+      !(toolbarOverlay instanceof HTMLElement)
+    ) {
       throw new Error("Missing markdown surface fade target");
     }
 
     const before = getComputedStyle(pageSurface, "::before");
     const after = getComputedStyle(pageSurface, "::after");
+    const side = getComputedStyle(sideFades);
     const toolbarOverlayStyle = getComputedStyle(toolbarOverlay);
 
     return {
@@ -68,6 +74,16 @@ async function getMarkdownSurfaceFadeStyles(page: Page) {
         position: before.position,
         top: before.top,
         zIndex: Number(before.zIndex),
+      },
+      side: {
+        ariaHidden: sideFades.getAttribute("aria-hidden"),
+        backgroundImage: side.backgroundImage,
+        backgroundSize: side.backgroundSize,
+        display: side.display,
+        inset: side.inset,
+        pointerEvents: side.pointerEvents,
+        position: side.position,
+        zIndex: Number(side.zIndex),
       },
       surfaceBackgroundColor: getComputedStyle(pageSurface).backgroundColor,
       toolbarZIndex: Number(toolbarOverlayStyle.zIndex),
@@ -94,6 +110,30 @@ function expectMarkdownSurfaceFades(fadeStyles: Awaited<ReturnType<typeof getMar
   expect(fadeStyles.after.bottom).toBe("0px");
   expect(fadeStyles.after.height).toBe("48px");
   expect(fadeStyles.after.maskImage).toContain("to top");
+  expect(fadeStyles.side.ariaHidden).toBe("true");
+  expect(fadeStyles.side.display).toBe("block");
+  expect(fadeStyles.side.position).toBe("absolute");
+  expect(fadeStyles.side.pointerEvents).toBe("none");
+  expect(fadeStyles.side.backgroundImage).toContain("linear-gradient");
+  expect(fadeStyles.side.backgroundImage).toContain(fadeStyles.surfaceBackgroundColor);
+  expect(fadeStyles.side.backgroundSize).toContain("24px 100%");
+  expect(fadeStyles.side.zIndex).toBeLessThan(fadeStyles.toolbarZIndex);
+}
+
+async function getMarkdownSideFadeDisplay(page: Page) {
+  return page.evaluate(() => {
+    const sideFades = document.querySelector(".markdown-page-side-fades");
+    if (!(sideFades instanceof HTMLElement)) {
+      throw new Error("Missing markdown side fades");
+    }
+
+    const style = getComputedStyle(sideFades);
+    return {
+      ariaHidden: sideFades.getAttribute("aria-hidden"),
+      display: style.display,
+      pointerEvents: style.pointerEvents,
+    };
+  });
 }
 
 async function getResizeGripGeometry(page: Page) {
@@ -286,4 +326,19 @@ test("desktop resize grips stay in the visual gutters", async ({ page }) => {
   expect(collapsedGeometry.rightSidebar.width).toBeLessThanOrEqual(2);
   expect(collapsedGeometry.leftGrip.centerX).toBeCloseTo(0, 0);
   expect(collapsedGeometry.rightGrip.centerX).toBeCloseTo(collapsedGeometry.viewportWidth, 0);
+});
+
+test("markdown side fades stay disabled on narrow viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockApi(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Work" }).click();
+  await page.getByRole("button", { name: "Long workspace note" }).click();
+  await expect(page.getByLabel("Markdown source")).toBeVisible();
+
+  const sideFades = await getMarkdownSideFadeDisplay(page);
+  expect(sideFades.ariaHidden).toBe("true");
+  expect(sideFades.pointerEvents).toBe("none");
+  expect(sideFades.display).toBe("none");
 });

@@ -17,6 +17,7 @@ import type { AskResponse, Category, Note, SearchResult } from "./types";
 
 const styleCss = readFileSync("src/style.css", "utf8");
 const markdownPaneSource = readFileSync("src/components/MarkdownPane.tsx", "utf8");
+const markdownPageSurfaceSource = readFileSync("src/components/MarkdownPageSurface.tsx", "utf8");
 
 const { categories, notes } = vi.hoisted(() => {
   const mockCategories: Category[] = [
@@ -355,10 +356,17 @@ describe("App sidebar navigation", () => {
   test("keeps markdown surface scroll fades passive and below the toolbar", () => {
     const beforeFadeRule = getCssBlock(styleCss, ".markdown-page-surface::before");
     const afterFadeRule = getCssBlock(styleCss, ".markdown-page-surface::after");
+    const sideFadeRule = getCssBlock(styleCss, ".markdown-page-side-fades");
+    const desktopSideFadeRule =
+      styleCss.match(/@media \(min-width: 48rem\)\s*\{\s*\.markdown-page-side-fades\s*\{[^}]+\}\s*\}/)?.[0] ??
+      "";
     const noteToolbarOverlayRule = styleCss.match(/\.note-toolbar-overlay\s*\{[^}]+\}/)?.[0] ?? "";
 
     expect(beforeFadeRule).not.toBe("");
     expect(afterFadeRule).not.toBe("");
+    expect(sideFadeRule).not.toBe("");
+    expect(markdownPageSurfaceSource).toContain('className="markdown-page-side-fades"');
+    expect(markdownPageSurfaceSource).toContain('aria-hidden="true"');
     for (const fadeRule of [beforeFadeRule, afterFadeRule]) {
       expect(fadeRule).toContain('content: ""');
       expect(fadeRule).toContain("position: absolute");
@@ -378,6 +386,17 @@ describe("App sidebar navigation", () => {
     );
     expect(afterFadeRule).toContain("bottom: 0");
     expect(afterFadeRule).toContain("height: 3rem");
+    expect(sideFadeRule).toContain("position: absolute");
+    expect(sideFadeRule).toContain("inset: 0");
+    expect(sideFadeRule).toContain("z-index: 1");
+    expect(sideFadeRule).toContain("pointer-events: none");
+    expect(sideFadeRule).toContain("display: none");
+    expect(sideFadeRule).toContain("background:");
+    expect(sideFadeRule).toContain("linear-gradient(to right, var(--color-page), transparent)");
+    expect(sideFadeRule).toContain("linear-gradient(to left, var(--color-page), transparent)");
+    expect(sideFadeRule).toContain("background-size: 1.5rem 100%, 1.5rem 100%");
+    expect(desktopSideFadeRule).toContain(".markdown-page-side-fades");
+    expect(desktopSideFadeRule).toContain("display: block");
     expect(noteToolbarOverlayRule).toContain("z-index: 10");
   });
 

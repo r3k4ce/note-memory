@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-09T00:18:03Z"
+    time_local: "2026-07-08T21:18:03-03:00"
+    summary: "Added subtle desktop-only side fades to the shared markdown page surface."
+    changed:
+      - "Rendered an aria-hidden markdown-page-side-fades layer inside MarkdownPageSurface so edit and read mode share the treatment."
+      - "Styled side fades as passive page-color edge gradients below the toolbar, hidden below the desktop breakpoint."
+      - "Extended App CSS regression coverage and Playwright markdown layout coverage for desktop edit/read side fades and narrow viewport disablement."
+    verification:
+      - "Confirmed npm run test -- App.test.tsx --run failed before implementation on the missing side fade rule, then passed with 42 tests."
+      - "Initial npm run test:e2e -- markdown-layout.spec.ts failed in sandbox because Vite could not listen on 127.0.0.1:5173; reran with approved local dev server/browser access: 3 passed."
+      - "Initial ./scripts/check.sh failed in sandbox because uv could not write to /home/adrian/.cache/uv; first approved run hit an unrelated intermittent markdownLivePreview test failure that passed focused on retry."
+      - "Reran ./scripts/check.sh with approved uv cache and local dev server/browser access: backend 219 passed/1 skipped, frontend 136 tests, Playwright 3 tests, lint, and build passed."
   - time_utc: "2026-07-08T22:24:52Z"
     time_local: "2026-07-08T19:24:52-03:00"
     summary: "Replaced workspace gutter patterns with realistic theme background textures."
