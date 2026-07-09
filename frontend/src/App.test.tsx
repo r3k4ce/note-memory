@@ -336,6 +336,9 @@ describe("App sidebar navigation", () => {
   test("shares workspace page shell edges across side panes and markdown panes", () => {
     const workspacePaneRule = styleCss.match(/\.workspace-side-pane\s*\{[^}]+\}/)?.[0] ?? "";
     const markdownPageRule = styleCss.match(/\.markdown-page-surface\s*\{[^}]+\}/)?.[0] ?? "";
+    const desktopMarkdownPageRule =
+      styleCss.match(/@media \(min-width: 48rem\)\s*\{\s*\.markdown-page-surface\s*\{[^}]+\}\s*\}/)?.[0] ??
+      "";
     const noteToolbarOverlayRule = styleCss.match(/\.note-toolbar-overlay\s*\{[^}]+\}/)?.[0] ?? "";
     const workspaceShellRule = styleCss.match(/\.workspace-page-shell\s*\{[^}]+\}/)?.[0] ?? "";
     const collapsedPaneRule = styleCss.match(/\.workspace-side-pane-collapsed\s*\{[^}]+\}/)?.[0] ?? "";
@@ -343,6 +346,9 @@ describe("App sidebar navigation", () => {
     expect(styleCss).toContain("--spacing-workspace-page");
     expect(workspacePaneRule).toContain("margin-block: var(--spacing-workspace-page)");
     expect(markdownPageRule).toContain("margin: var(--spacing-workspace-page) auto");
+    expect(desktopMarkdownPageRule).toContain("max-width: none");
+    expect(desktopMarkdownPageRule).toContain("margin-inline: var(--spacing-workspace-page)");
+    expect(desktopMarkdownPageRule).not.toContain("margin: var(--spacing-workspace-page) auto");
     expect(markdownPageRule).toContain("overflow: hidden");
     expect(noteToolbarOverlayRule).toContain("position: absolute");
     expect(noteToolbarOverlayRule).toContain("top: 0");

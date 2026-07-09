@@ -164,6 +164,10 @@ async function getResizeGripGeometry(page: Page) {
     };
 
     return {
+      gaps: {
+        left: markdownSurface.getBoundingClientRect().left - leftSidebar.getBoundingClientRect().right,
+        right: rightSidebar.getBoundingClientRect().left - markdownSurface.getBoundingClientRect().right,
+      },
       leftGrip: toBounds(leftGrip),
       leftSidebar: toBounds(leftSidebar),
       markdownSurface: toBounds(markdownSurface),
@@ -182,6 +186,11 @@ function expectGripCenterInGap(
   expect(grip.centerX).toBeGreaterThanOrEqual(leftBound - 1);
   expect(grip.centerX).toBeLessThanOrEqual(rightBound + 1);
   expect(Math.abs(grip.centerX - (leftBound + rightBound) / 2)).toBeLessThanOrEqual(1);
+}
+
+function expectGapToStayFixed(actualGap: number, expectedGap: number) {
+  expect(actualGap).toBeGreaterThan(0);
+  expect(Math.abs(actualGap - expectedGap)).toBeLessThanOrEqual(1);
 }
 
 test("long markdown documents use the full shared page surface in edit and read mode", async ({ page }) => {
@@ -295,11 +304,32 @@ test("desktop resize grips stay in the visual gutters", async ({ page }) => {
     initialGeometry.markdownSurface.right,
     initialGeometry.rightSidebar.left,
   );
+  expect(initialGeometry.gaps.left).toBeGreaterThan(0);
+  expect(initialGeometry.gaps.right).toBeGreaterThan(0);
+
+  const initialPageWidth = initialGeometry.markdownSurface.width;
 
   await page.getByRole("separator", { name: "Resize notes sidebar" }).dragTo(page.locator("body"), {
     force: true,
     targetPosition: { x: 420, y: 450 },
   });
+  await page.waitForTimeout(250);
+
+  const leftDraggedGeometry = await getResizeGripGeometry(page);
+  expectGapToStayFixed(leftDraggedGeometry.gaps.left, initialGeometry.gaps.left);
+  expectGapToStayFixed(leftDraggedGeometry.gaps.right, initialGeometry.gaps.right);
+  expect(leftDraggedGeometry.markdownSurface.width).toBeLessThan(initialPageWidth - 20);
+  expectGripCenterInGap(
+    leftDraggedGeometry.leftGrip,
+    leftDraggedGeometry.leftSidebar.right,
+    leftDraggedGeometry.markdownSurface.left,
+  );
+  expectGripCenterInGap(
+    leftDraggedGeometry.rightGrip,
+    leftDraggedGeometry.markdownSurface.right,
+    leftDraggedGeometry.rightSidebar.left,
+  );
+
   await page.getByRole("separator", { name: "Resize Bun" }).dragTo(page.locator("body"), {
     force: true,
     targetPosition: { x: 1080, y: 450 },
@@ -307,6 +337,9 @@ test("desktop resize grips stay in the visual gutters", async ({ page }) => {
   await page.waitForTimeout(250);
 
   const draggedGeometry = await getResizeGripGeometry(page);
+  expectGapToStayFixed(draggedGeometry.gaps.left, initialGeometry.gaps.left);
+  expectGapToStayFixed(draggedGeometry.gaps.right, initialGeometry.gaps.right);
+  expect(draggedGeometry.markdownSurface.width).toBeGreaterThan(leftDraggedGeometry.markdownSurface.width + 20);
   expectGripCenterInGap(
     draggedGeometry.leftGrip,
     draggedGeometry.leftSidebar.right,

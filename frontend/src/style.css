@@ -436,6 +436,14 @@ body {
   overflow: hidden;
 }
 
+@media (min-width: 48rem) {
+  .markdown-page-surface {
+    width: auto;
+    max-width: none;
+    margin-inline: var(--spacing-workspace-page);
+  }
+}
+
 .markdown-page-surface::before {
   content: "";
   position: absolute;

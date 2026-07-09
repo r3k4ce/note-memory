@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-09T17:13:15Z"
+    time_local: "2026-07-09T14:13:15-03:00"
+    summary: "Kept desktop pane-to-markdown gaps fixed during workspace resizing."
+    changed:
+      - "Added a desktop markdown-page-surface override that removes the 48rem max-width and uses fixed --spacing-workspace-page inline margins while preserving the base centered narrow rule."
+      - "Extended App CSS regression coverage for the desktop fixed-gap override."
+      - "Expanded Playwright resize coverage to assert pane-to-page gaps stay fixed, markdown page width changes as side panes resize, and collapsed grips remain at viewport edges."
+    verification:
+      - "Confirmed npm run test -- App.test.tsx --run failed before implementation on the missing desktop override, then passed with 42 tests."
+      - "Initial npm run test:e2e -- markdown-layout.spec.ts could not start/reach Vite until localhost was excluded from the proxy; reran with NO_PROXY=127.0.0.1,localhost: 3 passed."
+      - "Ran env NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost ./scripts/check.sh: backend format/lint/typecheck/219 passed/1 skipped tests, frontend 136 tests, Playwright 3 tests, lint, and build passed."
   - time_utc: "2026-07-09T00:18:03Z"
     time_local: "2026-07-08T21:18:03-03:00"
     summary: "Added subtle desktop-only side fades to the shared markdown page surface."
