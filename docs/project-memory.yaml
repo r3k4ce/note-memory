@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-10T01:13:30Z"
+    time_local: "2026-07-09T22:13:30-03:00"
+    summary: "Made Ask Bun abstain unless every answer claim has validated retrieved evidence."
+    changed:
+      - "Ask now requests typed answered/no-evidence output with claim-level evidence IDs, rejects malformed or uncited output, and generates citation numbers in the backend."
+      - "Source cards include only notes and chunks cited inline; repeated citations preserve first-appearance source numbering."
+      - "Retrieval context labels stable evidence IDs and prioritizes exact local matches before semantic candidates within the final chunk budget."
+      - "Documented the strictly grounded Ask behavior in the README."
+    verification:
+      - "Focused Ask, AI, and retrieval assertions passed (59 passed, 1 skipped); the partial pytest command exited nonzero only because repository-wide coverage enforcement applies to subsets."
+      - "Ran ./scripts/check.sh: backend format, lint, type checks, 237 passed/1 skipped tests; frontend tests, browser checks, lint, and production build passed."
   - time_utc: "2026-07-10T00:54:23Z"
     time_local: "2026-07-09T21:54:23-03:00"
     summary: "Rendered completed Ask Bun answers as compact GitHub-flavored Markdown."

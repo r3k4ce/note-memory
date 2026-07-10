@@ -1,7 +1,7 @@
-from typing import Any
+from typing import Any, Literal
 
 from openai import OpenAI, OpenAIError
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
@@ -22,13 +22,16 @@ Use a short orienting phrase when it helps the answer feel clear.
 Avoid puns, mascot lore, jokes, exclamation-heavy copy, and unsupported reassurance.
 Prefer direct answers, then mention any important missing or ambiguous evidence.
 Do not invent policies, rules, or decisions.
-When answering, cite supporting sources as [1], [2], and so on, using the saved-note context order.
-Only cite a source number when that source directly supports the sentence.
+Return only the requested structured response.
+Set status to "no_evidence" with an empty claims list when evidence is weak, missing, or ambiguous.
+For status "answered", provide atomic Markdown claims.
+Every claim must cite one or more Evidence IDs from the saved-note context that directly support it.
+Never include numeric citations such as [1] in claim text.
+The application adds them after validation.
 When evidence is weak, missing, or ambiguous, say that plainly instead of stretching the source.
 Style examples only, not facts:
-- "I found a saved decision about the launch checklist. [1]"
-- "I found two relevant notes, but neither names an owner. [1] [2]"
-- "I could not find that detail in the saved notes."
+- "I found a saved decision about the launch checklist."
+- "I found two relevant notes, but neither names an owner."
 """
 
 ORGANIZER_SYSTEM_PROMPT = """Organize messy notes into clean reference cards.
@@ -56,6 +59,20 @@ class AnswerUnavailableError(RuntimeError):
 
 class AnswerResponseError(RuntimeError):
     """Raised when the answer model does not return usable text."""
+
+
+class GroundedClaim(BaseModel):
+    text: str
+    evidence_ids: list[str]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GroundedAnswer(BaseModel):
+    status: Literal["answered", "no_evidence"]
+    claims: list[GroundedClaim]
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class OrganizerMetadata(BaseModel):
@@ -135,7 +152,7 @@ def generate_grounded_answer(
     history: list[AskHistoryMessage] | None = None,
     settings: Settings | None = None,
     client: Any | None = None,
-) -> str:
+) -> GroundedAnswer:
     if not question.strip():
         raise ValueError("question must not be empty")
     if not context.strip():
@@ -144,7 +161,7 @@ def generate_grounded_answer(
     app_settings = settings or Settings()
     answer_client = client or _answer_openai_client(app_settings)
     try:
-        completion = answer_client.chat.completions.create(
+        completion = answer_client.chat.completions.parse(
             model=app_settings.openai_organizer_model,
             messages=[
                 {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
@@ -157,15 +174,18 @@ def generate_grounded_answer(
                     ),
                 },
             ],
+            response_format=GroundedAnswer,
         )
     except OpenAIError as error:
         raise AnswerUnavailableError("OpenAI answer request failed") from error
+    except ValidationError as error:
+        raise AnswerResponseError("OpenAI did not return valid grounded output") from error
 
-    answer = completion.choices[0].message.content
-    if not isinstance(answer, str) or not answer.strip():
-        raise AnswerResponseError("OpenAI did not return a grounded answer")
+    answer = completion.choices[0].message.parsed
+    if not isinstance(answer, GroundedAnswer):
+        raise AnswerResponseError("OpenAI did not return valid grounded output")
 
-    return answer.strip()
+    return answer
 
 
 def _answer_user_prompt(

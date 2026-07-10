@@ -1,12 +1,18 @@
 import logging
+import re
 from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, status
 
-from mapping_memory.ai import ANSWER_FALLBACK, generate_grounded_answer
+from mapping_memory.ai import (
+    ANSWER_FALLBACK,
+    AnswerResponseError,
+    GroundedAnswer,
+    generate_grounded_answer,
+)
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.notes import get_category
-from mapping_memory.rag import RagSource, prepare_retrieval_context
+from mapping_memory.rag import RagContextChunk, RagSource, prepare_retrieval_context
 from mapping_memory.schemas import (
     AskEvidenceSummary,
     AskRequest,
@@ -50,6 +56,8 @@ def create_ask_router(settings: Settings) -> APIRouter:
                 history=request.history,
                 settings=settings,
             )
+        except AnswerResponseError:
+            return _no_evidence_response()
         except Exception:
             logger.warning("Ask answer generation unavailable")
             raise HTTPException(
@@ -57,16 +65,11 @@ def create_ask_router(settings: Settings) -> APIRouter:
                 detail="Ask endpoint is unavailable",
             ) from None
 
-        if answer == ANSWER_FALLBACK:
+        rendered_response = _render_grounded_answer(answer, retrieval_context.sources)
+        if rendered_response is None:
             return _no_evidence_response()
 
-        sources = _ask_sources(retrieval_context.sources)
-        return AskResponse(
-            answer=answer,
-            status="answered",
-            evidence_summary=_evidence_summary(sources),
-            sources=sources,
-        )
+        return rendered_response
 
     return router
 
@@ -81,6 +84,73 @@ def _ask_sources(sources: tuple[RagSource, ...]) -> list[AskSource]:
         )
         for source in sources
     ]
+
+
+def _render_grounded_answer(
+    answer: object,
+    sources: tuple[RagSource, ...],
+) -> AskResponse | None:
+    if not isinstance(answer, GroundedAnswer):
+        return None
+    if answer.status == "no_evidence":
+        return _no_evidence_response() if not answer.claims else None
+    if not answer.claims:
+        return None
+
+    evidence_by_id: dict[str, tuple[RagSource, RagContextChunk]] = {}
+    for source in sources:
+        for chunk in source.chunks:
+            if not chunk.chunk_id or chunk.chunk_id in evidence_by_id:
+                return None
+            evidence_by_id[chunk.chunk_id] = (source, chunk)
+
+    source_numbers: dict[int, int] = {}
+    cited_chunks: dict[int, list[RagContextChunk]] = {}
+    cited_sources: list[RagSource] = []
+    rendered_claims: list[str] = []
+    for claim in answer.claims:
+        claim_text = claim.text.strip()
+        if not claim_text or not claim.evidence_ids or re.search(r"\[\d+\]", claim_text):
+            return None
+        if len(set(claim.evidence_ids)) != len(claim.evidence_ids):
+            return None
+
+        claim_numbers: list[int] = []
+        for evidence_id in claim.evidence_ids:
+            if not evidence_id.strip() or evidence_id not in evidence_by_id:
+                return None
+            source, chunk = evidence_by_id[evidence_id]
+            source_number = source_numbers.get(source.note_id)
+            if source_number is None:
+                source_number = len(source_numbers) + 1
+                source_numbers[source.note_id] = source_number
+                cited_sources.append(source)
+                cited_chunks[source.note_id] = []
+            if chunk not in cited_chunks[source.note_id]:
+                cited_chunks[source.note_id].append(chunk)
+            if source_number not in claim_numbers:
+                claim_numbers.append(source_number)
+
+        citations = " ".join(f"[{number}]" for number in claim_numbers)
+        rendered_claims.append(f"{claim_text} {citations}")
+
+    cited_rag_sources = tuple(
+        RagSource(
+            note_id=source.note_id,
+            title=source.title,
+            date_added=source.date_added,
+            tags=source.tags,
+            chunks=tuple(cited_chunks[source.note_id]),
+        )
+        for source in cited_sources
+    )
+    rendered_sources = _ask_sources(cited_rag_sources)
+    return AskResponse(
+        answer="\n\n".join(rendered_claims),
+        status="answered",
+        evidence_summary=_evidence_summary(rendered_sources),
+        sources=rendered_sources,
+    )
 
 
 def _source_snippets(source: RagSource) -> list[AskSourceSnippet]:

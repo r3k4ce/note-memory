@@ -197,6 +197,8 @@ def test_answer_system_prompt_sets_bun_voice_without_weakening_grounding() -> No
     assert "do not use outside knowledge" in prompt
     assert f"say exactly: {ANSWER_FALLBACK}".lower() in prompt
     assert "do not invent policies, rules, or decisions" in prompt
-    assert "cite supporting sources as [1], [2]" in prompt
-    assert "only cite a source number when that source directly supports the sentence" in prompt
+    assert "return only the requested structured response" in prompt
+    assert "atomic markdown claims" in prompt
+    assert "evidence ids" in prompt
+    assert "never include numeric citations" in prompt
     assert "when evidence is weak, missing, or ambiguous" in prompt

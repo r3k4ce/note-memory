@@ -1,11 +1,14 @@
+import re
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
 
+import pytest
 from fastapi import HTTPException
 from pydantic import SecretStr, ValidationError
 
+from mapping_memory.ai import AnswerResponseError, GroundedAnswer, GroundedClaim
 from mapping_memory.db import init_db
 from mapping_memory.notes import create_category, create_note
 from mapping_memory.rag import RagContextChunk, RagRetrievalContext, RagSource
@@ -81,7 +84,7 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == {
-        "answer": "Use the recreated source only after QA.",
+        "answer": "Use the recreated source only after QA. [1]",
         "status": "answered",
         "evidence_summary": {"source_count": 1, "snippet_count": 1, "match_types": ["semantic"]},
         "sources": [
@@ -93,6 +96,126 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
             }
         ],
     }
+
+
+def test_ask_renders_validated_claim_citations_and_only_cited_source_chunks(
+    tmp_path, monkeypatch
+) -> None:
+    first = RagSource(
+        note_id=7,
+        title="First source",
+        date_added="2026-07-01T01:00:00Z",
+        tags=(),
+        chunks=(
+            RagContextChunk("first-a", 0, "First cited chunk", 0.1),
+            RagContextChunk("first-b", 1, "First uncited chunk", 0.2),
+        ),
+    )
+    second = RagSource(
+        note_id=8,
+        title="Second source",
+        date_added="2026-07-01T02:00:00Z",
+        tags=(),
+        chunks=(RagContextChunk("second-a", 0, "Second cited chunk", 0.1),),
+    )
+    answer = GroundedAnswer(
+        status="answered",
+        claims=[
+            GroundedClaim(text="First claim.", evidence_ids=["first-a"]),
+            GroundedClaim(text="Second claim.", evidence_ids=["second-a", "first-a"]),
+        ],
+    )
+    ask_endpoint = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(first, second), formatted_context="context"),
+        answer=lambda **_: answer,
+    )
+
+    response = _post_ask(ask_endpoint, {"question": "What happened?"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "answer": "First claim. [1]\n\nSecond claim. [2] [1]",
+        "status": "answered",
+        "evidence_summary": {"source_count": 2, "snippet_count": 2, "match_types": ["semantic"]},
+        "sources": [
+            {
+                "note_id": 7,
+                "title": "First source",
+                "date_added": "2026-07-01T01:00:00Z",
+                "snippets": [
+                    {"text": "First cited chunk", "match_type": "semantic", "chunk_index": 0}
+                ],
+            },
+            {
+                "note_id": 8,
+                "title": "Second source",
+                "date_added": "2026-07-01T02:00:00Z",
+                "snippets": [
+                    {"text": "Second cited chunk", "match_type": "semantic", "chunk_index": 0}
+                ],
+            },
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        GroundedAnswer(status="answered", claims=[]),
+        GroundedAnswer(
+            status="answered", claims=[GroundedClaim(text="Claim.", evidence_ids=["missing"])]
+        ),
+        GroundedAnswer(
+            status="answered",
+            claims=[GroundedClaim(text="Claim.", evidence_ids=["chunk-7", "chunk-7"])],
+        ),
+        GroundedAnswer(
+            status="answered", claims=[GroundedClaim(text="Claim [1].", evidence_ids=["chunk-7"])]
+        ),
+        GroundedAnswer(
+            status="no_evidence", claims=[GroundedClaim(text="Claim.", evidence_ids=["chunk-7"])]
+        ),
+    ],
+)
+def test_ask_returns_no_evidence_for_invalid_grounded_output(tmp_path, monkeypatch, answer) -> None:
+    source = _source(note_id=7, title="Source", date_added="2026-07-01T01:00:00Z")
+    ask_endpoint = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
+        answer=lambda **_: answer,
+    )
+
+    response = _post_ask(ask_endpoint, {"question": "What happened?"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "answer": FALLBACK,
+        "status": "no_evidence",
+        "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "sources": [],
+    }
+
+
+def test_ask_returns_no_evidence_for_unparseable_grounded_output(tmp_path, monkeypatch) -> None:
+    source = _source(note_id=7, title="Source", date_added="2026-07-01T01:00:00Z")
+
+    def answer(**_: Any) -> GroundedAnswer:
+        raise AnswerResponseError("invalid model output")
+
+    ask_endpoint = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
+        answer=answer,
+    )
+
+    response = _post_ask(ask_endpoint, {"question": "What happened?"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
 
 
 def test_ask_passes_category_scope_to_retrieval(tmp_path, monkeypatch) -> None:
@@ -233,7 +356,7 @@ def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypat
     )
 
     assert response.status_code == 200
-    assert response.json()["answer"] == "Selected answer."
+    assert response.json()["answer"] == "Selected answer. [1]"
     assert response.json()["sources"] == [
         {
             "note_id": selected.id,
@@ -241,14 +364,6 @@ def test_ask_selected_note_ids_returns_only_selected_sources(tmp_path, monkeypat
             "date_added": selected.date_added,
             "snippets": [
                 {"text": "selected chunk", "match_type": "semantic", "chunk_index": 0},
-                {
-                    "text": "Selected note body",
-                    "match_type": "selected",
-                    "chunk_index": 0,
-                    "chunk_type": "full",
-                    "source_start": 0,
-                    "source_end": 18,
-                },
             ],
         }
     ]
@@ -307,14 +422,6 @@ def test_ask_category_id_and_note_ids_uses_and_scope(tmp_path, monkeypatch) -> N
             "date_added": matching.date_added,
             "snippets": [
                 {"text": "matching chunk", "match_type": "semantic", "chunk_index": 0},
-                {
-                    "text": "Matching note body",
-                    "match_type": "selected",
-                    "chunk_index": 0,
-                    "chunk_type": "full",
-                    "source_start": 0,
-                    "source_end": 18,
-                },
             ],
         }
     ]
@@ -570,7 +677,7 @@ def test_ask_real_retrieval_reports_exact_evidence_when_semantic_misses(
         monkeypatch,
         init_db_first=False,
         vector_results=[],
-        answer=lambda **kwargs: captured.update(kwargs) or "Bun found maple-glider. [1]",
+        answer=lambda **kwargs: captured.update(kwargs) or "Bun found maple-glider.",
         expected_query="user: maple-glider",
     )
 
@@ -666,9 +773,13 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
         client=fake_client,
     )
 
-    assert answer == "Use saved decision."
+    assert answer == GroundedAnswer(
+        status="answered",
+        claims=[GroundedClaim(text="Use saved decision.", evidence_ids=["saved-decision"])],
+    )
     call = fake_client.chat.completions.calls[0]
     assert call["model"] == "test-model"
+    assert call["response_format"] is GroundedAnswer
     assert call["messages"][0] == {"role": "system", "content": ANSWER_SYSTEM_PROMPT}
     user_message = call["messages"][1]["content"]
     assert "Card title: Saved card" in user_message
@@ -705,9 +816,14 @@ class FakeCompletions:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    def create(self, **kwargs: Any) -> SimpleNamespace:
+    def parse(self, **kwargs: Any) -> SimpleNamespace:
         self.calls.append(kwargs)
-        message = SimpleNamespace(content="Use saved decision.")
+        message = SimpleNamespace(
+            parsed=GroundedAnswer(
+                status="answered",
+                claims=[GroundedClaim(text="Use saved decision.", evidence_ids=["saved-decision"])],
+            )
+        )
         choice = SimpleNamespace(message=message)
         return SimpleNamespace(choices=[choice])
 
@@ -766,7 +882,24 @@ def _ask_app(
         prepare_retrieval_context,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.ask.generate_grounded_answer", answer, raising=False)
+
+    def generate_grounded_answer(**kwargs: Any):
+        result = answer(**kwargs)
+        if not isinstance(result, str):
+            return result
+        if result == FALLBACK:
+            return GroundedAnswer(status="no_evidence", claims=[])
+        evidence_ids = [
+            chunk.chunk_id for source in retrieval_context.sources for chunk in source.chunks
+        ]
+        return GroundedAnswer(
+            status="answered",
+            claims=[GroundedClaim(text=result, evidence_ids=evidence_ids)],
+        )
+
+    monkeypatch.setattr(
+        "mapping_memory.ask.generate_grounded_answer", generate_grounded_answer, raising=False
+    )
     settings = Settings(
         sqlite_path=tmp_path / "ask.sqlite",
         openai_api_key=SecretStr("test-key"),
@@ -805,7 +938,22 @@ def _ask_app_with_real_retrieval(
     FakeAskVectorStore.calls = []
     monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts, raising=False)
     monkeypatch.setattr("mapping_memory.rag.ChromaVectorStore", FakeAskVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.ask.generate_grounded_answer", answer, raising=False)
+
+    def generate_grounded_answer(**kwargs: Any):
+        result = answer(**kwargs)
+        if not isinstance(result, str):
+            return result
+        if result == FALLBACK:
+            return GroundedAnswer(status="no_evidence", claims=[])
+        evidence_ids = re.findall(r"^Evidence ID: (.+)$", kwargs["context"], flags=re.MULTILINE)
+        return GroundedAnswer(
+            status="answered",
+            claims=[GroundedClaim(text=result, evidence_ids=evidence_ids)],
+        )
+
+    monkeypatch.setattr(
+        "mapping_memory.ask.generate_grounded_answer", generate_grounded_answer, raising=False
+    )
     return _ask_endpoint(
         create_ask_router(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
     )

@@ -46,8 +46,8 @@ The choice persists in `localStorage`.
   Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
   Markdown and GFM syntax while preserving raw Markdown.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
-  Ask source scope, formatted Markdown answers with clickable citations, and
-  source snippets whose note links open saved notes.
+  Ask source scope, and strictly grounded Markdown answers. Clickable citations
+  and source snippets appear only for note chunks that directly support a claim.
 
 The backend stores notes locally in SQLite and writes saved notes as Markdown
 files with YAML frontmatter, asks an LLM for title, summary, and tags when
@@ -220,7 +220,7 @@ Walk through these once after a clean install:
 - [ ] `GET /notes` lists the saved note
 - [ ] `GET /notes/{id}` returns the same note
 - [ ] `GET /search?q=<term>` returns the note as a search hit and category scope params restrict results
-- [ ] `POST /ask` with a question returns an answer with at least one `sources` entry and snippet; category scope fields and `note_ids` restrict sources
+- [ ] `POST /ask` returns either a grounded answer whose inline citations, source cards, and snippets are all linked to validated note chunks, or the no-evidence response; category scope fields and `note_ids` restrict sources
 - [ ] `GET /notes?category_id=<id>` filters notes by category
 - [ ] `PATCH /notes/{id}` updates body/title/summary/tags/category and round-trips on the next `GET`
 - [ ] `DELETE /notes/{id}` returns `deleted: true`; the note is gone from `GET /notes`

@@ -184,6 +184,53 @@ def test_prepare_retrieval_context_limits_chunks_per_note_and_final_chunk_count(
     assert all(len(chunks) <= 2 for chunks in chunks_by_note.values())
 
 
+def test_prepare_retrieval_context_keeps_exact_evidence_ahead_of_full_semantic_budget(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exact_note = create_note(sqlite_path, "The exact decision is amber-42.", ai_title="Exact")
+    semantic_notes = [create_note(sqlite_path, f"Semantic note {index}") for index in range(4)]
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    _install_fakes(
+        monkeypatch,
+        [
+            _hit(note.id, chunk_index, f"semantic {note.id}-{chunk_index}")
+            for note in semantic_notes
+            for chunk_index in range(2)
+        ],
+        expected_query="user: amber-42",
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context("amber-42", settings=settings)
+
+    assert context.sources[0].note_id == exact_note.id
+    assert context.sources[0].chunks[0].match_type == "exact"
+    assert sum(len(source.chunks) for source in context.sources) == 8
+
+
+def test_prepare_retrieval_context_returns_exact_evidence_when_semantic_retrieval_fails(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    note = create_note(sqlite_path, "The local decision is amber-42.", ai_title="Exact")
+    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+
+    def embed_texts(*_args, **_kwargs):
+        raise RuntimeError("semantic retrieval unavailable")
+
+    monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts)
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context("amber-42", settings=settings)
+
+    assert [source.note_id for source in context.sources] == [note.id]
+    assert context.sources[0].chunks[0].chunk_id == f"note:{note.id}:chunk:0"
+    assert context.sources[0].chunks[0].match_type == "exact"
+
+
 def test_prepare_retrieval_context_skips_invalid_or_missing_notes(
     sqlite_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -309,13 +356,7 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
     )
 
     assert [source.note_id for source in context.sources] == [included.id]
-    assert [chunk.text for chunk in context.sources[0].chunks] == [
-        "included chunk",
-        (
-            f"Title: Included\nTags: none\nDate added: {included.date_added}\n"
-            "Summary: Included note body\nChunk: Included note body"
-        ),
-    ]
+    assert [chunk.text for chunk in context.sources[0].chunks] == ["included chunk"]
     assert FakeVectorStore.calls == [
         {
             "embedding": [0.1, 0.2, 0.3],
@@ -446,7 +487,7 @@ def test_prepare_retrieval_context_adds_selected_note_rescue_chunk_when_vector_h
     settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
     _install_fakes(
         monkeypatch,
-        [_hit(selected.id, 0, "semantic hit from selected note but not the answer")],
+        [_hit(selected.id, 1, "semantic hit from selected note but not the answer")],
         expected_query="user: Who needs to sign off before release?",
     )
 

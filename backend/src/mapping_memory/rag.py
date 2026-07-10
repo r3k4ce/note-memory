@@ -11,7 +11,7 @@ from mapping_memory.fts import tags_to_text
 from mapping_memory.notes import ExactSearchMatch, get_note, list_notes, search_notes_exact_matches
 from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
-from mapping_memory.vector_store import ChromaVectorStore
+from mapping_memory.vector_store import ChromaVectorStore, build_chunk_id
 
 RAG_RETRIEVAL_LIMIT = 20
 RAG_FALLBACK_RETRIEVAL_LIMIT = 100
@@ -67,26 +67,10 @@ def prepare_retrieval_context(
 
     scope = category_scope or CategoryScope()
     selected_note_ids = set(note_ids) if note_ids is not None else None
-    retrieval_query = build_retrieval_query(query, history or [])
-    embedding = embed_texts([retrieval_query], settings=settings)[0]
-    vector_store = ChromaVectorStore(settings=settings)
-    _sync_scope_category_metadata(vector_store, settings=settings, category_scope=scope)
-    where = _combined_chroma_where(category_scope=scope, note_ids=note_ids)
-    hits = _query_hits(vector_store, embedding, where=where, fallback_where=scope.chroma_where)
-
     source_chunks: dict[int, list[RagContextChunk]] = {}
     sources_by_note_id: dict[int, RagSource] = {}
     accepted_count = 0
 
-    accepted_count = _add_vector_hits_to_sources(
-        hits,
-        settings=settings,
-        scope=scope,
-        selected_note_ids=selected_note_ids,
-        source_chunks=source_chunks,
-        sources_by_note_id=sources_by_note_id,
-        accepted_count=accepted_count,
-    )
     accepted_count = _add_exact_matches_to_sources(
         query,
         settings=settings,
@@ -96,6 +80,29 @@ def prepare_retrieval_context(
         sources_by_note_id=sources_by_note_id,
         accepted_count=accepted_count,
     )
+    if accepted_count < RAG_FINAL_CHUNK_LIMIT:
+        try:
+            retrieval_query = build_retrieval_query(query, history or [])
+            embedding = embed_texts([retrieval_query], settings=settings)[0]
+            vector_store = ChromaVectorStore(settings=settings)
+            _sync_scope_category_metadata(vector_store, settings=settings, category_scope=scope)
+            where = _combined_chroma_where(category_scope=scope, note_ids=note_ids)
+            hits = _query_hits(
+                vector_store, embedding, where=where, fallback_where=scope.chroma_where
+            )
+        except Exception:
+            if accepted_count == 0:
+                raise
+        else:
+            accepted_count = _add_vector_hits_to_sources(
+                hits,
+                settings=settings,
+                scope=scope,
+                selected_note_ids=selected_note_ids,
+                source_chunks=source_chunks,
+                sources_by_note_id=sources_by_note_id,
+                accepted_count=accepted_count,
+            )
     accepted_count = _add_fuzzy_matches_to_sources(
         query,
         settings=settings,
@@ -146,10 +153,16 @@ def _add_vector_hits_to_sources(
         note_id = _metadata_int(hit.metadata.get("note_id"))
         if note_id is None:
             continue
+        chunk_index = _metadata_int(hit.metadata.get("chunk_index"))
+        if chunk_index is None:
+            continue
+        chunk_id = build_chunk_id(note_id=note_id, chunk_index=chunk_index)
         if selected_note_ids is not None and note_id not in selected_note_ids:
             continue
 
         chunks = source_chunks.get(note_id)
+        if chunks is not None and any(chunk.chunk_id == chunk_id for chunk in chunks):
+            continue
         if chunks is not None and len(chunks) >= RAG_MAX_CHUNKS_PER_NOTE:
             continue
 
@@ -170,8 +183,8 @@ def _add_vector_hits_to_sources(
 
         chunks.append(
             RagContextChunk(
-                chunk_id=hit.id,
-                chunk_index=_metadata_int(hit.metadata.get("chunk_index")),
+                chunk_id=chunk_id,
+                chunk_index=chunk_index,
                 text=hit.text,
                 distance=hit.distance,
                 match_type="semantic",
@@ -201,7 +214,10 @@ def _add_exact_matches_to_sources(
         limit=RAG_LOCAL_MATCH_LIMIT,
         category_scope=scope,
     )
-    for match in matches:
+    query_text = query.casefold()
+    body_matches = [match for match in matches if query_text in match.note.original_text.casefold()]
+    non_body_matches = [match for match in matches if match not in body_matches]
+    for match in [*body_matches, *non_body_matches]:
         if accepted_count >= RAG_FINAL_CHUNK_LIMIT:
             break
         if selected_note_ids is not None and match.note.id not in selected_note_ids:
@@ -327,7 +343,7 @@ def _add_note_chunk_to_sources(
     retrieval_chunk = _best_local_chunk_for_note(query, note, match.matched_snippet)
     if retrieval_chunk is None:
         return accepted_count
-    local_chunk_id = _local_chunk_id(note.id, retrieval_chunk, match_type)
+    local_chunk_id = build_chunk_id(note_id=note.id, chunk_index=retrieval_chunk.chunk_index)
     if chunks is not None and any(
         chunk.chunk_id == local_chunk_id or chunk.text == retrieval_chunk.text for chunk in chunks
     ):
@@ -378,7 +394,8 @@ def _add_selected_note_rescue_chunks(
         rescue_chunk = _best_rescue_chunk_for_note(query, note)
         if rescue_chunk is None:
             continue
-        if chunks is not None and any(chunk.text == rescue_chunk.text for chunk in chunks):
+        rescue_chunk_id = build_chunk_id(note_id=note.id, chunk_index=rescue_chunk.chunk_index)
+        if chunks is not None and any(chunk.chunk_id == rescue_chunk_id for chunk in chunks):
             continue
 
         if chunks is None:
@@ -396,7 +413,7 @@ def _add_selected_note_rescue_chunks(
             _context_chunk_from_retrieval_chunk(
                 rescue_chunk,
                 match_type="selected",
-                chunk_id=f"note:{note.id}:selected:{rescue_chunk.chunk_index}",
+                chunk_id=rescue_chunk_id,
             )
         )
         accepted_count += 1
@@ -445,10 +462,6 @@ def _context_chunk_from_retrieval_chunk(
         source_start=chunk.source_start,
         source_end=chunk.source_end,
     )
-
-
-def _local_chunk_id(note_id: int, chunk: RetrievalChunk, match_type: RagMatchType) -> str:
-    return f"note:{note_id}:{match_type}:{chunk.chunk_index}"
 
 
 def _chunk_rescue_score(query: str, chunk_text: str) -> tuple[int, int]:
@@ -559,7 +572,7 @@ def _format_source(source: RagSource) -> str:
         f"Tags: {tags}",
     ]
     for chunk in source.chunks:
-        lines.extend(["Relevant text:", chunk.text])
+        lines.extend([f"Evidence ID: {chunk.chunk_id}", "Relevant text:", chunk.text])
     return "\n".join(lines)
 
 
