@@ -267,18 +267,14 @@ export function NoteDetail({
               Needs a little tidying
             </span>
           ) : null}
-          {readMode ? null : (
-            <>
-            <span className="truncate text-sm tabular-nums text-text-muted">
-              {parsedDocument.update.original_text.trim()
-                ? `${parsedDocument.update.original_text.length} chars`
-                : "Empty note"}
-            </span>
-            <span className="rounded-md bg-surface-raised px-2 py-0.5 text-sm font-medium text-text-muted">
-              {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
-            </span>
-            </>
-          )}
+          <span className="truncate text-sm tabular-nums text-text-muted">
+            {parsedDocument.update.original_text.trim()
+              ? `${parsedDocument.update.original_text.length} chars`
+              : "Empty note"}
+          </span>
+          <span className="rounded-md bg-surface-raised px-2 py-0.5 text-sm font-medium text-text-muted">
+            {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
+          </span>
         </>
       }
       toolbarControls={toolbarControls}

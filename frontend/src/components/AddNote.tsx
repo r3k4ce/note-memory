@@ -54,7 +54,7 @@ export function AddNote({
         )
       }
       error={error}
-      status={readMode ? null : <span className="min-w-0 truncate text-sm text-text-muted">{statusText}</span>}
+      status={<span className="min-w-0 truncate text-sm text-text-muted">{statusText}</span>}
       toolbarControls={toolbarControls}
     />
   );
