@@ -244,7 +244,7 @@ export function AskChat({
   }
 
   return (
-<section className="flex h-full min-h-0 w-full flex-col gap-3" aria-labelledby="ask-title">
+    <section className="flex h-full min-h-0 w-full flex-col gap-2" aria-labelledby="ask-title">
       <header className="flex shrink-0 items-center gap-2 border-b border-border pb-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-muted">
           <Sparkles size={15} strokeWidth={2} className="text-accent" />

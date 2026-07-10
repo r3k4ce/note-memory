@@ -320,8 +320,8 @@ export default function App() {
   const leftPaneClassName = `workspace-page-shell workspace-side-pane flex shrink-0 flex-col overflow-hidden transition-[width] duration-150 ease-out ${
     leftPaneWidth === 0 ? "workspace-side-pane-collapsed" : ""
   }`;
-  const rightPaneClassName = `workspace-page-shell workspace-side-pane hidden min-h-0 shrink-0 overflow-hidden py-5 transition-[width,padding] duration-150 ease-out lg:flex ${
-    rightPaneWidth === 0 ? "workspace-side-pane-collapsed px-0" : "px-5"
+  const rightPaneClassName = `workspace-page-shell workspace-side-pane hidden min-h-0 shrink-0 overflow-hidden py-3 transition-[width,padding] duration-150 ease-out lg:flex ${
+    rightPaneWidth === 0 ? "workspace-side-pane-collapsed px-0" : "px-3"
   }`;
 
   const capturePreFocusCenterWidth = useCallback(() => {
