@@ -9,7 +9,9 @@ from fastapi import HTTPException
 from pydantic import SecretStr, ValidationError
 
 from mapping_memory.ai import AnswerResponseError, GroundedAnswer, GroundedClaim
+from mapping_memory.chat import list_chat_messages
 from mapping_memory.db import init_db
+from mapping_memory.memory import LOCAL_OWNER_ID
 from mapping_memory.notes import create_category, create_note
 from mapping_memory.rag import RagContextChunk, RagRetrievalContext, RagSource
 from mapping_memory.schemas import AskRequest, AskResponse
@@ -59,6 +61,7 @@ def test_ask_returns_fallback_when_retrieval_has_no_context(tmp_path, monkeypatc
         "answer": FALLBACK,
         "status": "no_evidence",
         "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "memory_updates": 0,
         "sources": [],
     }
     assert calls == []
@@ -87,6 +90,7 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
         "answer": "Use the recreated source only after QA. [1]",
         "status": "answered",
         "evidence_summary": {"source_count": 1, "snippet_count": 1, "match_types": ["semantic"]},
+        "memory_updates": 0,
         "sources": [
             {
                 "note_id": 7,
@@ -96,6 +100,86 @@ def test_ask_returns_answer_with_source_metadata(tmp_path, monkeypatch) -> None:
             }
         ],
     }
+
+
+def test_ask_uses_memory_as_untrusted_context_learns_and_persists_turn(
+    tmp_path, monkeypatch
+) -> None:
+    from mapping_memory.ask import create_ask_router
+    from mapping_memory.schemas import MemoryRecord
+
+    source = _source(note_id=7, title="Source", date_added="2026-07-01T01:00:00Z")
+    captured: dict[str, Any] = {}
+
+    class FakeMemory:
+        def search(self, query: str) -> list[MemoryRecord]:
+            assert query == "What should we do?"
+            return [MemoryRecord(id="one", content="Prefers concise answers.")]
+
+        def learn(self, user_message: str, assistant_message: str) -> int:
+            captured["learn"] = (user_message, assistant_message)
+            return 2
+
+    monkeypatch.setattr(
+        "mapping_memory.ask.prepare_retrieval_context",
+        lambda *_, **__: RagRetrievalContext(sources=(source,), formatted_context="context"),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.ask.generate_grounded_answer",
+        lambda **kwargs: (
+            captured.update(kwargs)
+            or GroundedAnswer(
+                status="answered",
+                claims=[GroundedClaim(text="Use the saved checklist.", evidence_ids=["chunk-7"])],
+            )
+        ),
+    )
+    settings = Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    init_db(settings.sqlite_path)
+    response = _post_ask(
+        _ask_endpoint(create_ask_router(settings, memory_adapter=FakeMemory())),
+        {"question": "What should we do?"},
+    )
+
+    assert response.json()["memory_updates"] == 2
+    assert captured["memory_context"] == ["Prefers concise answers."]
+    assert captured["learn"] == ("What should we do?", "Use the saved checklist. [1]")
+    transcript_roles = [
+        message.role for message in list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID)
+    ]
+    assert transcript_roles == [
+        "user",
+        "assistant",
+    ]
+
+
+def test_ask_learns_from_no_evidence_and_memory_failures_never_fail_answer(
+    tmp_path, monkeypatch
+) -> None:
+    from mapping_memory.ask import create_ask_router
+
+    class FailingMemory:
+        def search(self, query: str) -> list[Any]:
+            raise RuntimeError("provider detail must not leak")
+
+        def learn(self, user_message: str, assistant_message: str) -> int:
+            raise RuntimeError("provider detail must not leak")
+
+    monkeypatch.setattr(
+        "mapping_memory.ask.prepare_retrieval_context",
+        lambda *_, **__: RagRetrievalContext(sources=(), formatted_context=""),
+    )
+    settings = Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    init_db(settings.sqlite_path)
+    response = _post_ask(
+        _ask_endpoint(create_ask_router(settings, memory_adapter=FailingMemory())),
+        {"question": "My durable preference is concise answers."},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert response.json()["memory_updates"] == 0
+    assert "provider detail" not in response.text
 
 
 def test_ask_renders_validated_claim_citations_and_only_cited_source_chunks(
@@ -139,6 +223,7 @@ def test_ask_renders_validated_claim_citations_and_only_cited_source_chunks(
         "answer": "First claim. [1]\n\nSecond claim. [2] [1]",
         "status": "answered",
         "evidence_summary": {"source_count": 2, "snippet_count": 2, "match_types": ["semantic"]},
+        "memory_updates": 0,
         "sources": [
             {
                 "note_id": 7,
@@ -195,6 +280,7 @@ def test_ask_returns_no_evidence_for_invalid_grounded_output(tmp_path, monkeypat
         "answer": FALLBACK,
         "status": "no_evidence",
         "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "memory_updates": 0,
         "sources": [],
     }
 
@@ -328,6 +414,7 @@ def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatc
         "answer": FALLBACK,
         "status": "no_evidence",
         "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "memory_updates": 0,
         "sources": [],
     }
     assert answer_calls == []
@@ -636,6 +723,7 @@ def test_ask_history_alone_cannot_produce_answer_without_note_context(
         "answer": FALLBACK,
         "status": "no_evidence",
         "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "memory_updates": 0,
         "sources": [],
     }
     assert calls == []
@@ -657,6 +745,7 @@ def test_ask_returns_empty_sources_when_model_returns_fallback(tmp_path, monkeyp
         "answer": FALLBACK,
         "status": "no_evidence",
         "evidence_summary": {"source_count": 0, "snippet_count": 0, "match_types": []},
+        "memory_updates": 0,
         "sources": [],
     }
 

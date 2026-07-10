@@ -19,12 +19,14 @@ function renderAskChat({
   onSourceSelect = vi.fn(),
   pendingMessageId = null,
   submitDisabledMessage,
+  onClearChat = vi.fn(),
 }: {
   isSubmitDisabled?: boolean;
   messages?: ChatMessage[];
   onSourceSelect?: (noteId: number) => void;
   pendingMessageId?: string | null;
   submitDisabledMessage?: string;
+  onClearChat?: () => void;
 } = {}) {
   const onSubmit = vi.fn();
 
@@ -34,6 +36,7 @@ function renderAskChat({
       isSubmitDisabled={isSubmitDisabled}
       messages={messages}
       onSourceSelect={onSourceSelect}
+      onClearChat={onClearChat}
       onSubmit={onSubmit}
       pendingMessageId={pendingMessageId}
       scopeLabel="All notes"
@@ -126,6 +129,27 @@ describe("AskChat Ask Bun panel", () => {
     expect(screen.getByText(/I'm sniffing through the right notes/)).toBeInTheDocument();
     expect(screen.getByText(/I'm checking the evidence/)).toBeInTheDocument();
     expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
+  });
+
+  test("shows a quiet memory update and keeps chat clearing separate", () => {
+    const onClearChat = vi.fn();
+    renderAskChat({
+      onClearChat,
+      messages: [
+        {
+          id: "assistant:1",
+          role: "assistant",
+          content: "Direct answer.",
+          status: "answered",
+          sources: [],
+          memoryUpdates: 1,
+        },
+      ],
+    });
+
+    expect(screen.getByText("Memory updated")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear chat" }));
+    expect(onClearChat).toHaveBeenCalledTimes(1);
   });
 
   test("shows friendly no-evidence state", () => {

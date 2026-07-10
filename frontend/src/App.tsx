@@ -38,6 +38,8 @@ import {
   organizeNote,
   searchNotes,
   askQuestion,
+  clearChat,
+  getChat,
   updateCategory,
   updateNote,
 } from "./api";
@@ -535,6 +537,28 @@ export default function App() {
     setWorkspaceMode("edit-selected");
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+    void getChat()
+      .then((messages) => {
+        if (ignore) return;
+        setAskMessages(messages.map((message) => message.role === "user" ? {
+          id: message.id,
+          role: "user" as const,
+          content: message.content,
+        } : {
+          id: message.id,
+          role: "assistant" as const,
+          content: message.content,
+          status: message.status,
+          evidenceSummary: message.evidence_summary,
+          sources: message.sources ?? [],
+        }));
+      })
+      .catch(() => undefined);
+    return () => { ignore = true; };
+  }, []);
+
   const selectNote = useCallback(
     (noteId: number) => {
       if (!confirmDiscardSelectedNoteEdit()) {
@@ -983,6 +1007,7 @@ export default function App() {
                   content: result.answer,
                   status: result.status,
                   evidenceSummary: result.evidence_summary,
+                  memoryUpdates: result.memory_updates,
                   sources: result.sources,
                 }
               : message,
@@ -1008,6 +1033,15 @@ export default function App() {
         askPendingMessageIdRef.current = null;
         setAskPendingMessageId(null);
       }
+    }
+  }
+
+  async function handleClearChat() {
+    try {
+      await clearChat();
+      setAskMessages([]);
+    } catch {
+      return;
     }
   }
 
@@ -1835,6 +1869,7 @@ export default function App() {
           hasNotes={notes.length > 0}
           messages={askMessages}
           onSourceSelect={handleAskSourceSelect}
+          onClearChat={() => void handleClearChat()}
           onSubmit={handleAskSubmit}
           pendingMessageId={askPendingMessageId}
           isSubmitDisabled={isAskNoteScopeEmpty}

@@ -329,3 +329,42 @@ class AskResponse(BaseModel):
     status: Literal["answered", "no_evidence"]
     evidence_summary: AskEvidenceSummary
     sources: list[AskSource]
+    memory_updates: int = 0
+
+
+class ChatMessageRead(BaseModel):
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: str
+    status: Literal["answered", "no_evidence"] | None = None
+    evidence_summary: AskEvidenceSummary | None = None
+    sources: list[AskSource] = Field(default_factory=list)
+
+
+class MemoryRecord(BaseModel):
+    id: str
+    content: str
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class MemoryUpdate(BaseModel):
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def content_must_not_be_blank(cls, value: str) -> str:
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("memory content must not be empty")
+        return stripped_value
+
+
+class MemorySettingsRead(BaseModel):
+    available: bool
+    learning_enabled: bool
+
+
+class MemorySettingsUpdate(BaseModel):
+    learning_enabled: bool

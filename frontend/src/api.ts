@@ -11,6 +11,9 @@ import type {
   NoteUpdate,
   OrganizedNoteMetadata,
   SearchResult,
+  MemoryRecord,
+  MemorySettings,
+  StoredChatMessage,
 } from "./types";
 
 export const BACKEND_BASE_URL =
@@ -171,5 +174,55 @@ export function askQuestion(request: AskRequest): Promise<AskResponse> {
   return requestJson<AskResponse>("/ask", {
     method: "POST",
     body: JSON.stringify(request),
+  });
+}
+
+export function getChat(): Promise<StoredChatMessage[]> {
+  return requestJson<StoredChatMessage[]>("/chat");
+}
+
+async function requestEmpty(path: string, method: "DELETE"): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${BACKEND_BASE_URL}${path}`, { method });
+  } catch {
+    throw new Error("Could not reach the backend. Confirm it is running at the configured URL.");
+  }
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response, `Request failed with status ${response.status}.`));
+  }
+}
+
+export function clearChat(): Promise<void> {
+  return requestEmpty("/chat", "DELETE");
+}
+
+export function listMemories(): Promise<MemoryRecord[]> {
+  return requestJson<MemoryRecord[]>("/memories");
+}
+
+export function updateMemory(memoryId: string, content: string): Promise<MemoryRecord> {
+  return requestJson<MemoryRecord>(`/memories/${encodeURIComponent(memoryId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function deleteMemory(memoryId: string): Promise<void> {
+  return requestEmpty(`/memories/${encodeURIComponent(memoryId)}`, "DELETE");
+}
+
+export function deleteAllMemories(): Promise<void> {
+  return requestEmpty("/memories", "DELETE");
+}
+
+export function getMemorySettings(): Promise<MemorySettings> {
+  return requestJson<MemorySettings>("/memory-settings");
+}
+
+export function updateMemorySettings(learningEnabled: boolean): Promise<MemorySettings> {
+  return requestJson<MemorySettings>("/memory-settings", {
+    method: "PATCH",
+    body: JSON.stringify({ learning_enabled: learningEnabled }),
   });
 }

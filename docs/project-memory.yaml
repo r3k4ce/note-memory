@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-10T02:22:11Z"
+    time_local: "2026-07-09T23:22:11-03:00"
+    summary: "Added Bun personalization with persistent chat and embedded long-term user memory."
+    changed:
+      - "Pinned mem0ai 2.0.11 behind one adapter using local-owner, a dedicated user_memories collection, strict user-only extraction, top-5 retrieval, and durable storage beneath MEMORY_PATH."
+      - "Reworked Bun's grounded prompt voice and added delimited untrusted profile context while keeping saved notes as the only claim evidence and preserving validated citations and the exact fallback."
+      - "Persisted successful Ask turns and learning settings in SQLite; added chat restore/clear plus scoped memory CRUD and settings endpoints with best-effort search and learning."
+      - "Added transcript restoration, a header memory manager, inline correction/deletion, confirmed forget-all, learning toggle, independent chat clearing, and per-turn Memory updated feedback."
+      - "Documented storage, privacy, configuration, single-process limits, endpoints, and opt-in live compatibility checks."
+    verification:
+      - "Confirmed the Mem0 2.0.11 live compatibility check passed for filtered add/search/update/delete and persistence across reinitialization using temporary storage."
+      - "Ran ./scripts/check.sh: backend format/lint/typecheck and 247 passed/2 skipped tests at 88.69% coverage; frontend 153 tests, 6 Chromium tests, lint, and production build passed."
   - time_utc: "2026-07-10T01:13:30Z"
     time_local: "2026-07-09T22:13:30-03:00"
     summary: "Made Ask Bun abstain unless every answer claim has validated retrieved evidence."

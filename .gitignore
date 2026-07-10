@@ -15,6 +15,7 @@ backend/.env
 # Local data
 data/mapping_memory.sqlite
 data/chroma/
+data/memory/
 data/vault/*
 !data/vault/.gitkeep
 

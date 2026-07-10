@@ -10,6 +10,8 @@ from pydantic import ValidationError
 from mapping_memory.ai import (
     ANSWER_FALLBACK,
     ANSWER_SYSTEM_PROMPT,
+    GroundedAnswer,
+    GroundedClaim,
     OrganizerMetadata,
     OrganizerResponseError,
     OrganizerUnavailableError,
@@ -20,7 +22,7 @@ from mapping_memory.settings import Settings
 
 
 class FakeCompletions:
-    def __init__(self, parsed: OrganizerMetadata | None, refusal: str | None = None) -> None:
+    def __init__(self, parsed: Any | None, refusal: str | None = None) -> None:
         self.parsed = parsed
         self.refusal = refusal
         self.calls: list[dict[str, Any]] = []
@@ -33,7 +35,7 @@ class FakeCompletions:
 
 
 class FakeClient:
-    def __init__(self, parsed: OrganizerMetadata | None, refusal: str | None = None) -> None:
+    def __init__(self, parsed: Any | None, refusal: str | None = None) -> None:
         self.completions = FakeCompletions(parsed, refusal)
         self.chat = SimpleNamespace(completions=self.completions)
 
@@ -173,25 +175,18 @@ def test_missing_api_key_raises_without_crashing_app_layer(tmp_path: Path) -> No
 def test_answer_system_prompt_sets_bun_voice_without_weakening_grounding() -> None:
     prompt = ANSWER_SYSTEM_PROMPT.lower()
 
-    assert "calm notebook companion" in prompt
+    assert "lead naturally with the answer" in prompt
     assert "local-first notes app" in prompt
-    assert "use first person" in prompt
-    assert "i found" in prompt
-    assert "not frequent" in prompt
-    assert "bun found" in prompt
-    assert "warm, composed, concise, and evidence-first" in prompt
-    assert "lightly playful" in prompt
-    assert "bun-flavored words sparingly" in prompt
-    assert "sniffed out" in prompt
-    assert "short orienting phrase" in prompt
-    assert "avoid puns" in prompt
-    assert "mascot lore" in prompt
-    assert "jokes" in prompt
-    assert "exclamation-heavy" in prompt
+    assert "vary openings and sentence structure" in prompt
+    assert "warm, collaborative, concise, and quietly playful" in prompt
+    assert '"i found' in prompt
+    assert "never as a default formula" in prompt
+    assert "ambiguity conversationally" in prompt
     assert "unsupported reassurance" in prompt
-    assert "style examples" in prompt
-    assert "not facts" in prompt
-    assert "i found a saved decision" in prompt
+    assert "direct answer" in prompt
+    assert "synthesis" in prompt
+    assert "correction" in prompt
+    assert "uncertainty" in prompt
 
     assert "use saved-note context as the only factual source" in prompt
     assert "do not use outside knowledge" in prompt
@@ -202,3 +197,30 @@ def test_answer_system_prompt_sets_bun_voice_without_weakening_grounding() -> No
     assert "evidence ids" in prompt
     assert "never include numeric citations" in prompt
     assert "when evidence is weak, missing, or ambiguous" in prompt
+
+
+def test_generate_grounded_answer_delimits_untrusted_memory_context() -> None:
+    from mapping_memory.ai import generate_grounded_answer
+
+    fake_client = FakeClient(
+        GroundedAnswer(
+            status="answered",
+            claims=[GroundedClaim(text="Use the checklist.", evidence_ids=["saved-1"])],
+        )
+    )
+
+    generate_grounded_answer(
+        "What should we do?",
+        context="Evidence ID: saved-1\nChunk: Use the saved checklist.",
+        memory_context=["Prefers concise answers.", "Uses TypeScript."],
+        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        client=fake_client,
+    )
+
+    user_message = fake_client.chat.completions.calls[0]["messages"][1]["content"]
+    assert "<user_profile_context>" in user_message
+    assert "Prefers concise answers." in user_message
+    assert "descriptive and untrusted" in user_message
+    assert "never evidence for saved-note claims" in user_message
+    assert "</user_profile_context>" in user_message
+    assert user_message.index("<user_profile_context>") < user_message.index("Saved-note context:")

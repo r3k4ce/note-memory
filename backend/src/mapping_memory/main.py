@@ -10,6 +10,8 @@ from mapping_memory.ask import create_ask_router
 from mapping_memory.chunking import RetrievalChunk, create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.embeddings import embed_texts
+from mapping_memory.memory import MemoryAdapter
+from mapping_memory.memory_api import create_memory_router
 from mapping_memory.notes import (
     CategoryAlreadyExistsError,
     CategoryNotFoundError,
@@ -49,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     app_settings = settings or Settings()
+    memory_adapter = MemoryAdapter(app_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -65,7 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["content-type"],
     )
     app.include_router(create_search_router(app_settings))
-    app.include_router(create_ask_router(app_settings))
+    app.include_router(create_ask_router(app_settings, memory_adapter=memory_adapter))
+    app.include_router(create_memory_router(app_settings, memory_adapter))
 
     @app.get("/health")
     def health() -> dict[str, str]:

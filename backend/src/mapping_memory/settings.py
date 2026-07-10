@@ -11,12 +11,14 @@ class Settings(BaseSettings):
     environment: str = "local"
     sqlite_path: Path = Path("../data/mapping_memory.sqlite")
     chroma_path: Path = Path("../data/chroma")
+    memory_enabled: bool = True
+    memory_path: Path = Path("../data/memory")
     vault_path: Path = Path("../data/vault")
     openai_api_key: SecretStr | None = None
     openai_organizer_model: str = "gpt-5.4-mini"
     openai_embedding_model: str = "text-embedding-3-small"
 
-    @field_validator("sqlite_path", "chroma_path", "vault_path", mode="after")
+    @field_validator("sqlite_path", "chroma_path", "memory_path", "vault_path", mode="after")
     @classmethod
     def resolve_backend_relative_path(cls, value: Path) -> Path:
         if value.is_absolute():

@@ -1,6 +1,7 @@
 import logging
 import re
-from typing import Literal, cast
+from collections.abc import Sequence
+from typing import Literal, Protocol, cast
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -11,6 +12,8 @@ from mapping_memory.ai import (
     generate_grounded_answer,
 )
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
+from mapping_memory.chat import append_chat_turn, learning_enabled
+from mapping_memory.memory import LOCAL_OWNER_ID, MemoryAdapter
 from mapping_memory.notes import get_category
 from mapping_memory.rag import RagContextChunk, RagSource, prepare_retrieval_context
 from mapping_memory.schemas import (
@@ -25,12 +28,30 @@ from mapping_memory.settings import Settings
 logger = logging.getLogger(__name__)
 
 
-def create_ask_router(settings: Settings) -> APIRouter:
+class MemoryProfile(Protocol):
+    content: str
+
+
+class MemoryClient(Protocol):
+    def search(self, query: str) -> Sequence[MemoryProfile]: ...
+
+    def learn(self, user_message: str, assistant_message: str) -> int: ...
+
+
+def create_ask_router(
+    settings: Settings, *, memory_adapter: MemoryClient | None = None
+) -> APIRouter:
     router = APIRouter()
+    adapter = memory_adapter or MemoryAdapter(settings)
 
     @router.post("/ask", response_model=AskResponse, response_model_exclude_none=True)
     def ask(request: AskRequest) -> AskResponse:
         category_scope = _validated_category_scope(request, settings=settings)
+        memory_context: list[str] = []
+        try:
+            memory_context = [record.content for record in adapter.search(request.question)]
+        except Exception:
+            logger.warning("Memory search unavailable; continuing without personalization")
         try:
             retrieval_context = prepare_retrieval_context(
                 request.question,
@@ -47,17 +68,22 @@ def create_ask_router(settings: Settings) -> APIRouter:
             ) from None
 
         if not retrieval_context.sources:
-            return _no_evidence_response()
+            return _complete_turn(
+                _no_evidence_response(), request.question, settings=settings, adapter=adapter
+            )
 
         try:
             answer = generate_grounded_answer(
                 question=request.question,
                 context=retrieval_context.formatted_context,
                 history=request.history,
+                memory_context=memory_context,
                 settings=settings,
             )
         except AnswerResponseError:
-            return _no_evidence_response()
+            return _complete_turn(
+                _no_evidence_response(), request.question, settings=settings, adapter=adapter
+            )
         except Exception:
             logger.warning("Ask answer generation unavailable")
             raise HTTPException(
@@ -67,11 +93,34 @@ def create_ask_router(settings: Settings) -> APIRouter:
 
         rendered_response = _render_grounded_answer(answer, retrieval_context.sources)
         if rendered_response is None:
-            return _no_evidence_response()
+            rendered_response = _no_evidence_response()
 
-        return rendered_response
+        return _complete_turn(
+            rendered_response, request.question, settings=settings, adapter=adapter
+        )
 
     return router
+
+
+def _complete_turn(
+    response: AskResponse,
+    question: str,
+    *,
+    settings: Settings,
+    adapter: MemoryClient,
+) -> AskResponse:
+    updates = 0
+    try:
+        if learning_enabled(settings.sqlite_path, LOCAL_OWNER_ID):
+            updates = adapter.learn(question, response.answer)
+    except Exception:
+        logger.warning("Memory learning unavailable; continuing without an update")
+    completed = response.model_copy(update={"memory_updates": updates})
+    try:
+        append_chat_turn(settings.sqlite_path, LOCAL_OWNER_ID, question, completed)
+    except Exception:
+        logger.warning("Chat transcript persistence unavailable")
+    return completed
 
 
 def _ask_sources(sources: tuple[RagSource, ...]) -> list[AskSource]:

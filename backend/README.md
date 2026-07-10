@@ -12,8 +12,9 @@ The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OP
 > **Privacy and work data.**
 >
 > Notes are stored locally in SQLite and Chroma, but when `OPENAI_API_KEY` is set,
-> note text and Ask questions are sent to the configured OpenAI API account for
-> metadata, embeddings, and grounded answers. Do not store confidential or
+> note text, Ask questions, and selected chat text are sent to the configured OpenAI
+> API account for metadata, embeddings, grounded answers, memory extraction, and
+> memory embeddings. Do not store confidential or
 > work-restricted material unless your policy permits sending it to that account.
 
 ## Run
@@ -171,8 +172,44 @@ and each non-blank content string is limited to 4,000 characters. Retrieval uses
 last 6 history messages plus the current question, capped to 4,000 characters. History is
 not used as answer source material; answers remain grounded only in retrieved saved notes.
 
+Successful answered and no-evidence turns are stored as one active transcript under the
+internal `local-owner` ID. Ask responses include `memory_updates`, which is `0` when
+learning is disabled, nothing durable was learned, or Mem0 is unavailable. Memories may
+adapt interpretation and presentation, but saved notes remain the only evidence source.
+
+Restore or clear the transcript, then list or manage learned memories:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/chat
+Invoke-RestMethod http://127.0.0.1:8000/chat -Method Delete
+Invoke-RestMethod http://127.0.0.1:8000/memories
+Invoke-RestMethod http://127.0.0.1:8000/memories/MEMORY_ID -Method Patch -ContentType "application/json" -Body '{"content":"Prefers concise Markdown answers."}'
+Invoke-RestMethod http://127.0.0.1:8000/memories/MEMORY_ID -Method Delete
+Invoke-RestMethod http://127.0.0.1:8000/memories -Method Delete
+Invoke-RestMethod http://127.0.0.1:8000/memory-settings
+Invoke-RestMethod http://127.0.0.1:8000/memory-settings -Method Patch -ContentType "application/json" -Body '{"learning_enabled":false}'
+```
+
+Mem0 uses `MEMORY_PATH` (default `../data/memory`) for the dedicated
+`user_memories` Chroma collection and history database. Do not delete it when rebuilding
+the note index. Embedded storage is for the current single-process local deployment.
+
 ## Test
 
 ```powershell
 uv run python -m pytest
+```
+
+The live Mem0/OpenAI CRUD and persistence compatibility check is opt-in:
+
+```powershell
+$env:RUN_MEM0_INTEGRATION_TESTS = "1"
+uv run python -m pytest tests/test_memory.py -k live
+```
+
+Extraction-policy cases are separately opt-in because they make several live model calls:
+
+```powershell
+$env:RUN_MEM0_POLICY_TESTS = "1"
+uv run python -m pytest tests/test_memory.py -k extraction_policy
 ```

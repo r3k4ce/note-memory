@@ -47,6 +47,28 @@ def init_db(sqlite_path: Path) -> None:
         _migrate_notes_ai_organization(connection)
         init_notes_fts(connection)
         backfill_notes_fts_if_empty(connection)
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                status TEXT,
+                evidence_summary_json TEXT,
+                sources_json TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memory_settings (
+                user_id TEXT PRIMARY KEY,
+                learning_enabled INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
         connection.commit()
 
 

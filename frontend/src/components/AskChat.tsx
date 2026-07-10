@@ -1,17 +1,19 @@
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, FileText, Quote, Send, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowUpRight, FileText, Quote, Send, Sparkles, Trash2, TriangleAlert } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { formatNoteDate } from "../dateFormat";
 import type { AskSource, ChatMessage } from "../types";
+import { MemoryManager } from "./MemoryManager";
 
 type AskChatProps = {
   askRef: RefObject<HTMLTextAreaElement | null>;
   hasNotes?: boolean;
   messages: ChatMessage[];
   onSourceSelect: (noteId: number) => void;
+  onClearChat?: () => void;
   onSubmit: (question: string) => void;
   pendingMessageId: string | null;
   isSubmitDisabled?: boolean;
@@ -25,6 +27,7 @@ type AssistantBubbleProps = {
   onSourceSelect: (noteId: number) => void;
   sources: AskSource[];
   status?: "answered" | "no_evidence";
+  memoryUpdates?: number;
 };
 
 type MarkdownNode = {
@@ -144,7 +147,7 @@ function SourceList({
   );
 }
 
-function AssistantBubble({ content, isPending, onSourceSelect, sources, status }: AssistantBubbleProps) {
+function AssistantBubble({ content, isPending, memoryUpdates, onSourceSelect, sources, status }: AssistantBubbleProps) {
   const displayContent =
     status === "no_evidence"
       ? "I couldn't sniff that out in this notebook yet. Try selecting a note or using a phrase you remember."
@@ -186,6 +189,7 @@ function AssistantBubble({ content, isPending, onSourceSelect, sources, status }
           </div>
         )}
         <SourceList onSourceSelect={onSourceSelect} sources={sources} />
+        {memoryUpdates ? <p className="mt-2 text-[11px] text-text-muted">Memory updated</p> : null}
       </div>
     </div>
   );
@@ -219,6 +223,7 @@ export function AskChat({
   hasNotes = true,
   messages,
   onSourceSelect,
+  onClearChat,
   onSubmit,
   pendingMessageId,
   isSubmitDisabled = false,
@@ -288,6 +293,12 @@ export function AskChat({
         <span className="inline-flex items-center rounded-full bg-accent-muted px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
           Sniffing through {scopeLabel}
         </span>
+        {messages.length > 0 && onClearChat ? (
+          <button aria-label="Clear chat" className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover" onClick={onClearChat} type="button">
+            <Trash2 size={13} aria-hidden="true" />
+          </button>
+        ) : null}
+        <MemoryManager />
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
@@ -322,6 +333,7 @@ export function AskChat({
               <AssistantBubble
                 content={message.content}
                 isPending={message.id === pendingMessageId}
+                memoryUpdates={message.memoryUpdates}
                 key={message.id}
                 onSourceSelect={onSourceSelect}
                 sources={message.sources}

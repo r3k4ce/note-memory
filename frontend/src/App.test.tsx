@@ -5,12 +5,14 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   askQuestion,
+  clearChat,
   createNote,
   createCategory,
   deleteCategory,
   searchNotes,
   updateCategory,
   updateNote,
+  getChat,
 } from "./api";
 import App from "./App";
 import type { AskResponse, Category, Note, SearchResult } from "./types";
@@ -61,11 +63,13 @@ const { categories, notes } = vi.hoisted(() => {
 
 vi.mock("./api", () => ({
   askQuestion: vi.fn(),
+  clearChat: vi.fn(),
   createCategory: vi.fn(),
   deleteCategory: vi.fn(),
   createNote: vi.fn(),
   deleteNote: vi.fn(),
   getNote: vi.fn().mockResolvedValue(notes[0]),
+  getChat: vi.fn().mockResolvedValue([]),
   listCategories: vi.fn().mockResolvedValue(categories),
   listNotes: vi.fn().mockResolvedValue(notes),
   organizeNote: vi.fn(),
@@ -79,12 +83,14 @@ vi.mock("./components/AskChat", () => ({
     isSubmitDisabled,
     messages,
     onSubmit,
+    onClearChat,
     scopeLabel,
     submitDisabledMessage,
   }: {
     isSubmitDisabled?: boolean;
     messages: { content: string }[];
     onSubmit: (question: string) => void;
+    onClearChat: () => void;
     scopeLabel: string;
     submitDisabledMessage?: string;
   }) {
@@ -98,6 +104,7 @@ vi.mock("./components/AskChat", () => ({
         <button disabled={isSubmitDisabled} onClick={() => onSubmit("What did I save?")} type="button">
           Mock ask
         </button>
+        <button onClick={onClearChat} type="button">Mock clear chat</button>
       </section>
     );
   },
@@ -1128,6 +1135,7 @@ describe("App sidebar navigation", () => {
       status: "answered",
       evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
       sources: [],
+      memory_updates: 1,
     };
 
     render(<App />);
@@ -1181,6 +1189,28 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
 
     expect(screen.getByText("All notes selected")).toBeInTheDocument();
+  });
+
+  test("restores successful chat and clears only the transcript", async () => {
+    vi.mocked(getChat).mockResolvedValue([
+      { id: "chat:1", role: "user", content: "Restored question", created_at: "2026-07-01T00:00:00Z" },
+      {
+        id: "chat:2",
+        role: "assistant",
+        content: "Restored answer.",
+        created_at: "2026-07-01T00:00:01Z",
+        status: "answered",
+        evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
+        sources: [],
+      },
+    ]);
+    render(<App />);
+
+    expect(await screen.findByText("Restored question")).toBeInTheDocument();
+    expect(screen.getByText("Restored answer.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mock clear chat" }));
+    await waitFor(() => expect(clearChat).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Restored question")).not.toBeInTheDocument();
   });
 
   test("opens the existing new-note workspace from the sidebar action", async () => {

@@ -115,6 +115,29 @@ export type AskResponse = {
   status: "answered" | "no_evidence";
   evidence_summary: AskEvidenceSummary;
   sources: AskSource[];
+  memory_updates: number;
+};
+
+export type StoredChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  status?: AskResponse["status"];
+  evidence_summary?: AskEvidenceSummary;
+  sources?: AskSource[];
+};
+
+export type MemoryRecord = {
+  id: string;
+  content: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type MemorySettings = {
+  available: boolean;
+  learning_enabled: boolean;
 };
 
 export type ChatMessage =
@@ -129,6 +152,7 @@ export type ChatMessage =
       content: string;
       status?: AskResponse["status"];
       evidenceSummary?: AskEvidenceSummary;
+      memoryUpdates?: number;
       sources: AskSource[];
     }
   | {
