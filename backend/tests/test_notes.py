@@ -1,4 +1,3 @@
-import os
 import sqlite3
 from datetime import datetime, tzinfo
 from pathlib import Path
@@ -6,13 +5,12 @@ from pathlib import Path
 import pytest
 
 from mapping_memory.db import init_db
+from mapping_memory.exact_search import search_notes_exact
 from mapping_memory.notes import (
     create_note,
     delete_note,
     get_note,
     list_notes,
-    search_notes_exact,
-    sync_markdown_vault,
     update_note,
     update_note_metadata,
 )
@@ -99,28 +97,6 @@ def test_create_note_writes_markdown_file_to_vault(sqlite_path: Path, tmp_path: 
         "Raw note text\n"
         "with exact spacing"
     )
-
-
-def test_sync_markdown_vault_deletes_sqlite_note_when_markdown_file_is_missing(
-    sqlite_path: Path,
-    tmp_path: Path,
-) -> None:
-    vault_path = tmp_path / "vault"
-    note = create_note(
-        sqlite_path,
-        "Missing vault file note CD-30954.",
-        ai_title="Missing vault file",
-        vault_path=vault_path,
-    )
-    markdown_path = vault_path / f"missing-vault-file-{note.id}.md"
-    markdown_path.unlink()
-
-    changed_note_ids = sync_markdown_vault(sqlite_path, vault_path)
-
-    assert changed_note_ids == [note.id]
-    assert get_note(sqlite_path, note.id) is None
-    assert list_notes(sqlite_path) == []
-    assert search_notes_exact(sqlite_path, "CD-30954") == []
 
 
 def test_create_note_indexes_note_for_exact_search(sqlite_path: Path) -> None:
@@ -273,50 +249,6 @@ def test_update_note_can_update_only_original_text(sqlite_path: Path) -> None:
     assert updated_note.date_added == created_note.date_added
     assert updated_note.updated_at >= created_note.updated_at
     assert fetched_note == updated_note
-
-
-def test_external_markdown_update_preserves_ai_organization_marker(
-    sqlite_path: Path,
-    tmp_path: Path,
-) -> None:
-    vault_path = tmp_path / "vault"
-    note = create_note(
-        sqlite_path,
-        "Original body",
-        ai_title="Original title",
-        short_summary="Original summary.",
-        vault_path=vault_path,
-        needs_ai_organization=True,
-    )
-    markdown_path = vault_path / f"original-title-{note.id}.md"
-    markdown_path.write_text(markdown_path.read_text().replace("Original body", "External edit"))
-    future_timestamp = datetime.now().timestamp() + 10
-    markdown_path.touch()
-    os.utime(markdown_path, (future_timestamp, future_timestamp))
-
-    sync_markdown_vault(sqlite_path, vault_path)
-
-    updated = get_note(sqlite_path, note.id)
-    assert updated is not None
-    assert updated.original_text == "External edit"
-    assert updated.needs_ai_organization is True
-
-
-def test_new_markdown_import_defaults_ai_organization_marker_to_false(
-    sqlite_path: Path,
-    tmp_path: Path,
-) -> None:
-    vault_path = tmp_path / "vault"
-    vault_path.mkdir()
-    (vault_path / "external.md").write_text(
-        "---\ntitle: External\nsummary: Imported.\ntags: []\ncategory: ''\n---\n\nExternal body"
-    )
-
-    changed_ids = sync_markdown_vault(sqlite_path, vault_path)
-
-    imported = get_note(sqlite_path, changed_ids[0])
-    assert imported is not None
-    assert imported.needs_ai_organization is False
 
 
 def test_update_note_renames_markdown_file_when_title_changes(

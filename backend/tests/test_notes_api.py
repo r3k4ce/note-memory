@@ -2,16 +2,24 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from mapping_memory.ai import OrganizerMetadata
-from mapping_memory.chunking import create_retrieval_chunks
-from mapping_memory.db import init_db
-from mapping_memory.main import _reconcile_chroma_with_sqlite, create_app
-from mapping_memory.notes import create_note, get_note
+from mapping_memory.main import create_app
+from mapping_memory.notes_api import create_notes_router
 from mapping_memory.settings import Settings
-from mapping_memory.vector_store import build_chunk_id, build_chunk_metadata
+
+
+def test_notes_router_registers_note_routes(tmp_path: Path) -> None:
+    router = create_notes_router(Settings(sqlite_path=tmp_path / "notes-router.sqlite"))
+
+    assert {route.path for route in router.routes if isinstance(route, APIRoute)} == {
+        "/notes",
+        "/notes/organize",
+        "/notes/{note_id}",
+    }
 
 
 def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
@@ -48,12 +56,14 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         return [[0.1, 0.2, 0.3] for _ in texts]
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.embed_texts", embed_texts, raising=False)
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
+    )
     app = create_app(
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
@@ -113,11 +123,11 @@ def test_post_notes_keeps_saved_note_when_indexing_fails(
         raise RuntimeError("embedding provider failure with sensitive details")
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts, raising=False)
     app = create_app(
         Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
     )
@@ -149,12 +159,12 @@ def test_post_notes_uses_fallback_metadata_when_organizer_fails(
         raise RuntimeError("provider failure with sensitive details")
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -207,9 +217,9 @@ def test_post_notes_merges_ai_into_only_missing_metadata(
             tags=["ai", "organized"],
         )
 
-    monkeypatch.setattr("mapping_memory.main.organize_mapping_text", organize_mapping_text)
+    monkeypatch.setattr("mapping_memory.notes_api.organize_mapping_text", organize_mapping_text)
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval", lambda *args, **kwargs: None
+        "mapping_memory.retrieval_index.index_note_for_retrieval", lambda *args, **kwargs: None
     )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
 
@@ -238,9 +248,9 @@ def test_post_notes_bypasses_ai_when_all_metadata_is_explicit(
     def organize_mapping_text(*args, **kwargs) -> OrganizerMetadata:
         raise AssertionError("organizer should not be called")
 
-    monkeypatch.setattr("mapping_memory.main.organize_mapping_text", organize_mapping_text)
+    monkeypatch.setattr("mapping_memory.notes_api.organize_mapping_text", organize_mapping_text)
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval", lambda *args, **kwargs: None
+        "mapping_memory.retrieval_index.index_note_for_retrieval", lambda *args, **kwargs: None
     )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
 
@@ -267,14 +277,14 @@ def test_patch_notes_clears_organization_marker_only_with_completion_sentinel(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("unavailable")),
     )
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval", lambda *args, **kwargs: None
+        "mapping_memory.retrieval_index.index_note_for_retrieval", lambda *args, **kwargs: None
     )
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval", lambda *args, **kwargs: None
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval", lambda *args, **kwargs: None
     )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
 
@@ -313,12 +323,12 @@ def test_post_notes_preserves_original_text_exactly_with_ai_metadata(
         )
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -355,326 +365,6 @@ def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
     }
 
 
-def test_create_app_imports_markdown_file_from_vault(tmp_path: Path) -> None:
-    vault_path = tmp_path / "vault"
-    vault_path.mkdir()
-    imported_path = vault_path / "external-note.md"
-    imported_path.write_text(
-        "---\n"
-        "title: External note\n"
-        "summary: External summary.\n"
-        "tags:\n"
-        "- Work\n"
-        "category: Imported\n"
-        "---\n"
-        "\n"
-        "External body text",
-    )
-    app = create_app(
-        Settings(
-            sqlite_path=tmp_path / "notes-api.sqlite",
-            vault_path=vault_path,
-            openai_api_key=None,
-        )
-    )
-
-    with TestClient(app) as client:
-        notes_response = client.get("/notes")
-        categories_response = client.get("/categories")
-
-    assert notes_response.status_code == 200
-    assert categories_response.status_code == 200
-    assert categories_response.json()[0]["name"] == "Imported"
-    assert notes_response.json()[0]["original_text"] == "External body text"
-    assert notes_response.json()[0]["ai_title"] == "External note"
-    assert notes_response.json()[0]["short_summary"] == "External summary."
-    assert notes_response.json()[0]["tags"] == ["work"]
-    assert notes_response.json()[0]["category"]["name"] == "Imported"
-
-
-def test_create_app_reconciles_chroma_after_markdown_vault_sync(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    reindex_calls: list[Settings] = []
-
-    vault_path = tmp_path / "vault"
-    vault_path.mkdir()
-    (vault_path / "external-note.md").write_text(
-        "---\n"
-        "title: External note\n"
-        "summary: External summary.\n"
-        "tags:\n"
-        "- Work\n"
-        "category: Imported\n"
-        "---\n"
-        "\n"
-        "External body text",
-    )
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
-            return {}
-
-    def reindex_chroma(settings: Settings) -> object:
-        reindex_calls.append(settings)
-        return object()
-
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
-    app = create_app(
-        Settings(
-            sqlite_path=tmp_path / "notes-api.sqlite",
-            vault_path=vault_path,
-            openai_api_key=None,
-        )
-    )
-
-    with TestClient(app) as client:
-        notes_response = client.get("/notes")
-
-    assert notes_response.status_code == 200
-    assert notes_response.json()[0]["original_text"] == "External body text"
-    assert len(reindex_calls) == 1
-
-
-def test_create_app_does_not_backfill_markdown_for_existing_sqlite_notes(
-    tmp_path: Path,
-) -> None:
-    vault_path = tmp_path / "vault"
-    vault_path.mkdir()
-    sqlite_path = tmp_path / "notes-api.sqlite"
-
-    init_db(sqlite_path)
-    note = create_note(
-        sqlite_path,
-        "Existing SQLite note body",
-        ai_title="Existing SQLite note",
-        short_summary="Existing summary.",
-    )
-    app = create_app(
-        Settings(
-            sqlite_path=sqlite_path,
-            vault_path=vault_path,
-            openai_api_key=None,
-        )
-    )
-
-    with TestClient(app) as client:
-        notes_response = client.get("/notes")
-
-    assert notes_response.status_code == 200
-    assert notes_response.json()[0]["id"] == note.id
-    assert list(vault_path.glob("*.md")) == []
-
-
-def test_create_app_deletes_sqlite_note_when_tracked_markdown_file_is_missing(
-    tmp_path: Path,
-) -> None:
-    vault_path = tmp_path / "vault"
-    sqlite_path = tmp_path / "notes-api.sqlite"
-    init_db(sqlite_path)
-    note = create_note(
-        sqlite_path,
-        "Deleted from vault body CD-30954.",
-        ai_title="Deleted from vault",
-        vault_path=vault_path,
-    )
-    (vault_path / f"deleted-from-vault-{note.id}.md").unlink()
-    app = create_app(
-        Settings(
-            sqlite_path=sqlite_path,
-            vault_path=vault_path,
-            openai_api_key=None,
-        )
-    )
-
-    with TestClient(app) as client:
-        notes_response = client.get("/notes")
-
-    assert notes_response.status_code == 200
-    assert notes_response.json() == []
-    assert get_note(sqlite_path, note.id) is None
-
-
-def test_create_app_reindexes_when_sqlite_notes_have_empty_chroma(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    sqlite_path = tmp_path / "notes-api.sqlite"
-    init_db(sqlite_path)
-    create_note(sqlite_path, "Existing note that needs vectors")
-    reindex_calls: list[Settings] = []
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
-            return {}
-
-    def reindex_chroma(settings: Settings) -> object:
-        reindex_calls.append(settings)
-        return object()
-
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
-    _reconcile_chroma_with_sqlite(
-        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
-    )
-
-    assert len(reindex_calls) == 1
-    assert reindex_calls[0].sqlite_path == sqlite_path
-
-
-def test_create_app_skips_reindex_when_chroma_matches_sqlite(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    sqlite_path = tmp_path / "notes-api.sqlite"
-    init_db(sqlite_path)
-    note = create_note(sqlite_path, "Existing note with current vectors")
-    reindex_calls: list[Settings] = []
-    chunks = create_retrieval_chunks(
-        note_id=note.id,
-        original_text=note.original_text,
-        ai_title=note.ai_title,
-        short_summary=note.short_summary,
-        tags=note.tags,
-        date_added=note.date_added,
-        updated_at=note.updated_at,
-    )
-    expected_metadata = {
-        build_chunk_id(note_id=chunk.note_id, chunk_index=chunk.chunk_index): build_chunk_metadata(
-            chunk
-        )
-        for chunk in chunks
-    }
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
-            return expected_metadata
-
-    def reindex_chroma(settings: Settings) -> object:
-        reindex_calls.append(settings)
-        return object()
-
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
-    _reconcile_chroma_with_sqlite(
-        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
-    )
-
-    assert reindex_calls == []
-
-
-def test_create_app_reindexes_when_chroma_metadata_is_stale(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    sqlite_path = tmp_path / "notes-api.sqlite"
-    init_db(sqlite_path)
-    note = create_note(sqlite_path, "Existing note with stale vectors")
-    reindex_calls: list[Settings] = []
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
-            return {
-                f"note:{note.id}:chunk:0": {
-                    "note_id": note.id,
-                    "chunk_index": 0,
-                    "chunk_type": "full",
-                    "ai_title": note.ai_title,
-                    "tags": "[]",
-                    "date_added": note.date_added,
-                    "source_start": 0,
-                    "source_end": len(note.original_text),
-                    "category_id": 0,
-                    "category_name": "Uncategorized",
-                    "category_scope": "uncategorized",
-                    "chunk_text_hash": "stale",
-                    "note_updated_at": note.updated_at,
-                }
-            }
-
-    def reindex_chroma(settings: Settings) -> object:
-        reindex_calls.append(settings)
-        return object()
-
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
-    _reconcile_chroma_with_sqlite(
-        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
-    )
-
-    assert len(reindex_calls) == 1
-
-
-def test_create_app_reindexes_when_sqlite_is_empty_but_chroma_has_chunks(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    sqlite_path = tmp_path / "notes-api.sqlite"
-    init_db(sqlite_path)
-    reindex_calls: list[Settings] = []
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
-            return {"note:999:chunk:0": {"note_id": 999}}
-
-    def reindex_chroma(settings: Settings) -> object:
-        reindex_calls.append(settings)
-        return object()
-
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
-    _reconcile_chroma_with_sqlite(settings=Settings(sqlite_path=sqlite_path, openai_api_key=None))
-
-    assert len(reindex_calls) == 1
-
-
-def test_create_app_logs_reindex_failure_without_crashing(
-    tmp_path: Path,
-    monkeypatch,
-    caplog,
-) -> None:
-    sqlite_path = tmp_path / "notes-api.sqlite"
-    init_db(sqlite_path)
-    create_note(sqlite_path, "Existing note with unavailable embeddings")
-
-    class FakeVectorStore:
-        def __init__(self, *, settings: Settings) -> None:
-            self.settings = settings
-
-        def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
-            return {}
-
-    def reindex_chroma(settings: Settings) -> object:
-        raise RuntimeError("provider failure with sensitive details")
-
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
-    monkeypatch.setattr("mapping_memory.main.reindex_chroma", reindex_chroma, raising=False)
-    with caplog.at_level(logging.WARNING):
-        _reconcile_chroma_with_sqlite(
-            settings=Settings(sqlite_path=sqlite_path, openai_api_key=None)
-        )
-
-    assert "Chroma index reconciliation unavailable; continuing with existing index" in caplog.text
-    assert "provider failure" not in caplog.text
-
-
 def test_post_notes_organize_returns_ai_metadata_for_body_draft(
     tmp_path: Path,
     monkeypatch,
@@ -691,7 +381,7 @@ def test_post_notes_organize_returns_ai_metadata_for_body_draft(
         )
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
@@ -724,7 +414,7 @@ def test_post_notes_organize_reports_ai_failure_without_saving_note(
         raise RuntimeError("provider failure with sensitive details")
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )
@@ -750,12 +440,12 @@ def test_patch_note_updates_metadata_and_get_returns_updated_note(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -789,12 +479,12 @@ def test_patch_note_updates_original_text_and_get_returns_updated_body(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -826,7 +516,7 @@ def test_patch_note_calls_reindex_with_updated_body(
     reindexed_notes: list[Any] = []
 
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -835,7 +525,7 @@ def test_patch_note_calls_reindex_with_updated_body(
         reindexed_notes.append(note)
 
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval",
         reindex_note_for_retrieval,
         raising=False,
     )
@@ -878,12 +568,12 @@ def test_patch_note_refreshes_exact_search_for_updated_body(
         return [[0.1, 0.2, 0.3] for _ in texts]
 
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -918,7 +608,7 @@ def test_patch_note_rejects_empty_or_invalid_metadata(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -969,12 +659,14 @@ def test_patch_note_reindexes_chroma_chunks(
         return [[0.4, 0.5, 0.6] for _ in texts]
 
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.embed_texts", embed_texts, raising=False)
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
+    )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
     with TestClient(app) as client:
@@ -1014,7 +706,7 @@ def test_patch_note_keeps_sqlite_update_when_reindex_fails(
     original_text = "Original body that must not be logged"
 
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -1023,7 +715,7 @@ def test_patch_note_keeps_sqlite_update_when_reindex_fails(
         raise RuntimeError("provider failure with sensitive details")
 
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval",
         reindex_note_for_retrieval,
         raising=False,
     )
@@ -1061,11 +753,13 @@ def test_delete_note_removes_note_and_chroma_chunks(
             delete_calls.append(note_id)
 
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
+    )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
     with TestClient(app) as client:
@@ -1096,7 +790,9 @@ def test_delete_note_returns_404_for_missing_id(
         def delete_chunks_for_note(self, note_id: int) -> None:
             delete_calls.append(note_id)
 
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
+    )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
     with TestClient(app) as client:
@@ -1122,11 +818,13 @@ def test_delete_note_keeps_sqlite_delete_when_chroma_cleanup_fails(
             raise RuntimeError("provider failure with sensitive details")
 
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.main.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
+    )
     app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
@@ -1234,191 +932,17 @@ def test_local_vite_origin_receives_cors_headers(tmp_path: Path) -> None:
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
-def test_categories_api_creates_lists_and_rejects_duplicates(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
-
-    with TestClient(app) as client:
-        empty_response = client.get("/categories")
-        created_response = client.post("/categories", json={"name": " Work "})
-        list_response = client.get("/categories")
-        duplicate_response = client.post("/categories", json={"name": "work"})
-
-    assert empty_response.status_code == 200
-    assert empty_response.json() == []
-    assert created_response.status_code == 201
-    assert created_response.json() == {
-        "id": 1,
-        "name": "Work",
-        "slug": "work",
-        "created_at": created_response.json()["created_at"],
-        "updated_at": created_response.json()["created_at"],
-    }
-    assert list_response.status_code == 200
-    assert list_response.json() == [created_response.json()]
-    assert duplicate_response.status_code == 409
-    assert duplicate_response.json() == {"detail": "Category already exists"}
-
-
-def test_categories_api_renames_category_and_rejects_duplicates(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
-
-    with TestClient(app) as client:
-        work_response = client.post("/categories", json={"name": "Work"})
-        client.post("/categories", json={"name": "Personal"})
-        renamed_response = client.patch(
-            f"/categories/{work_response.json()['id']}",
-            json={"name": " Projects "},
-        )
-        list_response = client.get("/categories")
-        duplicate_response = client.patch(
-            f"/categories/{work_response.json()['id']}",
-            json={"name": "personal"},
-        )
-        missing_response = client.patch("/categories/999999", json={"name": "Missing"})
-
-    assert renamed_response.status_code == 200
-    assert renamed_response.json()["id"] == work_response.json()["id"]
-    assert renamed_response.json()["name"] == "Projects"
-    assert renamed_response.json()["slug"] == "projects"
-    assert [category["name"] for category in list_response.json()] == ["Personal", "Projects"]
-    assert duplicate_response.status_code == 409
-    assert duplicate_response.json() == {"detail": "Category already exists"}
-    assert missing_response.status_code == 404
-    assert missing_response.json() == {"detail": "Category not found"}
-
-
-def test_categories_api_rename_reindexes_category_notes(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    reindexed_note_ids: list[int] = []
-
-    monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
-        lambda *args, **kwargs: None,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
-        lambda note, **kwargs: reindexed_note_ids.append(note.id),
-        raising=False,
-    )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
-
-    with TestClient(app) as client:
-        category_response = client.post("/categories", json={"name": "Work"})
-        category_id = category_response.json()["id"]
-        first_note = client.post(
-            "/notes",
-            json={"original_text": "First work note", "category_id": category_id},
-        ).json()
-        second_note = client.post(
-            "/notes",
-            json={"original_text": "Second work note", "category_id": category_id},
-        ).json()
-        client.post("/notes", json={"original_text": "Loose note"})
-        response = client.patch(f"/categories/{category_id}", json={"name": "Projects"})
-
-    assert response.status_code == 200
-    assert reindexed_note_ids == [second_note["id"], first_note["id"]]
-
-
-def test_categories_api_deletes_category_and_uncategorizes_notes(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    reindexed_note_ids: list[int] = []
-
-    monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
-        lambda *args, **kwargs: None,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
-        lambda note, **kwargs: reindexed_note_ids.append(note.id),
-        raising=False,
-    )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
-
-    with TestClient(app) as client:
-        category_response = client.post("/categories", json={"name": "Work"})
-        category_id = category_response.json()["id"]
-        deleted_note_response = client.post(
-            "/notes",
-            json={"original_text": "Work note", "category_id": category_id},
-        )
-        kept_note_response = client.post("/notes", json={"original_text": "Loose note"})
-        delete_response = client.delete(f"/categories/{category_id}")
-        categories_response = client.get("/categories")
-        uncategorized_note_fetch = client.get(f"/notes/{deleted_note_response.json()['id']}")
-        kept_note_fetch = client.get(f"/notes/{kept_note_response.json()['id']}")
-
-    assert delete_response.status_code == 200
-    assert delete_response.json() == {
-        "id": category_id,
-        "deleted": True,
-        "deleted_note_ids": [],
-        "uncategorized_note_ids": [deleted_note_response.json()["id"]],
-        "vector_cleanup": "deleted",
-    }
-    assert reindexed_note_ids == [deleted_note_response.json()["id"]]
-    assert categories_response.json() == []
-    assert uncategorized_note_fetch.status_code == 200
-    assert uncategorized_note_fetch.json()["category"] is None
-    assert kept_note_fetch.status_code == 200
-
-
-def test_categories_api_delete_reports_failed_reindex(
-    tmp_path: Path,
-    monkeypatch,
-    caplog,
-) -> None:
-    monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
-        lambda *args, **kwargs: None,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            RuntimeError("provider failure with sensitive details")
-        ),
-        raising=False,
-    )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
-
-    with caplog.at_level(logging.WARNING), TestClient(app) as client:
-        category_response = client.post("/categories", json={"name": "Work"})
-        note_response = client.post(
-            "/notes",
-            json={"original_text": "Work note", "category_id": category_response.json()["id"]},
-        )
-        delete_response = client.delete(f"/categories/{category_response.json()['id']}")
-        uncategorized_note_fetch = client.get(f"/notes/{note_response.json()['id']}")
-
-    assert delete_response.status_code == 200
-    assert delete_response.json()["vector_cleanup"] == "failed"
-    assert uncategorized_note_fetch.status_code == 200
-    assert uncategorized_note_fetch.json()["category"] is None
-    assert (
-        "Retrieval cleanup unavailable; uncategorized category notes without full vector cleanup"
-        in caplog.text
-    )
-    assert "provider failure" not in caplog.text
-
-
 def test_notes_api_creates_updates_and_filters_by_category(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "mapping_memory.main._index_note_for_retrieval",
+        "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
     monkeypatch.setattr(
-        "mapping_memory.main._reindex_note_for_retrieval",
+        "mapping_memory.retrieval_index.reindex_note_for_retrieval",
         lambda *args, **kwargs: None,
         raising=False,
     )
@@ -1466,7 +990,7 @@ def test_post_notes_rejects_invalid_category_before_organizer(
         return OrganizerMetadata(title="Title", summary="Summary.", tags=[])
 
     monkeypatch.setattr(
-        "mapping_memory.main.organize_mapping_text",
+        "mapping_memory.notes_api.organize_mapping_text",
         organize_mapping_text,
         raising=False,
     )

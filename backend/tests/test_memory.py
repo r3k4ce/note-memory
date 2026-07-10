@@ -122,7 +122,9 @@ def test_memory_api_crud_settings_validation_and_independent_chat_clear(
     monkeypatch.setattr(
         "mapping_memory.main.MemoryAdapter", lambda settings: MemoryAdapter(settings, client=fake)
     )
-    monkeypatch.setattr("mapping_memory.main._reconcile_chroma_with_sqlite", lambda **_: None)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.reconcile_chroma_with_sqlite", lambda **_: None
+    )
     app = create_app(_settings(tmp_path))
 
     with TestClient(app) as client:
@@ -150,7 +152,9 @@ def test_chat_thread_api_crud_messages_and_validation(tmp_path: Path, monkeypatc
     monkeypatch.setattr(
         "mapping_memory.main.MemoryAdapter", lambda settings: MemoryAdapter(settings, client=fake)
     )
-    monkeypatch.setattr("mapping_memory.main._reconcile_chroma_with_sqlite", lambda **_: None)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.reconcile_chroma_with_sqlite", lambda **_: None
+    )
     app = create_app(_settings(tmp_path))
 
     with TestClient(app) as client:
@@ -184,7 +188,9 @@ def test_chat_thread_api_crud_messages_and_validation(tmp_path: Path, monkeypatc
 def test_memory_settings_report_unavailable_without_feature_and_key(
     tmp_path: Path, monkeypatch, memory_enabled: bool, has_key: bool
 ) -> None:
-    monkeypatch.setattr("mapping_memory.main._reconcile_chroma_with_sqlite", lambda **_: None)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.reconcile_chroma_with_sqlite", lambda **_: None
+    )
     settings = Settings(
         sqlite_path=tmp_path / "app.sqlite",
         memory_path=tmp_path / "memory",

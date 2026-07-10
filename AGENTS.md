@@ -64,6 +64,8 @@ Ask focused questions when the goal, success criteria, UX, data shape, behavior 
 
 ## Docs And Memory
 
+See [docs/architecture.md](docs/architecture.md) for current frontend ownership, backend boundaries, cross-feature flows, and test locations.
+
 Update `README.md` only when setup, commands, usage, config, dependencies, or user-facing behavior changes.
 
 Update `docs/project-memory.yaml` only after completed implementation for code, behavior, dependency, workflow, structure, or decision changes.

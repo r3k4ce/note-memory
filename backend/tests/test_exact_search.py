@@ -2,8 +2,9 @@ import sqlite3
 from pathlib import Path
 
 from mapping_memory.db import init_db
+from mapping_memory.exact_search import search_notes_exact, search_notes_exact_matches
 from mapping_memory.fts import rebuild_notes_fts
-from mapping_memory.notes import create_note, search_notes_exact, search_notes_exact_matches
+from mapping_memory.notes import create_note
 
 
 def test_exact_search_finds_ticket_ids(tmp_path: Path) -> None:

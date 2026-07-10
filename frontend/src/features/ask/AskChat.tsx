@@ -17,9 +17,9 @@ import {
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { formatNoteDate } from "../dateFormat";
-import type { AskSource, ChatMessage, ChatThread } from "../types";
-import { MemoryManager } from "./MemoryManager";
+import { MemoryManager } from "../../components/MemoryManager";
+import { formatNoteDate } from "../../dateFormat";
+import type { AskSource, ChatMessage, ChatThread } from "../../types";
 
 type AskChatProps = {
   askRef: RefObject<HTMLTextAreaElement | null>;
@@ -28,7 +28,6 @@ type AskChatProps = {
   activeThreadId: number | null;
   threads: ChatThread[];
   onSourceSelect: (noteId: number) => void;
-  onClearChat?: () => void;
   onDeleteThread?: (threadId: number) => void;
   onNewThread?: () => void;
   onRenameThread?: (threadId: number, newTitle: string) => void;
@@ -410,7 +409,6 @@ export function AskChat({
   messages,
   threads,
   onSourceSelect,
-  onClearChat,
   onDeleteThread,
   onNewThread,
   onRenameThread,

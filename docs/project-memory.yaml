@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-10T17:34:31Z"
+    time_local: "2026-07-10T14:34:31-03:00"
+    summary: "Documented the completed behavior-preserving frontend and backend architecture refactor."
+    changed:
+      - "Recorded frontend layout, Ask, notebook/search controller and view ownership, App composition, backend assembly, router, CRUD/vault sync, exact search, retrieval index, and search/RAG boundaries."
+      - "Captured citation navigation, search-result reconciliation, Ask scope ownership, and focused, shell, e2e, and backend test locations; existing behavior and public contracts were preserved."
+    verification:
+      - "Ran ./scripts/check.sh: Ruff format and lint, Pyright, 262 backend tests passed with 3 live tests skipped at 88.74% coverage, 173 frontend unit tests, 6 Playwright tests, frontend lint, and production build all passed."
+      - "Verified architecture links and paths, YAML shape, Markdown scope, and git diff --check."
   - time_utc: "2026-07-10T02:58:43Z"
     time_local: "2026-07-09T23:58:43-03:00"
     summary: "Added durable multiple Ask Bun chat threads."

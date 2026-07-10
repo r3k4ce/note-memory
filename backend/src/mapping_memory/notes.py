@@ -3,25 +3,14 @@ import re
 import sqlite3
 import unicodedata
 from contextlib import closing
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from sqlite3 import Row
 
-from mapping_memory.category_scope import CategoryScope, make_category_scope
+from mapping_memory.category_scope import make_category_scope
 from mapping_memory.db import connect_db
-from mapping_memory.fts import (
-    build_exact_match_query,
-    index_note_fts,
-    literal_matched_snippet,
-    rebuild_notes_fts,
-    row_matches_literal,
-)
-from mapping_memory.markdown_notes import (
-    delete_markdown_note,
-    parse_markdown_note,
-    write_markdown_note,
-)
+from mapping_memory.fts import index_note_fts, rebuild_notes_fts
+from mapping_memory.markdown_notes import delete_markdown_note, write_markdown_note
 from mapping_memory.schemas import CategoryRead, NoteRead
 
 UNTITLED_NOTE_TITLE = "Untitled note"
@@ -40,12 +29,6 @@ class _Unset:
 
 
 _UNSET = _Unset()
-
-
-@dataclass(frozen=True)
-class ExactSearchMatch:
-    note: NoteRead
-    matched_snippet: str | None
 
 
 def create_category(sqlite_path: Path, name: str) -> CategoryRead:
@@ -107,13 +90,6 @@ def list_categories(sqlite_path: Path) -> list[CategoryRead]:
         ).fetchall()
 
     return [_category_from_row(row) for row in rows]
-
-
-def sync_markdown_vault(sqlite_path: Path, vault_path: Path) -> list[int]:
-    vault_path.mkdir(parents=True, exist_ok=True)
-    changed_note_ids = _delete_notes_missing_markdown_files(sqlite_path, vault_path)
-    changed_note_ids.extend(_import_newer_markdown_files(sqlite_path, vault_path))
-    return changed_note_ids
 
 
 def update_category(sqlite_path: Path, category_id: int, name: str) -> CategoryRead | None:
@@ -483,69 +459,6 @@ def delete_note(sqlite_path: Path, note_id: int, *, vault_path: Path | None = No
     return True
 
 
-def search_notes_exact(
-    sqlite_path: Path,
-    query: str,
-    *,
-    limit: int = 20,
-    category_scope: CategoryScope | None = None,
-) -> list[NoteRead]:
-    return [
-        match.note
-        for match in search_notes_exact_matches(
-            sqlite_path,
-            query,
-            limit=limit,
-            category_scope=category_scope,
-        )
-    ]
-
-
-def search_notes_exact_matches(
-    sqlite_path: Path,
-    query: str,
-    *,
-    limit: int = 20,
-    category_scope: CategoryScope | None = None,
-) -> list[ExactSearchMatch]:
-    stripped_query = query.strip()
-    if not stripped_query or limit <= 0:
-        return []
-
-    scope = category_scope or CategoryScope()
-    filters = ["notes_fts MATCH ?"]
-    params: list[object] = [build_exact_match_query(stripped_query)]
-    if scope.uncategorized:
-        filters.append("notes.category_id IS NULL")
-    elif scope.category_id is not None:
-        filters.append("notes.category_id = ?")
-        params.append(scope.category_id)
-    params.append(limit * 5)
-
-    with closing(connect_db(sqlite_path)) as connection:
-        rows = connection.execute(
-            f"""
-            SELECT {_note_select_columns()}
-            FROM notes_fts
-            JOIN notes ON notes.id = notes_fts.rowid
-            LEFT JOIN categories ON categories.id = notes.category_id
-            WHERE {" AND ".join(filters)}
-            ORDER BY bm25(notes_fts), notes.date_added DESC, notes.id DESC
-            LIMIT ?
-            """,
-            tuple(params),
-        ).fetchall()
-
-    matching_rows = [row for row in rows if row_matches_literal(row, stripped_query)]
-    return [
-        ExactSearchMatch(
-            note=_note_from_row(row),
-            matched_snippet=literal_matched_snippet(row, stripped_query),
-        )
-        for row in matching_rows[:limit]
-    ]
-
-
 def _fallback_title(original_text: str) -> str:
     for line in original_text.splitlines():
         stripped_line = line.strip()
@@ -597,118 +510,6 @@ def _note_from_row(row: Row) -> NoteRead:
         category=category,
         needs_ai_organization=bool(row["needs_ai_organization"]),
     )
-
-
-def _delete_notes_missing_markdown_files(sqlite_path: Path, vault_path: Path) -> list[int]:
-    deleted_note_ids: list[int] = []
-    with closing(connect_db(sqlite_path)) as connection:
-        rows = connection.execute(
-            """
-            SELECT id, markdown_path
-            FROM notes
-            WHERE markdown_path IS NOT NULL
-            ORDER BY id ASC
-            """
-        ).fetchall()
-        for row in rows:
-            if (vault_path / row["markdown_path"]).exists():
-                continue
-
-            connection.execute("DELETE FROM notes WHERE id = ?", (row["id"],))
-            deleted_note_ids.append(row["id"])
-
-        if deleted_note_ids:
-            rebuild_notes_fts(connection)
-        connection.commit()
-
-    return deleted_note_ids
-
-
-def _import_newer_markdown_files(sqlite_path: Path, vault_path: Path) -> list[int]:
-    known_notes = _known_markdown_notes(sqlite_path)
-    known_paths = set(known_notes)
-    changed_note_ids: list[int] = []
-    for markdown_path in sorted(vault_path.glob("*.md")):
-        relative_path = markdown_path.name
-        if relative_path not in known_paths:
-            note_id = _import_new_markdown_file(sqlite_path, markdown_path)
-            if note_id is not None:
-                changed_note_ids.append(note_id)
-            continue
-
-        note_id, updated_at = known_notes[relative_path]
-        file_updated_at = datetime.fromtimestamp(markdown_path.stat().st_mtime, tz=UTC)
-        note_updated_at = datetime.fromisoformat(updated_at)
-        if file_updated_at > note_updated_at:
-            imported_note_id = _import_existing_markdown_file(sqlite_path, note_id, markdown_path)
-            if imported_note_id is not None:
-                changed_note_ids.append(imported_note_id)
-
-    return changed_note_ids
-
-
-def _known_markdown_notes(sqlite_path: Path) -> dict[str, tuple[int, str]]:
-    with closing(connect_db(sqlite_path)) as connection:
-        rows = connection.execute(
-            """
-            SELECT id, markdown_path, updated_at
-            FROM notes
-            WHERE markdown_path IS NOT NULL
-            """
-        ).fetchall()
-    return {row["markdown_path"]: (row["id"], row["updated_at"]) for row in rows}
-
-
-def _import_new_markdown_file(sqlite_path: Path, markdown_path: Path) -> int | None:
-    parsed = parse_markdown_note(markdown_path.read_text())
-    body = parsed.body
-    if not body.strip():
-        return None
-
-    note = create_note(
-        sqlite_path,
-        body,
-        ai_title=parsed.title or _fallback_title(body),
-        short_summary=parsed.summary or body[:250],
-        tags=parsed.tags,
-        category_id=_category_id_for_name(sqlite_path, parsed.category),
-        markdown_path=markdown_path.name,
-    )
-    return note.id
-
-
-def _import_existing_markdown_file(
-    sqlite_path: Path,
-    note_id: int,
-    markdown_path: Path,
-) -> int | None:
-    parsed = parse_markdown_note(markdown_path.read_text())
-    body = parsed.body
-    if not body.strip():
-        return None
-
-    note = update_note(
-        sqlite_path,
-        note_id,
-        original_text=body,
-        ai_title=parsed.title or _fallback_title(body),
-        short_summary=parsed.summary or body[:250],
-        tags=parsed.tags,
-        category_id=_category_id_for_name(sqlite_path, parsed.category),
-    )
-    return note.id if note is not None else None
-
-
-def _category_id_for_name(sqlite_path: Path, category_name: str) -> int | None:
-    stripped_name = category_name.strip()
-    if not stripped_name:
-        return None
-
-    for category in list_categories(sqlite_path):
-        if category.name.lower() == stripped_name.lower():
-            return category.id
-
-    return create_category(sqlite_path, stripped_name).id
 
 
 def _category_name_for_id(connection: sqlite3.Connection, category_id: int | None) -> str | None:

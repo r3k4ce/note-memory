@@ -3,7 +3,7 @@ import { createRef } from "react";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { AskChat } from "./AskChat";
-import type { ChatMessage } from "../types";
+import type { ChatMessage } from "../../types";
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
@@ -19,7 +19,6 @@ function renderAskChat({
   onSourceSelect = vi.fn(),
   pendingMessageId = null,
   submitDisabledMessage,
-  onClearChat = vi.fn(),
   onDeleteThread = vi.fn(),
   onNewThread = vi.fn(),
   onRenameThread = vi.fn(),
@@ -30,7 +29,6 @@ function renderAskChat({
   onSourceSelect?: (noteId: number) => void;
   pendingMessageId?: string | null;
   submitDisabledMessage?: string;
-  onClearChat?: () => void;
   onDeleteThread?: (threadId: number) => void;
   onNewThread?: () => void;
   onRenameThread?: (threadId: number, newTitle: string) => void;
@@ -61,7 +59,6 @@ function renderAskChat({
         },
       ]}
       onSourceSelect={onSourceSelect}
-      onClearChat={onClearChat}
       onDeleteThread={onDeleteThread}
       onNewThread={onNewThread}
       onRenameThread={onRenameThread}

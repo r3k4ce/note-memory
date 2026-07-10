@@ -179,10 +179,6 @@ export function askQuestion(request: AskRequest): Promise<AskResponse> {
   });
 }
 
-export function getChat(): Promise<StoredChatMessage[]> {
-  return requestJson<StoredChatMessage[]>("/chat");
-}
-
 export function listChatThreads(): Promise<ChatThread[]> {
   return requestJson<ChatThread[]>("/chat/threads");
 }
@@ -219,10 +215,6 @@ async function requestEmpty(path: string, method: "DELETE"): Promise<void> {
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response, `Request failed with status ${response.status}.`));
   }
-}
-
-export function clearChat(): Promise<void> {
-  return requestEmpty("/chat", "DELETE");
 }
 
 export function listMemories(): Promise<MemoryRecord[]> {

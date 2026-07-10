@@ -6,17 +6,12 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, status
 from rapidfuzz import fuzz, process
 
+from mapping_memory import retrieval_index
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
-from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.embeddings import embed_texts
+from mapping_memory.exact_search import ExactSearchMatch, search_notes_exact_matches
 from mapping_memory.fts import SNIPPET_MAX_CHARS, collapse_whitespace, tags_to_text
-from mapping_memory.notes import (
-    ExactSearchMatch,
-    get_category,
-    get_note,
-    list_notes,
-    search_notes_exact_matches,
-)
+from mapping_memory.notes import get_category, get_note, list_notes
 from mapping_memory.schemas import NoteRead, SearchResult
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, VectorSearchResult
@@ -388,19 +383,5 @@ def _sync_scope_category_metadata(
         category_id=category_scope.category_id,
         uncategorized=category_scope.uncategorized,
     )
-    chunks = [chunk for note in notes for chunk in _chunks_for_note(note)]
+    chunks = [chunk for note in notes for chunk in retrieval_index.retrieval_chunks_for_note(note)]
     vector_store.update_chunk_metadata(chunks)
-
-
-def _chunks_for_note(note: NoteRead):
-    return create_retrieval_chunks(
-        note_id=note.id,
-        original_text=note.original_text,
-        ai_title=note.ai_title,
-        short_summary=note.short_summary,
-        tags=note.tags,
-        date_added=note.date_added,
-        category_id=note.category.id if note.category is not None else None,
-        category_name=note.category.name if note.category is not None else None,
-        updated_at=note.updated_at,
-    )

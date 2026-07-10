@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Any, Literal, cast
 
+from mapping_memory import retrieval_index
 from mapping_memory.category_scope import CategoryScope
-from mapping_memory.chunking import ChunkType, RetrievalChunk, create_retrieval_chunks
+from mapping_memory.chunking import ChunkType, RetrievalChunk
 from mapping_memory.embeddings import embed_texts
+from mapping_memory.exact_search import ExactSearchMatch, search_notes_exact_matches
 from mapping_memory.fts import tags_to_text
-from mapping_memory.notes import ExactSearchMatch, get_note, list_notes, search_notes_exact_matches
+from mapping_memory.notes import get_note, list_notes
 from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, build_chunk_id
@@ -422,7 +424,7 @@ def _add_selected_note_rescue_chunks(
 
 
 def _best_rescue_chunk_for_note(query: str, note):
-    chunks = _chunks_for_note(note)
+    chunks = retrieval_index.retrieval_chunks_for_note(note)
     if not chunks:
         return None
 
@@ -434,7 +436,7 @@ def _best_local_chunk_for_note(
     note,
     matched_snippet: str | None,
 ) -> RetrievalChunk | None:
-    chunks = _chunks_for_note(note)
+    chunks = retrieval_index.retrieval_chunks_for_note(note)
     if not chunks:
         return None
 
@@ -595,19 +597,5 @@ def _sync_scope_category_metadata(
         category_id=category_scope.category_id,
         uncategorized=category_scope.uncategorized,
     )
-    chunks = [chunk for note in notes for chunk in _chunks_for_note(note)]
+    chunks = [chunk for note in notes for chunk in retrieval_index.retrieval_chunks_for_note(note)]
     vector_store.update_chunk_metadata(chunks)
-
-
-def _chunks_for_note(note):
-    return create_retrieval_chunks(
-        note_id=note.id,
-        original_text=note.original_text,
-        ai_title=note.ai_title,
-        short_summary=note.short_summary,
-        tags=note.tags,
-        date_added=note.date_added,
-        category_id=note.category.id if note.category is not None else None,
-        category_name=note.category.name if note.category is not None else None,
-        updated_at=note.updated_at,
-    )
