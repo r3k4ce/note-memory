@@ -20,6 +20,10 @@ function renderAskChat({
   pendingMessageId = null,
   submitDisabledMessage,
   onClearChat = vi.fn(),
+  onDeleteThread = vi.fn(),
+  onNewThread = vi.fn(),
+  onRenameThread = vi.fn(),
+  onThreadChange = vi.fn(),
 }: {
   isSubmitDisabled?: boolean;
   messages?: ChatMessage[];
@@ -27,6 +31,10 @@ function renderAskChat({
   pendingMessageId?: string | null;
   submitDisabledMessage?: string;
   onClearChat?: () => void;
+  onDeleteThread?: (threadId: number) => void;
+  onNewThread?: () => void;
+  onRenameThread?: (threadId: number, newTitle: string) => void;
+  onThreadChange?: (threadId: number) => void;
 } = {}) {
   const onSubmit = vi.fn();
 
@@ -35,8 +43,29 @@ function renderAskChat({
       askRef={createRef<HTMLTextAreaElement>()}
       isSubmitDisabled={isSubmitDisabled}
       messages={messages}
+      activeThreadId={1}
+      threads={[
+        {
+          id: 1,
+          title: "Launch notes",
+          scope: { mode: "all" },
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          title: "Follow-up",
+          scope: { mode: "custom", note_ids: [7] },
+          created_at: "2026-07-02T00:00:00Z",
+          updated_at: "2026-07-02T00:00:00Z",
+        },
+      ]}
       onSourceSelect={onSourceSelect}
       onClearChat={onClearChat}
+      onDeleteThread={onDeleteThread}
+      onNewThread={onNewThread}
+      onRenameThread={onRenameThread}
+      onThreadChange={onThreadChange}
       onSubmit={onSubmit}
       pendingMessageId={pendingMessageId}
       scopeLabel="All notes"
@@ -44,7 +73,7 @@ function renderAskChat({
     />,
   );
 
-  return { onSourceSelect, onSubmit };
+  return { onDeleteThread, onNewThread, onRenameThread, onSourceSelect, onSubmit, onThreadChange };
 }
 
 describe("AskChat Ask Bun panel", () => {
@@ -131,10 +160,8 @@ describe("AskChat Ask Bun panel", () => {
     expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
   });
 
-  test("shows a quiet memory update and keeps chat clearing separate", () => {
-    const onClearChat = vi.fn();
+  test("shows memory update and Manage threads button in header", () => {
     renderAskChat({
-      onClearChat,
       messages: [
         {
           id: "assistant:1",
@@ -148,8 +175,93 @@ describe("AskChat Ask Bun panel", () => {
     });
 
     expect(screen.getByText("Memory updated")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear chat" }));
-    expect(onClearChat).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Manage threads" })).toBeInTheDocument();
+  });
+
+  test("opens thread panel and dispatches thread actions", () => {
+    const { onDeleteThread, onNewThread, onRenameThread, onThreadChange } = renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+
+    expect(screen.getByRole("dialog", { name: "Thread management" })).toBeInTheDocument();
+    expect(screen.getByText("Threads")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("New Chat"));
+    expect(onNewThread).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Rename Launch notes" }));
+    const input = screen.getByDisplayValue("Launch notes");
+    fireEvent.change(input, { target: { value: "Renamed thread" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save title" }));
+    expect(onRenameThread).toHaveBeenCalledWith(1, "Renamed thread");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Follow-up" }));
+    expect(onDeleteThread).toHaveBeenCalledWith(2);
+
+    fireEvent.click(screen.getByText("Follow-up"));
+    expect(onThreadChange).toHaveBeenCalledWith(2);
+  });
+
+  test("closes thread panel when close button is clicked", () => {
+    renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    expect(screen.getByRole("dialog", { name: "Thread management" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close thread panel" }));
+    expect(screen.queryByRole("dialog", { name: "Thread management" })).not.toBeInTheDocument();
+  });
+
+  test("closes thread panel after selecting a different thread", () => {
+    const { onThreadChange } = renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    fireEvent.click(screen.getByText("Follow-up"));
+
+    expect(onThreadChange).toHaveBeenCalledWith(2);
+    expect(screen.queryByRole("dialog", { name: "Thread management" })).not.toBeInTheDocument();
+  });
+
+  test("highlights active thread in the panel", () => {
+    renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+
+    const activeRow = screen.getByText("Launch notes").closest("[class*='bg-accent-muted']");
+    expect(activeRow).toBeInTheDocument();
+  });
+
+  test("disables Manage threads button while an Ask request is pending", () => {
+    renderAskChat({ pendingMessageId: "assistant:pending" });
+
+    expect(screen.getByRole("button", { name: "Manage threads" })).toBeDisabled();
+  });
+
+  test("allows inline rename with Enter key", () => {
+    const { onRenameThread } = renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename Follow-up" }));
+
+    const input = screen.getByDisplayValue("Follow-up");
+    fireEvent.change(input, { target: { value: "New title" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onRenameThread).toHaveBeenCalledWith(2, "New title");
+  });
+
+  test("cancels inline rename with Escape key", () => {
+    const { onRenameThread } = renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename Follow-up" }));
+
+    const input = screen.getByDisplayValue("Follow-up");
+    fireEvent.change(input, { target: { value: "New title" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(onRenameThread).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue("New title")).not.toBeInTheDocument();
   });
 
   test("shows friendly no-evidence state", () => {
@@ -261,12 +373,14 @@ describe("AskChat Ask Bun panel", () => {
     render(
       <AskChat
         askRef={createRef<HTMLTextAreaElement>()}
+        activeThreadId={null}
         hasNotes={false}
         messages={[]}
         onSourceSelect={vi.fn()}
         onSubmit={onSubmit}
         pendingMessageId={null}
         scopeLabel="All notes"
+        threads={[]}
       />,
     );
 

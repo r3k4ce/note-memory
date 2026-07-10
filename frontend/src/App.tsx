@@ -29,18 +29,21 @@ import {
 
 import {
   createCategory,
+  createChatThread,
   createNote,
   deleteCategory,
+  deleteChatThread,
   deleteNote,
   getNote,
+  getChatThreadMessages,
+  listChatThreads,
   listCategories,
   listNotes,
   organizeNote,
   searchNotes,
   askQuestion,
-  clearChat,
-  getChat,
   updateCategory,
+  updateChatThread,
   updateNote,
 } from "./api";
 import {
@@ -71,11 +74,13 @@ import type {
   AskHistoryMessage,
   AskNoteScope,
   Category,
+  ChatThread,
   ChatMessage,
   Note,
   NoteCardData,
   NoteUpdate,
   SearchResult,
+  StoredChatMessage,
 } from "./types";
 
 type CategoryFilter = "all" | "uncategorized" | number;
@@ -215,6 +220,39 @@ function formatAskChatScopeLabel(scope: AskNoteScope, totalNotes: number): strin
   return selectedCount === 1 ? "1 note selected" : `${selectedCount} notes selected`;
 }
 
+function storedScopeToAskNoteScope(thread: ChatThread): AskNoteScope {
+  if (thread.scope.mode === "all") {
+    return DEFAULT_ASK_NOTE_SCOPE;
+  }
+
+  return { mode: "custom", noteIds: thread.scope.note_ids };
+}
+
+function askNoteScopeToStoredScope(scope: AskNoteScope) {
+  return scope.mode === "all"
+    ? { mode: "all" as const }
+    : { mode: "custom" as const, note_ids: scope.noteIds };
+}
+
+function storedMessageToChatMessage(message: StoredChatMessage): ChatMessage {
+  if (message.role === "user") {
+    return {
+      id: message.id,
+      role: "user",
+      content: message.content,
+    };
+  }
+
+  return {
+    id: message.id,
+    role: "assistant",
+    content: message.content,
+    status: message.status,
+    evidenceSummary: message.evidence_summary,
+    sources: message.sources ?? [],
+  };
+}
+
 export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -253,6 +291,8 @@ export default function App() {
   const [editResetKey, setEditResetKey] = useState(0);
   const [isSelectedNoteEditDirty, setIsSelectedNoteEditDirty] = useState(false);
   const [askMessages, setAskMessages] = useState<ChatMessage[]>([]);
+  const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
+  const [activeChatThreadId, setActiveChatThreadId] = useState<number | null>(null);
   const [askPendingMessageId, setAskPendingMessageId] = useState<string | null>(null);
   const [askNoteScope, setAskNoteScope] = useState(DEFAULT_ASK_NOTE_SCOPE);
   const [expandedFolderKeys, setExpandedFolderKeys] = useState<Set<string>>(() => new Set());
@@ -274,6 +314,7 @@ export default function App() {
   const askRequestId = useRef(0);
   const askMessageId = useRef(0);
   const askPendingMessageIdRef = useRef<string | null>(null);
+  const chatThreadRequestId = useRef(0);
   const draggedNoteIdRef = useRef<number | null>(null);
   const lastLeftPaneWidthRef = useRef(LEFT_PANE_DEFAULT_WIDTH);
   const lastRightPaneWidthRef = useRef(RIGHT_PANE_DEFAULT_WIDTH);
@@ -537,27 +578,32 @@ export default function App() {
     setWorkspaceMode("edit-selected");
   }, []);
 
+  const loadChatThread = useCallback(
+    async (thread: ChatThread, threads: ChatThread[]) => {
+      const requestId = chatThreadRequestId.current + 1;
+      chatThreadRequestId.current = requestId;
+      const messages = await getChatThreadMessages(thread.id);
+      if (chatThreadRequestId.current !== requestId) {
+        return;
+      }
+
+      setChatThreads(threads);
+      setActiveChatThreadId(thread.id);
+      setAskMessages(messages.map(storedMessageToChatMessage));
+      setAskNoteScope(storedScopeToAskNoteScope(thread));
+    },
+    [],
+  );
+
+  const loadLatestChatThread = useCallback(async () => {
+    const threads = await listChatThreads();
+    const latestThread = threads[0] ?? (await createChatThread());
+    await loadChatThread(latestThread, threads.length > 0 ? threads : [latestThread]);
+  }, [loadChatThread]);
+
   useEffect(() => {
-    let ignore = false;
-    void getChat()
-      .then((messages) => {
-        if (ignore) return;
-        setAskMessages(messages.map((message) => message.role === "user" ? {
-          id: message.id,
-          role: "user" as const,
-          content: message.content,
-        } : {
-          id: message.id,
-          role: "assistant" as const,
-          content: message.content,
-          status: message.status,
-          evidenceSummary: message.evidence_summary,
-          sources: message.sources ?? [],
-        }));
-      })
-      .catch(() => undefined);
-    return () => { ignore = true; };
-  }, []);
+    void loadLatestChatThread().catch(() => undefined);
+  }, [loadLatestChatThread]);
 
   const selectNote = useCallback(
     (noteId: number) => {
@@ -585,26 +631,49 @@ export default function App() {
 
   const handleToggleAskNoteScope = useCallback(
     (noteId: number) => {
-      setAskNoteScope((currentScope) =>
-        toggleAskNoteScope(currentScope, noteId, askAvailableNoteIds),
-      );
+      setAskNoteScope((currentScope) => {
+        const nextScope = toggleAskNoteScope(currentScope, noteId, askAvailableNoteIds);
+        if (activeChatThreadId !== null) {
+          void updateChatThread(activeChatThreadId, { scope: askNoteScopeToStoredScope(nextScope) }).catch(
+            () => undefined,
+          );
+        }
+        return nextScope;
+      });
     },
-    [askAvailableNoteIds],
+    [activeChatThreadId, askAvailableNoteIds],
   );
 
   const handleToggleAllAskNotes = useCallback(() => {
-    setAskNoteScope((currentScope) =>
-      currentScope.mode === "all" ? clearAskNotes() : selectAllAskNotes(),
-    );
-  }, []);
+    setAskNoteScope((currentScope) => {
+      const nextScope = currentScope.mode === "all" ? clearAskNotes() : selectAllAskNotes();
+      if (activeChatThreadId !== null) {
+        void updateChatThread(activeChatThreadId, { scope: askNoteScopeToStoredScope(nextScope) }).catch(
+          () => undefined,
+        );
+      }
+      return nextScope;
+    });
+  }, [activeChatThreadId]);
 
   const handleSetAskSourceNotesSelected = useCallback(
     (noteIds: number[], selected: boolean) => {
-      setAskNoteScope((currentScope) =>
-        setAskNoteScopeSelected(currentScope, noteIds, selected, askAvailableNoteIds),
-      );
+      setAskNoteScope((currentScope) => {
+        const nextScope = setAskNoteScopeSelected(
+          currentScope,
+          noteIds,
+          selected,
+          askAvailableNoteIds,
+        );
+        if (activeChatThreadId !== null) {
+          void updateChatThread(activeChatThreadId, { scope: askNoteScopeToStoredScope(nextScope) }).catch(
+            () => undefined,
+          );
+        }
+        return nextScope;
+      });
     },
-    [askAvailableNoteIds],
+    [activeChatThreadId, askAvailableNoteIds],
   );
 
   const handleAskSourceSelect = useCallback(
@@ -966,12 +1035,18 @@ export default function App() {
 
   async function handleAskSubmit(question: string) {
     const trimmedQuestion = question.trim();
-    if (!trimmedQuestion || askPendingMessageIdRef.current !== null || isAskNoteScopeEmpty) {
+    if (
+      !trimmedQuestion ||
+      askPendingMessageIdRef.current !== null ||
+      isAskNoteScopeEmpty ||
+      activeChatThreadId === null
+    ) {
       return;
     }
 
     const requestId = askRequestId.current + 1;
     askRequestId.current = requestId;
+    const threadId = activeChatThreadId;
     const history = buildRecentAskHistory(askMessages, askPendingMessageIdRef.current);
 
     const userMessage: ChatMessage = {
@@ -993,6 +1068,7 @@ export default function App() {
 
     try {
       const result = await askQuestion({
+        thread_id: threadId,
         question: trimmedQuestion,
         history,
         ...(askNoteScope.mode === "custom" ? { note_ids: askNoteScope.noteIds } : {}),
@@ -1013,6 +1089,11 @@ export default function App() {
               : message,
           ),
         );
+        void listChatThreads()
+          .then((threads) => {
+            setChatThreads(threads);
+          })
+          .catch(() => undefined);
       }
     } catch (error) {
       if (askRequestId.current === requestId && askPendingMessageIdRef.current === pendingMessageId) {
@@ -1036,10 +1117,77 @@ export default function App() {
     }
   }
 
-  async function handleClearChat() {
+  async function handleSwitchChatThread(threadId: number) {
+    if (askPendingMessageIdRef.current !== null || threadId === activeChatThreadId) {
+      return;
+    }
+
     try {
-      await clearChat();
-      setAskMessages([]);
+      const thread = chatThreads.find((currentThread) => currentThread.id === threadId);
+      if (!thread) {
+        return;
+      }
+      await loadChatThread(thread, chatThreads);
+    } catch {
+      return;
+    }
+  }
+
+  async function handleNewChatThread() {
+    if (askPendingMessageIdRef.current !== null) {
+      return;
+    }
+
+    try {
+      const thread = await createChatThread();
+      const threads = [thread, ...chatThreads.filter((currentThread) => currentThread.id !== thread.id)];
+      await loadChatThread(thread, threads);
+    } catch {
+      return;
+    }
+  }
+
+  async function handleRenameChatThread(threadId: number, newTitle: string) {
+    if (askPendingMessageIdRef.current !== null) {
+      return;
+    }
+
+    try {
+      const updatedThread = await updateChatThread(threadId, { title: newTitle });
+      setChatThreads((currentThreads) =>
+        currentThreads.map((thread) =>
+          thread.id === updatedThread.id ? updatedThread : thread,
+        ),
+      );
+    } catch {
+      return;
+    }
+  }
+
+  async function handleDeleteChatThread(threadId: number) {
+    if (askPendingMessageIdRef.current !== null) {
+      return;
+    }
+
+    const thread = chatThreads.find((currentThread) => currentThread.id === threadId);
+    if (!window.confirm(`Delete "${thread?.title ?? "this chat"}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteChatThread(threadId);
+      const remainingThreads = chatThreads.filter((currentThread) => currentThread.id !== threadId);
+      if (remainingThreads.length > 0) {
+        if (threadId === activeChatThreadId) {
+          await loadChatThread(remainingThreads[0], remainingThreads);
+        } else {
+          setChatThreads(remainingThreads);
+        }
+        return;
+      }
+
+      const newThread = await createChatThread();
+      await loadChatThread(newThread, [newThread]);
     } catch {
       return;
     }
@@ -1866,10 +2014,15 @@ export default function App() {
       >
         <AskChat
           askRef={askRef}
+          activeThreadId={activeChatThreadId}
           hasNotes={notes.length > 0}
           messages={askMessages}
+          threads={chatThreads}
           onSourceSelect={handleAskSourceSelect}
-          onClearChat={() => void handleClearChat()}
+          onDeleteThread={(threadId) => void handleDeleteChatThread(threadId)}
+          onNewThread={() => void handleNewChatThread()}
+          onRenameThread={(threadId, newTitle) => void handleRenameChatThread(threadId, newTitle)}
+          onThreadChange={(threadId) => void handleSwitchChatThread(threadId)}
           onSubmit={handleAskSubmit}
           pendingMessageId={askPendingMessageId}
           isSubmitDisabled={isAskNoteScopeEmpty}

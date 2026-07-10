@@ -1,19 +1,38 @@
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
-import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, FileText, Quote, Send, Sparkles, Trash2, TriangleAlert } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowUpRight,
+  Check,
+  FileText,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Quote,
+  Send,
+  Sparkles,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { formatNoteDate } from "../dateFormat";
-import type { AskSource, ChatMessage } from "../types";
+import type { AskSource, ChatMessage, ChatThread } from "../types";
 import { MemoryManager } from "./MemoryManager";
 
 type AskChatProps = {
   askRef: RefObject<HTMLTextAreaElement | null>;
   hasNotes?: boolean;
   messages: ChatMessage[];
+  activeThreadId: number | null;
+  threads: ChatThread[];
   onSourceSelect: (noteId: number) => void;
   onClearChat?: () => void;
+  onDeleteThread?: (threadId: number) => void;
+  onNewThread?: () => void;
+  onRenameThread?: (threadId: number, newTitle: string) => void;
+  onThreadChange?: (threadId: number) => void;
   onSubmit: (question: string) => void;
   pendingMessageId: string | null;
   isSubmitDisabled?: boolean;
@@ -218,12 +237,184 @@ function ErrorBubble({ content }: { content: string }) {
   );
 }
 
+type ThreadPanelProps = {
+  activeThreadId: number | null;
+  isPending: boolean;
+  onClose: () => void;
+  onDeleteThread: (threadId: number) => void;
+  onNewThread: () => void;
+  onRenameThread: (threadId: number, newTitle: string) => void;
+  onSelectThread: (threadId: number) => void;
+  threads: ChatThread[];
+};
+
+function ThreadPanel({
+  activeThreadId,
+  isPending,
+  onClose,
+  onDeleteThread,
+  onNewThread,
+  onRenameThread,
+  onSelectThread,
+  threads,
+}: ThreadPanelProps) {
+  const [editingThreadId, setEditingThreadId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingThreadId !== null) {
+      editInputRef.current?.focus();
+    }
+  }, [editingThreadId]);
+
+  function startEdit(thread: ChatThread) {
+    setEditingThreadId(thread.id);
+    setEditTitle(thread.title);
+  }
+
+  function cancelEdit() {
+    setEditingThreadId(null);
+    setEditTitle("");
+  }
+
+  function commitEdit(threadId: number) {
+    const trimmed = editTitle.trim();
+    if (trimmed) {
+      onRenameThread(threadId, trimmed);
+    }
+    setEditingThreadId(null);
+    setEditTitle("");
+  }
+
+  function handleSelectThread(threadId: number) {
+    if (isPending || threadId === activeThreadId) {
+      return;
+    }
+    onSelectThread(threadId);
+    onClose();
+  }
+
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col bg-bg" role="dialog" aria-label="Thread management">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border px-1 pb-3">
+        <h3 className="text-sm font-semibold text-text-primary">Threads</h3>
+        <button
+          aria-label="Close thread panel"
+          className="ml-auto rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary"
+          onClick={onClose}
+          type="button"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pt-2">
+        <button
+          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-[13px] font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-40"
+          disabled={isPending}
+          onClick={() => onNewThread()}
+          type="button"
+        >
+          <Plus size={14} aria-hidden="true" />
+          New Chat
+        </button>
+
+        {threads.map((thread) => {
+          const isActive = thread.id === activeThreadId;
+          const isEditing = thread.id === editingThreadId;
+
+          return (
+            <div
+              className={`flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors ${isActive ? "bg-accent-muted" : "hover:bg-surface-hover"}`}
+              key={thread.id}
+            >
+              {isEditing ? (
+                <div className="flex min-w-0 flex-1 items-center gap-1">
+                  <input
+                    className="surface-input min-w-0 flex-1 bg-bg px-2 py-1 text-[13px] text-text-primary outline-none"
+                    disabled={isPending}
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        commitEdit(thread.id);
+                      }
+                      if (event.key === "Escape") {
+                        cancelEdit();
+                      }
+                    }}
+                    ref={editInputRef}
+                    value={editTitle}
+                  />
+                  <button
+                    aria-label="Save title"
+                    className="rounded p-1 text-accent transition-colors hover:bg-accent-muted disabled:opacity-40"
+                    disabled={isPending || !editTitle.trim()}
+                    onClick={() => commitEdit(thread.id)}
+                    type="button"
+                  >
+                    <Check size={13} aria-hidden="true" />
+                  </button>
+                  <button
+                    aria-label="Cancel rename"
+                    className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+                    onClick={cancelEdit}
+                    type="button"
+                  >
+                    <X size={13} aria-hidden="true" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-2 text-left text-[13px] transition-colors disabled:opacity-40 ${isActive ? "font-semibold text-accent" : "text-text-secondary hover:text-text-primary"}`}
+                    disabled={isPending || isActive}
+                    onClick={() => handleSelectThread(thread.id)}
+                    title={thread.title}
+                    type="button"
+                  >
+                    <span className="truncate">{thread.title}</span>
+                  </button>
+                  <button
+                    aria-label={`Rename ${thread.title}`}
+                    className="rounded p-1 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-40"
+                    disabled={isPending}
+                    onClick={() => startEdit(thread)}
+                    type="button"
+                  >
+                    <Pencil size={12} aria-hidden="true" />
+                  </button>
+                  <button
+                    aria-label={`Delete ${thread.title}`}
+                    className="rounded p-1 text-text-muted transition-colors hover:bg-error-muted hover:text-error disabled:opacity-40"
+                    disabled={isPending}
+                    onClick={() => onDeleteThread(thread.id)}
+                    type="button"
+                  >
+                    <Trash2 size={12} aria-hidden="true" />
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function AskChat({
   askRef,
+  activeThreadId,
   hasNotes = true,
   messages,
+  threads,
   onSourceSelect,
   onClearChat,
+  onDeleteThread,
+  onNewThread,
+  onRenameThread,
+  onThreadChange,
   onSubmit,
   pendingMessageId,
   isSubmitDisabled = false,
@@ -231,6 +422,7 @@ export function AskChat({
   submitDisabledMessage,
 }: AskChatProps) {
   const [question, setQuestion] = useState("");
+  const [isThreadPanelOpen, setIsThreadPanelOpen] = useState(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const isPending = pendingMessageId !== null;
   const trimmedQuestion = question.trim();
@@ -244,6 +436,27 @@ export function AskChat({
     "Find decisions with sources",
     "What still needs follow-up?",
   ];
+
+  const handleSelectThread = useCallback(
+    (threadId: number) => {
+      onThreadChange?.(threadId);
+    },
+    [onThreadChange],
+  );
+
+  const handleDeleteFromPanel = useCallback(
+    (threadId: number) => {
+      onDeleteThread?.(threadId);
+    },
+    [onDeleteThread],
+  );
+
+  const handleRenameFromPanel = useCallback(
+    (threadId: number, newTitle: string) => {
+      onRenameThread?.(threadId, newTitle);
+    },
+    [onRenameThread],
+  );
 
   useEffect(() => {
     const el = askRef.current;
@@ -282,7 +495,7 @@ export function AskChat({
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full flex-col gap-2" aria-labelledby="ask-title">
+    <section className="relative flex h-full min-h-0 w-full flex-col gap-2" aria-labelledby="ask-title">
       <header className="flex shrink-0 items-center gap-2 border-b border-border pb-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-muted">
           <Sparkles size={15} strokeWidth={2} className="text-accent" />
@@ -293,13 +506,33 @@ export function AskChat({
         <span className="inline-flex items-center rounded-full bg-accent-muted px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
           Sniffing through {scopeLabel}
         </span>
-        {messages.length > 0 && onClearChat ? (
-          <button aria-label="Clear chat" className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover" onClick={onClearChat} type="button">
-            <Trash2 size={13} aria-hidden="true" />
+        <div className="ml-auto flex min-w-0 items-center gap-1">
+          <button
+            aria-label="Manage threads"
+            className="rounded-md p-1.5 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-40"
+            disabled={isPending}
+            onClick={() => setIsThreadPanelOpen(true)}
+            title="Manage threads"
+            type="button"
+          >
+            <MessageSquare size={14} aria-hidden="true" />
           </button>
-        ) : null}
+        </div>
         <MemoryManager />
       </header>
+
+      {isThreadPanelOpen ? (
+        <ThreadPanel
+          activeThreadId={activeThreadId}
+          isPending={isPending}
+          onClose={() => setIsThreadPanelOpen(false)}
+          onDeleteThread={handleDeleteFromPanel}
+          onNewThread={() => onNewThread?.()}
+          onRenameThread={handleRenameFromPanel}
+          onSelectThread={handleSelectThread}
+          threads={threads}
+        />
+      ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1" aria-live="polite">
         {messages.length === 0 && (

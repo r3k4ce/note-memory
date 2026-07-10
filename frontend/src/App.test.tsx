@@ -5,14 +5,17 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   askQuestion,
-  clearChat,
   createNote,
   createCategory,
   deleteCategory,
   searchNotes,
   updateCategory,
   updateNote,
-  getChat,
+  createChatThread,
+  deleteChatThread,
+  getChatThreadMessages,
+  listChatThreads,
+  updateChatThread,
 } from "./api";
 import App from "./App";
 import type { AskResponse, Category, Note, SearchResult } from "./types";
@@ -63,18 +66,41 @@ const { categories, notes } = vi.hoisted(() => {
 
 vi.mock("./api", () => ({
   askQuestion: vi.fn(),
-  clearChat: vi.fn(),
+  createChatThread: vi.fn().mockResolvedValue({
+    id: 3,
+    title: "Untitled chat",
+    scope: { mode: "all" },
+    created_at: "2026-07-03T00:00:00Z",
+    updated_at: "2026-07-03T00:00:00Z",
+  }),
   createCategory: vi.fn(),
   deleteCategory: vi.fn(),
+  deleteChatThread: vi.fn(),
   createNote: vi.fn(),
   deleteNote: vi.fn(),
   getNote: vi.fn().mockResolvedValue(notes[0]),
-  getChat: vi.fn().mockResolvedValue([]),
+  getChatThreadMessages: vi.fn().mockResolvedValue([]),
   listCategories: vi.fn().mockResolvedValue(categories),
+  listChatThreads: vi.fn().mockResolvedValue([
+    {
+      id: 1,
+      title: "General",
+      scope: { mode: "all" },
+      created_at: "2026-07-01T00:00:00Z",
+      updated_at: "2026-07-01T00:00:00Z",
+    },
+  ]),
   listNotes: vi.fn().mockResolvedValue(notes),
   organizeNote: vi.fn(),
   searchNotes: vi.fn().mockResolvedValue([]),
   updateCategory: vi.fn(),
+  updateChatThread: vi.fn().mockResolvedValue({
+    id: 1,
+    title: "General",
+    scope: { mode: "all" },
+    created_at: "2026-07-01T00:00:00Z",
+    updated_at: "2026-07-01T00:00:00Z",
+  }),
   updateNote: vi.fn(),
 }));
 
@@ -82,15 +108,25 @@ vi.mock("./components/AskChat", () => ({
   AskChat({
     isSubmitDisabled,
     messages,
+    activeThreadId,
+    threads,
+    onDeleteThread,
+    onNewThread,
+    onRenameThread,
     onSubmit,
-    onClearChat,
+    onThreadChange,
     scopeLabel,
     submitDisabledMessage,
   }: {
     isSubmitDisabled?: boolean;
     messages: { content: string }[];
+    activeThreadId: number | null;
+    threads: { id: number; title: string }[];
+    onDeleteThread: (threadId: number) => void;
+    onNewThread: () => void;
+    onRenameThread: (threadId: number, newTitle: string) => void;
     onSubmit: (question: string) => void;
-    onClearChat: () => void;
+    onThreadChange: (threadId: number) => void;
     scopeLabel: string;
     submitDisabledMessage?: string;
   }) {
@@ -101,10 +137,15 @@ vi.mock("./components/AskChat", () => ({
         {messages.map((message, index) => (
           <span key={`${index}:${message.content}`}>{message.content}</span>
         ))}
+        <span>Mock active thread: {activeThreadId}</span>
+        <span>Mock thread count: {threads.length}</span>
         <button disabled={isSubmitDisabled} onClick={() => onSubmit("What did I save?")} type="button">
           Mock ask
         </button>
-        <button onClick={onClearChat} type="button">Mock clear chat</button>
+        <button onClick={() => onThreadChange(2)} type="button">Mock switch thread</button>
+        <button onClick={onNewThread} type="button">Mock new chat</button>
+        <button onClick={() => onRenameThread(activeThreadId ?? 1, "Renamed chat")} type="button">Mock rename chat</button>
+        <button onClick={() => onDeleteThread(activeThreadId ?? 1)} type="button">Mock delete chat</button>
       </section>
     );
   },
@@ -1191,26 +1232,132 @@ describe("App sidebar navigation", () => {
     expect(screen.getByText("All notes selected")).toBeInTheDocument();
   });
 
-  test("restores successful chat and clears only the transcript", async () => {
-    vi.mocked(getChat).mockResolvedValue([
-      { id: "chat:1", role: "user", content: "Restored question", created_at: "2026-07-01T00:00:00Z" },
+  test("loads chat threads, switches messages and sends the active thread id", async () => {
+    const ask = deferred<AskResponse>();
+    vi.mocked(askQuestion).mockReturnValue(ask.promise);
+    vi.mocked(listChatThreads).mockResolvedValue([
       {
-        id: "chat:2",
-        role: "assistant",
-        content: "Restored answer.",
-        created_at: "2026-07-01T00:00:01Z",
-        status: "answered",
-        evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
-        sources: [],
+        id: 1,
+        title: "General",
+        scope: { mode: "all" },
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z",
+      },
+      {
+        id: 2,
+        title: "Focused",
+        scope: { mode: "custom", note_ids: [10] },
+        created_at: "2026-07-02T00:00:00Z",
+        updated_at: "2026-07-02T00:00:00Z",
       },
     ]);
+    vi.mocked(getChatThreadMessages).mockImplementation((threadId) =>
+      Promise.resolve(
+        threadId === 1
+          ? [
+              {
+                id: "chat:1",
+                role: "user",
+                content: "Restored question",
+                created_at: "2026-07-01T00:00:00Z",
+              },
+              {
+                id: "chat:2",
+                role: "assistant",
+                content: "Restored answer.",
+                created_at: "2026-07-01T00:00:01Z",
+                status: "answered",
+                evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
+                sources: [],
+              },
+            ]
+          : [
+              {
+                id: "chat:3",
+                role: "user",
+                content: "Focused question",
+                created_at: "2026-07-02T00:00:00Z",
+              },
+            ],
+      ),
+    );
     render(<App />);
 
     expect(await screen.findByText("Restored question")).toBeInTheDocument();
     expect(screen.getByText("Restored answer.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Mock clear chat" }));
-    await waitFor(() => expect(clearChat).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("Restored question")).not.toBeInTheDocument();
+    expect(screen.getByText("Mock Ask scope: All notes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock switch thread" }));
+
+    expect(await screen.findByText("Focused question")).toBeInTheDocument();
+    expect(screen.getByText("Mock Ask scope: 1 note selected")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock ask" }));
+
+    await waitFor(() => {
+      expect(askQuestion).toHaveBeenCalledWith(
+        expect.objectContaining({ thread_id: 2, note_ids: [10] }),
+      );
+    });
+
+    ask.resolve({
+      answer: "Focused answer.",
+      status: "answered",
+      evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
+      sources: [],
+      memory_updates: 0,
+    });
+  });
+
+  test("persists thread scope changes and manages chat lifecycle", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(listChatThreads).mockResolvedValue([
+      {
+        id: 1,
+        title: "General",
+        scope: { mode: "all" },
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(createChatThread).mockResolvedValue({
+      id: 3,
+      title: "Untitled chat",
+      scope: { mode: "all" },
+      created_at: "2026-07-03T00:00:00Z",
+      updated_at: "2026-07-03T00:00:00Z",
+    });
+    vi.mocked(updateChatThread).mockResolvedValue({
+      id: 1,
+      title: "Renamed chat",
+      scope: { mode: "all" },
+      created_at: "2026-07-01T00:00:00Z",
+      updated_at: "2026-07-04T00:00:00Z",
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText("Mock active thread: 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use all notes for Ask" }));
+    await waitFor(() => {
+      expect(updateChatThread).toHaveBeenCalledWith(1, {
+        scope: { mode: "custom", note_ids: [] },
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock new chat" }));
+    await waitFor(() => expect(createChatThread).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Mock active thread: 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock rename chat" }));
+    await waitFor(() => {
+      expect(updateChatThread).toHaveBeenCalledWith(3, { title: "Renamed chat" });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock delete chat" }));
+    await waitFor(() => expect(deleteChatThread).toHaveBeenCalledWith(3));
+    expect(screen.getByText("Mock active thread: 1")).toBeInTheDocument();
   });
 
   test("opens the existing new-note workspace from the sidebar action", async () => {
