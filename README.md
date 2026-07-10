@@ -46,10 +46,11 @@ The choice persists in `localStorage`.
   Read Mode toolbar button for in-place rendered preview.
   Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
   Markdown and GFM syntax while preserving raw Markdown.
-- **Right sidebar:** one persistent Ask/chat transcript, explicit Ask source scope,
-  and strictly grounded Markdown answers. Clickable citations and source snippets
-  appear only for note chunks that directly support a claim. The header memory
-  manager lists, corrects, and forgets learned profile details and controls learning.
+- **Right sidebar:** durable Ask/chat threads with per-thread messages and Ask
+  source scope, plus strictly grounded Markdown answers. Clickable citations and
+  source snippets appear only for note chunks that directly support a claim. The
+  header memory manager lists, corrects, and forgets learned profile details and
+  controls learning.
 
 The backend stores notes locally in SQLite and writes saved notes as Markdown
 files with YAML frontmatter, asks an LLM for title, summary, and tags when
@@ -92,8 +93,8 @@ ordinary saves never invoke AI automatically.
 - **Memory is separate and durable.** Embedded Mem0 stores the single local owner's
   curated profile beneath `data/memory/`, separate from the rebuildable note index.
   Memories adapt interpretation and presentation but never count as evidence: factual
-  Ask claims still require validated saved-note citations. Clearing chat and forgetting
-  memory are deliberately independent.
+  Ask claims still require validated saved-note citations. Deleting chat threads and
+  forgetting memory are deliberately independent.
 - Embedded Chroma memory is intended for this local single-process prototype. A
   multi-worker deployment must move memory behind a process-safe database or service.
 - No cloud sync, no telemetry, no remote backup. The data folder is yours.
@@ -241,7 +242,7 @@ Walk through these once after a clean install:
 - [ ] Left sidebar Ask source checkboxes switch between all notes, category-selected notes, individual notes, and no selected notes
 - [ ] Center workspace creates notes, opens selected notes in the same editor surface, and edits the saved Markdown body plus YAML metadata frontmatter
 - [ ] Read Mode renders new-note drafts and saved-note bodies as Markdown in place
-- [ ] Right sidebar Ask/chat restores the active transcript and cites saved-note sources with snippets
+- [ ] Right sidebar Ask/chat restores durable threads, switches each thread's saved source scope, and cites saved-note sources with snippets
 - [ ] A durable preference appears in the memory manager after a successful turn and remains after reload
 - [ ] Editing/deleting memories works, and clearing chat does not forget memories
 - [ ] `uv run python -m mapping_memory.reindex` rebuilds Chroma from SQLite when run from `backend/` with `OPENAI_API_KEY`
@@ -251,7 +252,7 @@ Walk through these once after a clean install:
 - Note database and local index: `data/mapping_memory.sqlite`
 - Markdown vault: `data/vault/`
 - Vector index (derived): `data/chroma/`
-- Active Ask transcript and learning setting: `data/mapping_memory.sqlite`
+- Ask chat threads, transcripts, saved source scope, and learning setting: `data/mapping_memory.sqlite`
 - Learned user profile: `data/memory/`
 
 Both paths are relative to the repository root by default and are listed in

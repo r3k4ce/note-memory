@@ -6,6 +6,8 @@ import type {
   CategoryDeleteResponse,
   CategoryScopeRequest,
   CategoryUpdate,
+  ChatThread,
+  ChatThreadUpdate,
   Note,
   NoteCreate,
   NoteUpdate,
@@ -179,6 +181,32 @@ export function askQuestion(request: AskRequest): Promise<AskResponse> {
 
 export function getChat(): Promise<StoredChatMessage[]> {
   return requestJson<StoredChatMessage[]>("/chat");
+}
+
+export function listChatThreads(): Promise<ChatThread[]> {
+  return requestJson<ChatThread[]>("/chat/threads");
+}
+
+export function createChatThread(): Promise<ChatThread> {
+  return requestJson<ChatThread>("/chat/threads", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function updateChatThread(threadId: number, body: ChatThreadUpdate): Promise<ChatThread> {
+  return requestJson<ChatThread>(`/chat/threads/${threadId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteChatThread(threadId: number): Promise<void> {
+  return requestEmpty(`/chat/threads/${threadId}`, "DELETE");
+}
+
+export function getChatThreadMessages(threadId: number): Promise<StoredChatMessage[]> {
+  return requestJson<StoredChatMessage[]>(`/chat/threads/${threadId}/messages`);
 }
 
 async function requestEmpty(path: string, method: "DELETE"): Promise<void> {

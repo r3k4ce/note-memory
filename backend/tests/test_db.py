@@ -69,6 +69,76 @@ def test_init_db_creates_notes_fts_table(tmp_path) -> None:
     assert docsize_table == ("notes_fts_docsize",)
 
 
+def test_init_db_creates_chat_threads_table_and_migrates_legacy_messages(tmp_path) -> None:
+    sqlite_path = tmp_path / "legacy-chat.sqlite"
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(sqlite_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                status TEXT,
+                evidence_summary_json TEXT,
+                sources_json TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO chat_messages (user_id, role, content, created_at)
+            VALUES ('owner-a', 'user', 'What did I save about launch?', '2026-07-01T00:00:00Z')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO chat_messages (user_id, role, content, created_at)
+            VALUES ('owner-b', 'assistant', 'Answer', '2026-07-01T00:00:01Z')
+            """
+        )
+
+    init_db(sqlite_path)
+
+    with sqlite3.connect(sqlite_path) as connection:
+        connection.row_factory = sqlite3.Row
+        thread_columns = connection.execute("PRAGMA table_info(chat_threads)").fetchall()
+        message_thread_column = connection.execute(
+            "SELECT name FROM pragma_table_info('chat_messages') WHERE name = 'thread_id'"
+        ).fetchone()
+        threads = connection.execute(
+            "SELECT user_id, title, scope_json FROM chat_threads ORDER BY user_id"
+        ).fetchall()
+        messages = connection.execute(
+            """
+            SELECT chat_messages.user_id, chat_threads.title
+            FROM chat_messages
+            JOIN chat_threads ON chat_threads.id = chat_messages.thread_id
+            ORDER BY chat_messages.id
+            """
+        ).fetchall()
+
+    assert [(column["name"], column["type"], column["notnull"]) for column in thread_columns] == [
+        ("id", "INTEGER", 0),
+        ("user_id", "TEXT", 1),
+        ("title", "TEXT", 1),
+        ("scope_json", "TEXT", 1),
+        ("created_at", "TEXT", 1),
+        ("updated_at", "TEXT", 1),
+    ]
+    assert tuple(message_thread_column) == ("thread_id",)
+    assert [(row["user_id"], row["title"], row["scope_json"]) for row in threads] == [
+        ("owner-a", "What did I save about launch?", '{"mode":"all"}'),
+        ("owner-b", "Previous chat", '{"mode":"all"}'),
+    ]
+    assert [(row["user_id"], row["title"]) for row in messages] == [
+        ("owner-a", "What did I save about launch?"),
+        ("owner-b", "Previous chat"),
+    ]
+
+
 def test_notes_table_has_required_schema(tmp_path) -> None:
     sqlite_path = tmp_path / "mapping_memory.sqlite"
 

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -49,11 +50,24 @@ def init_db(sqlite_path: Path) -> None:
         backfill_notes_fts_if_empty(connection)
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS chat_threads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                scope_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
                 role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
                 content TEXT NOT NULL,
+                thread_id INTEGER REFERENCES chat_threads(id) ON DELETE CASCADE,
                 status TEXT,
                 evidence_summary_json TEXT,
                 sources_json TEXT,
@@ -61,6 +75,7 @@ def init_db(sqlite_path: Path) -> None:
             )
             """
         )
+        _migrate_chat_threads(connection)
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS memory_settings (
@@ -92,3 +107,65 @@ def _migrate_notes_ai_organization(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE notes ADD COLUMN needs_ai_organization INTEGER NOT NULL DEFAULT 0"
         )
+
+
+def _migrate_chat_threads(connection: sqlite3.Connection) -> None:
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(chat_messages)").fetchall()
+    }
+    if "thread_id" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE chat_messages
+            ADD COLUMN thread_id INTEGER REFERENCES chat_threads(id) ON DELETE CASCADE
+            """
+        )
+
+    user_rows = connection.execute(
+        """
+        SELECT user_id, MIN(created_at) AS created_at, MAX(created_at) AS updated_at
+        FROM chat_messages
+        WHERE thread_id IS NULL
+        GROUP BY user_id
+        """
+    ).fetchall()
+    for user_row in user_rows:
+        user_id = user_row["user_id"]
+        first_user_message = connection.execute(
+            """
+            SELECT content FROM chat_messages
+            WHERE user_id = ? AND role = 'user' AND thread_id IS NULL
+            ORDER BY id
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+        title = (
+            _legacy_chat_title(first_user_message["content"])
+            if first_user_message is not None
+            else "Previous chat"
+        )
+        cursor = connection.execute(
+            """
+            INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                title,
+                json.dumps({"mode": "all"}, separators=(",", ":")),
+                user_row["created_at"],
+                user_row["updated_at"],
+            ),
+        )
+        connection.execute(
+            "UPDATE chat_messages SET thread_id = ? WHERE user_id = ? AND thread_id IS NULL",
+            (cursor.lastrowid, user_id),
+        )
+
+
+def _legacy_chat_title(content: str) -> str:
+    title = " ".join(content.split())
+    if not title:
+        return "Previous chat"
+    return title[:120]

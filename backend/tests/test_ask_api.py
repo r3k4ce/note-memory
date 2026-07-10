@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from pydantic import SecretStr, ValidationError
 
 from mapping_memory.ai import AnswerResponseError, GroundedAnswer, GroundedClaim
-from mapping_memory.chat import list_chat_messages
+from mapping_memory.chat import create_chat_thread, get_chat_thread, list_chat_messages
 from mapping_memory.db import init_db
 from mapping_memory.memory import LOCAL_OWNER_ID
 from mapping_memory.notes import create_category, create_note
@@ -151,6 +151,72 @@ def test_ask_uses_memory_as_untrusted_context_learns_and_persists_turn(
         "user",
         "assistant",
     ]
+
+
+def test_ask_persists_turn_to_requested_thread_and_titles_first_question(
+    tmp_path, monkeypatch
+) -> None:
+    from mapping_memory.ask import create_ask_router
+
+    class FakeMemory:
+        def search(self, query: str) -> list[Any]:
+            return []
+
+        def learn(self, user_message: str, assistant_message: str) -> int:
+            return 0
+
+    source = _source(note_id=7, title="Source", date_added="2026-07-01T01:00:00Z")
+    monkeypatch.setattr(
+        "mapping_memory.ask.prepare_retrieval_context",
+        lambda *_, **__: RagRetrievalContext(sources=(source,), formatted_context="context"),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.ask.generate_grounded_answer",
+        lambda **_: GroundedAnswer(
+            status="answered",
+            claims=[GroundedClaim(text="Thread answer.", evidence_ids=["chunk-7"])],
+        ),
+    )
+    settings = Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    init_db(settings.sqlite_path)
+    thread = create_chat_thread(
+        settings.sqlite_path,
+        LOCAL_OWNER_ID,
+        scope={"mode": "custom", "note_ids": [7]},
+    )
+    other_thread = create_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID, title="Other")
+
+    response = _post_ask(
+        _ask_endpoint(create_ask_router(settings, memory_adapter=FakeMemory())),
+        {"thread_id": thread.id, "question": "What should launch use?"},
+    )
+
+    assert response.status_code == 200
+    thread_messages = list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID, thread.id)
+    assert [message.content for message in thread_messages] == [
+        "What should launch use?",
+        "Thread answer. [1]",
+    ]
+    assert list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID, other_thread.id) == []
+    updated_thread = get_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID, thread.id)
+    assert updated_thread is not None
+    assert updated_thread.title == "What should launch use?"
+
+
+def test_ask_rejects_missing_thread_before_retrieval(tmp_path, monkeypatch) -> None:
+    calls: list[str] = []
+    ask_endpoint = _ask_app(
+        tmp_path,
+        monkeypatch,
+        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
+        answer=lambda **_: calls.append("called") or "unexpected",
+    )
+
+    response = _post_ask(ask_endpoint, {"thread_id": 999, "question": "What?"})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Chat thread not found"}
+    assert calls == []
 
 
 def test_ask_learns_from_no_evidence_and_memory_failures_never_fail_answer(

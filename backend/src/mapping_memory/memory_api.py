@@ -2,13 +2,21 @@ from fastapi import APIRouter, HTTPException, Response, status
 
 from mapping_memory.chat import (
     clear_chat,
+    create_chat_thread,
+    delete_chat_thread,
+    get_chat_thread,
     learning_enabled,
     list_chat_messages,
+    list_chat_threads,
     set_learning_enabled,
+    update_chat_thread,
 )
 from mapping_memory.memory import LOCAL_OWNER_ID, MemoryAdapter, MemoryNotFoundError
 from mapping_memory.schemas import (
     ChatMessageRead,
+    ChatThreadCreate,
+    ChatThreadRead,
+    ChatThreadUpdate,
     MemoryRecord,
     MemorySettingsRead,
     MemorySettingsUpdate,
@@ -28,6 +36,55 @@ def create_memory_router(settings: Settings, adapter: MemoryAdapter) -> APIRoute
     def delete_chat() -> Response:
         clear_chat(settings.sqlite_path, LOCAL_OWNER_ID)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.get("/chat/threads", response_model=list[ChatThreadRead])
+    def get_chat_threads() -> list[ChatThreadRead]:
+        threads = list_chat_threads(settings.sqlite_path, LOCAL_OWNER_ID)
+        return threads if threads else [create_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID)]
+
+    @router.post(
+        "/chat/threads",
+        response_model=ChatThreadRead,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def post_chat_thread(request: ChatThreadCreate) -> ChatThreadRead:
+        try:
+            return create_chat_thread(
+                settings.sqlite_path,
+                LOCAL_OWNER_ID,
+                title=request.title,
+                scope=request.scope,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @router.patch("/chat/threads/{thread_id}", response_model=ChatThreadRead)
+    def patch_chat_thread(thread_id: int, request: ChatThreadUpdate) -> ChatThreadRead:
+        try:
+            thread = update_chat_thread(
+                settings.sqlite_path,
+                LOCAL_OWNER_ID,
+                thread_id,
+                title=request.title,
+                scope=request.scope,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        if thread is None:
+            raise HTTPException(status_code=404, detail="Chat thread not found")
+        return thread
+
+    @router.delete("/chat/threads/{thread_id}", status_code=status.HTTP_204_NO_CONTENT)
+    def delete_chat_thread_endpoint(thread_id: int) -> Response:
+        if not delete_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID, thread_id):
+            raise HTTPException(status_code=404, detail="Chat thread not found")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.get("/chat/threads/{thread_id}/messages", response_model=list[ChatMessageRead])
+    def get_chat_thread_messages(thread_id: int) -> list[ChatMessageRead]:
+        if get_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID, thread_id) is None:
+            raise HTTPException(status_code=404, detail="Chat thread not found")
+        return list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID, thread_id)
 
     @router.get("/memories", response_model=list[MemoryRecord])
     def get_memories() -> list[MemoryRecord]:

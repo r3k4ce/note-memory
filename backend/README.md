@@ -156,14 +156,15 @@ retrieval chunk, and hybrid matches prefer local snippets when available. Pass
 `semantic=false` to skip embeddings and Chroma for local-only search.
 
 Ask a grounded question across all notes, only Uncategorized, one category, or
-selected note IDs. Responses include cited sources with snippets from retrieved
-note evidence:
+selected note IDs. Pass `thread_id` to store the turn in a specific durable chat
+thread. Responses include cited sources with snippets from retrieved note evidence:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?"}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","uncategorized":true}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","category_id":1}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","note_ids":[1,2,3]}'
+Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"thread_id":1,"question":"What source recreation decision was saved?","note_ids":[1,2,3]}'
 Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "application/json" -Body '{"question":"What source recreation decision was saved?","history":[{"role":"user","content":"What did we discuss?"},{"role":"assistant","content":"We discussed source recreation."}]}'
 ```
 
@@ -172,16 +173,30 @@ and each non-blank content string is limited to 4,000 characters. Retrieval uses
 last 6 history messages plus the current question, capped to 4,000 characters. History is
 not used as answer source material; answers remain grounded only in retrieved saved notes.
 
-Successful answered and no-evidence turns are stored as one active transcript under the
-internal `local-owner` ID. Ask responses include `memory_updates`, which is `0` when
-learning is disabled, nothing durable was learned, or Mem0 is unavailable. Memories may
-adapt interpretation and presentation, but saved notes remain the only evidence source.
+Successful answered and no-evidence turns are stored under the internal
+`local-owner` ID. New chat threads start as `Untitled chat`; the first stored
+question renames that title automatically. Each thread stores its own scope as
+`{"mode":"all"}` or `{"mode":"custom","note_ids":[...]}`. Ask responses include
+`memory_updates`, which is `0` when learning is disabled, nothing durable was
+learned, or Mem0 is unavailable. Memories may adapt interpretation and presentation,
+but saved notes remain the only evidence source.
 
-Restore or clear the transcript, then list or manage learned memories:
+Create, list, update, delete, and read chat threads. The legacy `/chat` endpoints
+remain compatibility aliases for the most recently updated thread:
 
 ```powershell
+Invoke-RestMethod http://127.0.0.1:8000/chat/threads
+Invoke-RestMethod http://127.0.0.1:8000/chat/threads -Method Post -ContentType "application/json" -Body '{}'
+Invoke-RestMethod http://127.0.0.1:8000/chat/threads/1 -Method Patch -ContentType "application/json" -Body '{"title":"Launch questions","scope":{"mode":"custom","note_ids":[1,2]}}'
+Invoke-RestMethod http://127.0.0.1:8000/chat/threads/1/messages
+Invoke-RestMethod http://127.0.0.1:8000/chat/threads/1 -Method Delete
 Invoke-RestMethod http://127.0.0.1:8000/chat
 Invoke-RestMethod http://127.0.0.1:8000/chat -Method Delete
+```
+
+List or manage learned memories separately from chat threads:
+
+```powershell
 Invoke-RestMethod http://127.0.0.1:8000/memories
 Invoke-RestMethod http://127.0.0.1:8000/memories/MEMORY_ID -Method Patch -ContentType "application/json" -Body '{"content":"Prefers concise Markdown answers."}'
 Invoke-RestMethod http://127.0.0.1:8000/memories/MEMORY_ID -Method Delete

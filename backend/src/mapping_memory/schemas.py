@@ -237,6 +237,7 @@ class AskHistoryMessage(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
+    thread_id: int | None = None
     category_id: int | None = None
     uncategorized: bool = False
     note_ids: list[int] | None = None
@@ -292,6 +293,14 @@ class AskRequest(BaseModel):
 
         return value
 
+    @field_validator("thread_id")
+    @classmethod
+    def thread_id_must_be_positive(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("thread_id must be positive")
+
+        return value
+
 
 class AskSourceSnippet(BaseModel):
     text: str
@@ -340,6 +349,35 @@ class ChatMessageRead(BaseModel):
     status: Literal["answered", "no_evidence"] | None = None
     evidence_summary: AskEvidenceSummary | None = None
     sources: list[AskSource] = Field(default_factory=list)
+
+
+class ChatThreadCreate(BaseModel):
+    title: str | None = None
+    scope: dict[str, Any] | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ChatThreadUpdate(BaseModel):
+    title: str | None = None
+    scope: dict[str, Any] | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "ChatThreadUpdate":
+        if not self.model_fields_set:
+            raise ValueError("at least one update field must be provided")
+
+        return self
+
+
+class ChatThreadRead(BaseModel):
+    id: int
+    title: str
+    scope: dict[str, Any]
+    created_at: str
+    updated_at: str
 
 
 class MemoryRecord(BaseModel):

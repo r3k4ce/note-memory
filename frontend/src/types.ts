@@ -77,6 +77,10 @@ export type AskNoteScope =
   | { mode: "all" }
   | { mode: "custom"; noteIds: number[] };
 
+export type StoredAskNoteScope =
+  | { mode: "all" }
+  | { mode: "custom"; note_ids: number[] };
+
 export type AskHistoryMessage = {
   role: "user" | "assistant";
   content: string;
@@ -84,6 +88,7 @@ export type AskHistoryMessage = {
 
 export type AskRequest = CategoryScopeRequest & {
   question: string;
+  thread_id?: number;
   note_ids?: number[];
   history?: AskHistoryMessage[];
 };
@@ -126,6 +131,19 @@ export type StoredChatMessage = {
   status?: AskResponse["status"];
   evidence_summary?: AskEvidenceSummary;
   sources?: AskSource[];
+};
+
+export type ChatThread = {
+  id: number;
+  title: string;
+  scope: StoredAskNoteScope;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ChatThreadUpdate = {
+  title?: string;
+  scope?: StoredAskNoteScope;
 };
 
 export type MemoryRecord = {

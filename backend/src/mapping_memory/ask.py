@@ -12,7 +12,7 @@ from mapping_memory.ai import (
     generate_grounded_answer,
 )
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
-from mapping_memory.chat import append_chat_turn, learning_enabled
+from mapping_memory.chat import append_chat_turn, get_chat_thread, learning_enabled
 from mapping_memory.memory import LOCAL_OWNER_ID, MemoryAdapter
 from mapping_memory.notes import get_category
 from mapping_memory.rag import RagContextChunk, RagSource, prepare_retrieval_context
@@ -46,6 +46,15 @@ def create_ask_router(
 
     @router.post("/ask", response_model=AskResponse, response_model_exclude_none=True)
     def ask(request: AskRequest) -> AskResponse:
+        if (
+            request.thread_id is not None
+            and get_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID, request.thread_id) is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat thread not found",
+            )
+
         category_scope = _validated_category_scope(request, settings=settings)
         memory_context: list[str] = []
         try:
@@ -69,7 +78,11 @@ def create_ask_router(
 
         if not retrieval_context.sources:
             return _complete_turn(
-                _no_evidence_response(), request.question, settings=settings, adapter=adapter
+                _no_evidence_response(),
+                request.question,
+                thread_id=request.thread_id,
+                settings=settings,
+                adapter=adapter,
             )
 
         try:
@@ -82,7 +95,11 @@ def create_ask_router(
             )
         except AnswerResponseError:
             return _complete_turn(
-                _no_evidence_response(), request.question, settings=settings, adapter=adapter
+                _no_evidence_response(),
+                request.question,
+                thread_id=request.thread_id,
+                settings=settings,
+                adapter=adapter,
             )
         except Exception:
             logger.warning("Ask answer generation unavailable")
@@ -96,7 +113,11 @@ def create_ask_router(
             rendered_response = _no_evidence_response()
 
         return _complete_turn(
-            rendered_response, request.question, settings=settings, adapter=adapter
+            rendered_response,
+            request.question,
+            thread_id=request.thread_id,
+            settings=settings,
+            adapter=adapter,
         )
 
     return router
@@ -106,6 +127,7 @@ def _complete_turn(
     response: AskResponse,
     question: str,
     *,
+    thread_id: int | None,
     settings: Settings,
     adapter: MemoryClient,
 ) -> AskResponse:
@@ -117,7 +139,13 @@ def _complete_turn(
         logger.warning("Memory learning unavailable; continuing without an update")
     completed = response.model_copy(update={"memory_updates": updates})
     try:
-        append_chat_turn(settings.sqlite_path, LOCAL_OWNER_ID, question, completed)
+        append_chat_turn(
+            settings.sqlite_path,
+            LOCAL_OWNER_ID,
+            question,
+            completed,
+            thread_id=thread_id,
+        )
     except Exception:
         logger.warning("Chat transcript persistence unavailable")
     return completed

@@ -145,6 +145,41 @@ def test_memory_api_crud_settings_validation_and_independent_chat_clear(
         assert client.delete("/memories").status_code == 204
 
 
+def test_chat_thread_api_crud_messages_and_validation(tmp_path: Path, monkeypatch) -> None:
+    fake = FakeMem0()
+    monkeypatch.setattr(
+        "mapping_memory.main.MemoryAdapter", lambda settings: MemoryAdapter(settings, client=fake)
+    )
+    monkeypatch.setattr("mapping_memory.main._reconcile_chroma_with_sqlite", lambda **_: None)
+    app = create_app(_settings(tmp_path))
+
+    with TestClient(app) as client:
+        initial_threads = client.get("/chat/threads")
+        assert initial_threads.status_code == 200
+        assert initial_threads.json()[0]["title"] == "Untitled chat"
+
+        created = client.post(
+            "/chat/threads",
+            json={"title": " Launch questions ", "scope": {"mode": "custom", "note_ids": [10]}},
+        )
+        assert created.status_code == 201
+        thread = created.json()
+        assert thread["title"] == "Launch questions"
+        assert thread["scope"] == {"mode": "custom", "note_ids": [10]}
+
+        assert client.patch(f"/chat/threads/{thread['id']}", json={"title": " "}).status_code == 422
+        patched = client.patch(
+            f"/chat/threads/{thread['id']}",
+            json={"title": "Renamed", "scope": {"mode": "all"}},
+        )
+        assert patched.status_code == 200
+        assert patched.json()["title"] == "Renamed"
+        assert patched.json()["scope"] == {"mode": "all"}
+        assert client.get(f"/chat/threads/{thread['id']}/messages").json() == []
+        assert client.delete(f"/chat/threads/{thread['id']}").status_code == 204
+        assert client.get(f"/chat/threads/{thread['id']}/messages").status_code == 404
+
+
 @pytest.mark.parametrize(("memory_enabled", "has_key"), [(False, True), (True, False)])
 def test_memory_settings_report_unavailable_without_feature_and_key(
     tmp_path: Path, monkeypatch, memory_enabled: bool, has_key: bool

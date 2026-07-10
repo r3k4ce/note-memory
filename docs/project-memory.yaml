@@ -1,4 +1,15 @@
 entries:
+  - time_utc: "2026-07-10T02:58:43Z"
+    time_local: "2026-07-09T23:58:43-03:00"
+    summary: "Added durable multiple Ask Bun chat threads."
+    changed:
+      - "Added SQLite chat_threads storage, legacy chat transcript migration, per-thread messages, saved Ask source scope, thread CRUD endpoints, and /ask thread_id persistence with first-question auto-title."
+      - "Updated the Bun pane with a compact thread selector plus new, rename, and delete actions; thread switching restores messages and saved source scope, and scope checkbox changes patch the active thread."
+      - "Kept /chat and DELETE /chat as compatibility aliases for the most recently updated thread."
+      - "Documented chat thread storage, endpoints, and thread_id Ask payloads in README.md and backend/README.md."
+    verification:
+      - "Confirmed TDD red runs failed before implementation for missing chat thread helpers and UI controls."
+      - "Ran ./scripts/check.sh: backend format/lint/typecheck, 253 passed/3 skipped tests at 88.59% coverage; frontend 156 tests, 6 Chromium tests, lint, and production build passed."
   - time_utc: "2026-07-10T02:22:11Z"
     time_local: "2026-07-09T23:22:11-03:00"
     summary: "Added Bun personalization with persistent chat and embedded long-term user memory."
