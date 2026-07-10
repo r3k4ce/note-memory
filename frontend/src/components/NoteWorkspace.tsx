@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 
-import type { Category, Note } from "../types";
+import type { Category, Note, NoteUpdate } from "../types";
 import { AddNote } from "./AddNote";
 import type { MarkdownPaneHandle } from "./MarkdownPane";
 import { NoteDetail } from "./NoteDetail";
@@ -35,13 +35,12 @@ type NoteWorkspaceProps = {
     short_summary: string;
     tags: string[];
   }>;
-  onSaveEdit: (body: {
-    original_text: string;
-    ai_title: string;
-    short_summary: string;
-    tags: string[];
-    category_id: number | null;
-  }) => Promise<void>;
+  onSaveEdit: (
+    body: Required<
+      Pick<NoteUpdate, "original_text" | "ai_title" | "short_summary" | "tags" | "category_id">
+    > &
+      Pick<NoteUpdate, "ai_organization_completed">,
+  ) => Promise<void>;
   isSavingEdit: boolean;
   editError: string | null;
   onEditDirtyChange: (isDirty: boolean) => void;

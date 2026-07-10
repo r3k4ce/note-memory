@@ -19,6 +19,7 @@ import {
   FolderOpen,
   GripVertical,
   Maximize2,
+  Minimize2,
   Pencil,
   Plus,
   Trash2,
@@ -70,6 +71,7 @@ import type {
   ChatMessage,
   Note,
   NoteCardData,
+  NoteUpdate,
   SearchResult,
 } from "./types";
 
@@ -261,6 +263,8 @@ export default function App() {
   });
   const [activeResizeSide, setActiveResizeSide] = useState<PaneSide | null>(null);
   const [snappedResizeSide, setSnappedResizeSide] = useState<PaneSide | null>(null);
+  const [preFocusCenterWidth, setPreFocusCenterWidth] = useState<number | null>(null);
+  const [isFocusEditorShrunk, setIsFocusEditorShrunk] = useState(false);
 
   const searchRequestId = useRef(0);
   const liveSearchTimeoutId = useRef<number | null>(null);
@@ -270,8 +274,11 @@ export default function App() {
   const draggedNoteIdRef = useRef<number | null>(null);
   const lastLeftPaneWidthRef = useRef(LEFT_PANE_DEFAULT_WIDTH);
   const lastRightPaneWidthRef = useRef(RIGHT_PANE_DEFAULT_WIDTH);
+  const leftPaneWidthRef = useRef(LEFT_PANE_DEFAULT_WIDTH);
+  const rightPaneWidthRef = useRef(RIGHT_PANE_DEFAULT_WIDTH);
   const captureRef = useRef<MarkdownPaneHandle>(null);
   const workspaceRootRef = useRef<HTMLDivElement>(null);
+  const workspaceCenterContentRef = useRef<HTMLDivElement>(null);
   const leftSidebarRef = useRef<HTMLElement>(null);
   const rightSidebarRef = useRef<HTMLElement>(null);
   const markdownSurfaceRef = useRef<HTMLDivElement>(null);
@@ -317,35 +324,67 @@ export default function App() {
     rightPaneWidth === 0 ? "workspace-side-pane-collapsed px-0" : "px-5"
   }`;
 
-  const updateLeftPaneWidth = useCallback((width: number, shouldSnap = false) => {
-    const { snapped, width: nextWidth } = resolvePaneWidth(
-      width,
-      LEFT_PANE_MIN_WIDTH,
-      LEFT_PANE_MAX_WIDTH,
-      LEFT_PANE_DEFAULT_WIDTH,
-      shouldSnap,
-    );
-    if (nextWidth > 0) {
-      lastLeftPaneWidthRef.current = nextWidth;
+  const capturePreFocusCenterWidth = useCallback(() => {
+    const width = workspaceCenterContentRef.current?.getBoundingClientRect().width ?? 0;
+    if (width > 0) {
+      setPreFocusCenterWidth(width);
     }
-    setSnappedResizeSide(snapped ? "left" : null);
-    setLeftPaneWidth(nextWidth);
+    setIsFocusEditorShrunk(false);
   }, []);
 
-  const updateRightPaneWidth = useCallback((width: number, shouldSnap = false) => {
-    const { snapped, width: nextWidth } = resolvePaneWidth(
-      width,
-      RIGHT_PANE_MIN_WIDTH,
-      RIGHT_PANE_MAX_WIDTH,
-      RIGHT_PANE_DEFAULT_WIDTH,
-      shouldSnap,
-    );
-    if (nextWidth > 0) {
-      lastRightPaneWidthRef.current = nextWidth;
-    }
-    setSnappedResizeSide(snapped ? "right" : null);
-    setRightPaneWidth(nextWidth);
-  }, []);
+  const updateLeftPaneWidth = useCallback(
+    (width: number, shouldSnap = false) => {
+      const { snapped, width: nextWidth } = resolvePaneWidth(
+        width,
+        LEFT_PANE_MIN_WIDTH,
+        LEFT_PANE_MAX_WIDTH,
+        LEFT_PANE_DEFAULT_WIDTH,
+        shouldSnap,
+      );
+      if (
+        leftPaneWidthRef.current > 0 &&
+        nextWidth === 0 &&
+        rightPaneWidthRef.current === 0
+      ) {
+        capturePreFocusCenterWidth();
+      }
+      if (nextWidth > 0) {
+        lastLeftPaneWidthRef.current = nextWidth;
+        setIsFocusEditorShrunk(false);
+      }
+      leftPaneWidthRef.current = nextWidth;
+      setSnappedResizeSide(snapped ? "left" : null);
+      setLeftPaneWidth(nextWidth);
+    },
+    [capturePreFocusCenterWidth],
+  );
+
+  const updateRightPaneWidth = useCallback(
+    (width: number, shouldSnap = false) => {
+      const { snapped, width: nextWidth } = resolvePaneWidth(
+        width,
+        RIGHT_PANE_MIN_WIDTH,
+        RIGHT_PANE_MAX_WIDTH,
+        RIGHT_PANE_DEFAULT_WIDTH,
+        shouldSnap,
+      );
+      if (
+        rightPaneWidthRef.current > 0 &&
+        nextWidth === 0 &&
+        leftPaneWidthRef.current === 0
+      ) {
+        capturePreFocusCenterWidth();
+      }
+      if (nextWidth > 0) {
+        lastRightPaneWidthRef.current = nextWidth;
+        setIsFocusEditorShrunk(false);
+      }
+      rightPaneWidthRef.current = nextWidth;
+      setSnappedResizeSide(snapped ? "right" : null);
+      setRightPaneWidth(nextWidth);
+    },
+    [capturePreFocusCenterWidth],
+  );
 
   const updateGripPositions = useCallback(() => {
     const workspaceRoot = workspaceRootRef.current;
@@ -443,8 +482,13 @@ export default function App() {
 
   const toggleTextAreaFocus = useCallback(() => {
     if (isTextAreaPaneFocused) {
-      setLeftPaneWidth(lastLeftPaneWidthRef.current || LEFT_PANE_DEFAULT_WIDTH);
-      setRightPaneWidth(lastRightPaneWidthRef.current || RIGHT_PANE_DEFAULT_WIDTH);
+      const nextLeftWidth = lastLeftPaneWidthRef.current || LEFT_PANE_DEFAULT_WIDTH;
+      const nextRightWidth = lastRightPaneWidthRef.current || RIGHT_PANE_DEFAULT_WIDTH;
+      leftPaneWidthRef.current = nextLeftWidth;
+      rightPaneWidthRef.current = nextRightWidth;
+      setIsFocusEditorShrunk(false);
+      setLeftPaneWidth(nextLeftWidth);
+      setRightPaneWidth(nextRightWidth);
       return;
     }
 
@@ -455,9 +499,12 @@ export default function App() {
       lastRightPaneWidthRef.current = rightPaneWidth;
     }
 
+    capturePreFocusCenterWidth();
+    leftPaneWidthRef.current = 0;
+    rightPaneWidthRef.current = 0;
     setLeftPaneWidth(0);
     setRightPaneWidth(0);
-  }, [isTextAreaPaneFocused, leftPaneWidth, rightPaneWidth]);
+  }, [capturePreFocusCenterWidth, isTextAreaPaneFocused, leftPaneWidth, rightPaneWidth]);
 
   const confirmDiscardSelectedNoteEdit = useCallback((): boolean => {
     if (!hasUnsavedSelectedNoteEdit) {
@@ -1174,13 +1221,7 @@ export default function App() {
     return organizeNote(bodyText);
   }, []);
 
-  async function handleSaveSelectedNoteEdit(body: {
-    original_text: string;
-    ai_title: string;
-    short_summary: string;
-    tags: string[];
-    category_id: number | null;
-  }) {
+  async function handleSaveSelectedNoteEdit(body: NoteUpdate) {
     if (!selectedNote) {
       return;
     }
@@ -1261,6 +1302,21 @@ export default function App() {
           <BookOpen aria-hidden="true" size={15} strokeWidth={2} />
         )}
       </button>
+      {isTextAreaPaneFocused ? (
+        <button
+          aria-label={isFocusEditorShrunk ? "Expand editor" : "Shrink editor"}
+          className={TOOLBAR_BUTTON_CLASS}
+          onClick={() => setIsFocusEditorShrunk((currentValue) => !currentValue)}
+          title={isFocusEditorShrunk ? "Expand editor" : "Shrink editor"}
+          type="button"
+        >
+          {isFocusEditorShrunk ? (
+            <Maximize2 aria-hidden="true" size={15} strokeWidth={2} />
+          ) : (
+            <Minimize2 aria-hidden="true" size={15} strokeWidth={2} />
+          )}
+        </button>
+      ) : null}
       <button
         aria-label={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
         className={TOOLBAR_BUTTON_CLASS}
@@ -1709,7 +1765,17 @@ export default function App() {
       />
 
       <main className="workspace-center flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div
+          className="workspace-center-content flex min-h-0 flex-1 flex-col overflow-hidden"
+          ref={workspaceCenterContentRef}
+          style={{
+            maxWidth: "100%",
+            width:
+              isTextAreaPaneFocused && isFocusEditorShrunk && preFocusCenterWidth !== null
+                ? preFocusCenterWidth
+                : "100%",
+          }}
+        >
           <NoteWorkspace
             captureRef={captureRef}
             categories={categories}

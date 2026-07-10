@@ -46,7 +46,7 @@ export function ThemeMenu() {
         onClick={toggleTheme}
         type="button"
       >
-        {isDark ? <Sun size={14} strokeWidth={2} /> : <Moon size={14} strokeWidth={2} />}
+        {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
       </button>
       <button
         aria-expanded={isOpen}
@@ -56,7 +56,7 @@ export function ThemeMenu() {
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
-        <ChevronDown size={12} strokeWidth={2} />
+        <ChevronDown size={14} strokeWidth={2} />
       </button>
       {isOpen ? (
         <div

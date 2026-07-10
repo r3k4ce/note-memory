@@ -1,4 +1,4 @@
-import type { Category, Note, NoteUpdate, OrganizedNoteMetadata } from "../types";
+import type { Category, Note, NoteCreate, NoteUpdate, OrganizedNoteMetadata } from "../types";
 
 type ParsedFrontmatter = {
   body: string;
@@ -8,6 +8,11 @@ type ParsedFrontmatter = {
 
 export type ParsedNoteEditorDocument = {
   update: Required<Pick<NoteUpdate, "original_text" | "ai_title" | "short_summary" | "tags" | "category_id">>;
+  categoryNameToCreate: string | null;
+};
+
+export type ParsedDraftNoteEditorDocument = {
+  update: NoteCreate & { original_text: string; category_id: number | null };
   categoryNameToCreate: string | null;
 };
 
@@ -96,23 +101,27 @@ export function createBlankNoteEditorDocument(): string {
 export function parseDraftNoteEditorDocument(
   value: string,
   categories: Category[],
-): ParsedNoteEditorDocument {
+): ParsedDraftNoteEditorDocument {
   const parsed = parseFrontmatter(value);
   const body = parsed.hasFrontmatter ? parsed.body : value;
-  const title = parsed.fields.title || firstNonblankLine(body) || "Untitled note";
-  const summary = parsed.fields.summary || body.slice(0, 250);
-  const tags = "tags" in parsed.fields ? normalizeTags(parsed.fields.tags) : [];
   const categoryName = parsed.fields.category?.trim() ?? "";
   const categoryId = categoryName ? findCategoryIdByName(categories, categoryName) : null;
+  const update: ParsedDraftNoteEditorDocument["update"] = {
+    original_text: body,
+    category_id: categoryId,
+  };
+  if (parsed.fields.title) {
+    update.ai_title = parsed.fields.title;
+  }
+  if (parsed.fields.summary) {
+    update.short_summary = parsed.fields.summary;
+  }
+  if (parsed.fields.tags) {
+    update.tags = normalizeTags(parsed.fields.tags);
+  }
 
   return {
-    update: {
-      original_text: body,
-      ai_title: title,
-      short_summary: summary,
-      tags,
-      category_id: categoryId,
-    },
+    update,
     categoryNameToCreate: categoryName && categoryId === null ? categoryName : null,
   };
 }
@@ -179,8 +188,4 @@ export function updateNoteEditorDocumentMetadata(
     "",
     body,
   ].join("\n");
-}
-
-function firstNonblankLine(value: string): string {
-  return value.split(/\r?\n/).find((line) => line.trim())?.trim() ?? "";
 }

@@ -37,12 +37,14 @@ def init_db(sqlite_path: Path) -> None:
                 date_added TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 category_id INTEGER REFERENCES categories(id),
-                markdown_path TEXT
+                markdown_path TEXT,
+                needs_ai_organization INTEGER NOT NULL DEFAULT 0
             )
             """
         )
         _migrate_notes_category_id(connection)
         _migrate_notes_markdown_path(connection)
+        _migrate_notes_ai_organization(connection)
         init_notes_fts(connection)
         backfill_notes_fts_if_empty(connection)
         connection.commit()
@@ -60,3 +62,11 @@ def _migrate_notes_markdown_path(connection: sqlite3.Connection) -> None:
     columns = {row["name"] for row in connection.execute("PRAGMA table_info(notes)").fetchall()}
     if "markdown_path" not in columns:
         connection.execute("ALTER TABLE notes ADD COLUMN markdown_path TEXT")
+
+
+def _migrate_notes_ai_organization(connection: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(notes)").fetchall()}
+    if "needs_ai_organization" not in columns:
+        connection.execute(
+            "ALTER TABLE notes ADD COLUMN needs_ai_organization INTEGER NOT NULL DEFAULT 0"
+        )

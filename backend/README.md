@@ -67,7 +67,11 @@ Invoke-RestMethod http://127.0.0.1:8000/notes -Method Post -ContentType "applica
 ```
 
 The create body can also include `ai_title`, `short_summary`, and `tags` when the
-browser saves those fields from YAML frontmatter directly.
+browser saves those fields from YAML frontmatter directly. Missing or null
+metadata fields are filled by the organizer on first save; supplied fields take
+precedence, including `tags: []`. The organizer does not change the body or
+category. If it is unavailable, local fallbacks are saved and the response sets
+`needs_ai_organization` to `true`.
 
 List notes:
 
@@ -89,6 +93,9 @@ Invoke-RestMethod http://127.0.0.1:8000/notes/1 -Method Patch -ContentType "appl
 ```
 
 Body and metadata updates refresh SQLite FTS and attempt Chroma reindexing. Chroma reindex failures are logged and do not roll back the saved note update.
+After a successful `/notes/organize` preview is applied, the browser sends the
+write-only `"ai_organization_completed": true` field with the metadata update to
+clear `needs_ai_organization` atomically. Ordinary updates preserve the marker.
 
 Regenerate draft metadata without saving a note:
 

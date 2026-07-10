@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode, type RefObject } from "react";
-import { Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { Plus, RefreshCw, Save, Sparkles, Trash2, X } from "lucide-react";
 
 import {
   getNoteEditorBody,
@@ -7,7 +7,7 @@ import {
   serializeNoteEditorDocument,
   updateNoteEditorDocumentMetadata,
 } from "../editor/noteEditorDocument";
-import type { Category, Note, OrganizedNoteMetadata } from "../types";
+import type { Category, Note, NoteUpdate, OrganizedNoteMetadata } from "../types";
 import { MarkdownPane } from "./MarkdownPane";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { NoteToolbar, TOOLBAR_ACCENT_BUTTON_CLASS, TOOLBAR_BUTTON_CLASS } from "./NoteToolbar";
@@ -30,13 +30,12 @@ type NoteDetailProps = {
   onEditDirtyChange: (isDirty: boolean) => void;
   onNewNote: () => void;
   onRegenerateDetails?: (bodyText: string) => Promise<OrganizedNoteMetadata>;
-  onSaveEdit: (body: {
-    original_text: string;
-    ai_title: string;
-    short_summary: string;
-    tags: string[];
-    category_id: number | null;
-  }) => Promise<void>;
+  onSaveEdit: (
+    body: Required<
+      Pick<NoteUpdate, "original_text" | "ai_title" | "short_summary" | "tags" | "category_id">
+    > &
+      Pick<NoteUpdate, "ai_organization_completed">,
+  ) => Promise<void>;
   readMode?: boolean;
   surfaceRef?: RefObject<HTMLDivElement | null>;
   toolbarControls: ReactNode;
@@ -90,6 +89,7 @@ export function NoteDetail({
   const [documentText, setDocumentText] = useState(() => (note ? noteToDocument(note) : ""));
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isRegeneratingDetails, setIsRegeneratingDetails] = useState(false);
+  const [regeneratedMetadataPendingSave, setRegeneratedMetadataPendingSave] = useState(false);
 
   const editIsDirty = useMemo(() => {
     if (!note || mode !== "edit-selected") {
@@ -153,6 +153,7 @@ export function NoteDetail({
     try {
       const metadata = await onRegenerateDetails(bodyText);
       setDocumentText(updateNoteEditorDocumentMetadata(documentText, note, metadata));
+      setRegeneratedMetadataPendingSave(true);
     } catch (error) {
       setValidationError(error instanceof Error ? error.message : "Couldn't refresh the details.");
     } finally {
@@ -188,7 +189,12 @@ export function NoteDetail({
     }
 
     setValidationError(null);
-    await onSaveEdit({ ...parsed.update, category_id: categoryId });
+    await onSaveEdit({
+      ...parsed.update,
+      category_id: categoryId,
+      ...(regeneratedMetadataPendingSave ? { ai_organization_completed: true as const } : {}),
+    });
+    setRegeneratedMetadataPendingSave(false);
   }
 
   const toolbar = (
@@ -251,8 +257,18 @@ export function NoteDetail({
       }
       error={currentError}
       status={
-        readMode ? null : (
-          <>
+        <>
+          {note.needs_ai_organization ? (
+            <span
+              className="inline-flex shrink-0 items-center gap-1 text-sm text-text-muted"
+              title="Use Regenerate details, then Save changes."
+            >
+              <Sparkles aria-hidden="true" size={14} strokeWidth={2} />
+              Needs a little tidying
+            </span>
+          ) : null}
+          {readMode ? null : (
+            <>
             <span className="truncate text-sm tabular-nums text-text-muted">
               {parsedDocument.update.original_text.trim()
                 ? `${parsedDocument.update.original_text.length} chars`
@@ -261,8 +277,9 @@ export function NoteDetail({
             <span className="rounded-md bg-surface-raised px-2 py-0.5 text-sm font-medium text-text-muted">
               {parsedDocument.categoryNameToCreate ?? note.category?.name ?? "Uncategorized"}
             </span>
-          </>
-        )
+            </>
+          )}
+        </>
       }
       toolbarControls={toolbarControls}
     />

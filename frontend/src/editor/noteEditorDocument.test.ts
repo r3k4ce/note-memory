@@ -23,6 +23,7 @@ const note: Note = {
   date_added: "2026-07-03",
   updated_at: "2026-07-04",
   category: categories[0],
+  needs_ai_organization: false,
 };
 
 describe("note editor document helpers", () => {
@@ -165,6 +166,23 @@ describe("note editor document helpers", () => {
         ai_title: "Draft title",
         short_summary: "Draft summary.",
         tags: ["work", "mapping"],
+        category_id: 1,
+      },
+      categoryNameToCreate: null,
+    });
+  });
+
+  test("omits blank new-note metadata so the backend can organize it", () => {
+    expect(
+      parseDraftNoteEditorDocument(
+        ["---", "title:", "summary: ", "tags:", "category: Work", "---", "", "Exact body"].join(
+          "\n",
+        ),
+        categories,
+      ),
+    ).toEqual({
+      update: {
+        original_text: "Exact body",
         category_id: 1,
       },
       categoryNameToCreate: null,

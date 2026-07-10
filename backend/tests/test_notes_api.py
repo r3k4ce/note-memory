@@ -76,6 +76,7 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
         "category": None,
+        "needs_ai_organization": False,
     }
     assert len(store_instances) == 2
     assert store_instances[1].settings.openai_embedding_model == "text-embedding-3-small"
@@ -174,6 +175,7 @@ def test_post_notes_uses_fallback_metadata_when_organizer_fails(
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
         "category": None,
+        "needs_ai_organization": True,
     }
     assert "AI organizer unavailable; saved note with fallback metadata" in caplog.text
     assert original_text not in caplog.text
@@ -190,6 +192,111 @@ def test_post_notes_uses_fallback_metadata_when_api_key_missing(tmp_path: Path) 
     assert response.json()["ai_title"] == "Missing key title"
     assert response.json()["short_summary"] == "Missing key title\nBody"
     assert response.json()["tags"] == []
+    assert response.json()["needs_ai_organization"] is True
+
+
+def test_post_notes_merges_ai_into_only_missing_metadata(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
+        assert original_text == "Body stays exact"
+        return OrganizerMetadata(
+            title="AI title",
+            summary="AI summary.",
+            tags=["ai", "organized"],
+        )
+
+    monkeypatch.setattr("mapping_memory.main.organize_mapping_text", organize_mapping_text)
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval", lambda *args, **kwargs: None
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/notes",
+            json={
+                "original_text": "Body stays exact",
+                "ai_title": "Manual title",
+                "tags": [],
+            },
+        )
+
+    assert response.status_code == 201
+    assert response.json()["original_text"] == "Body stays exact"
+    assert response.json()["ai_title"] == "Manual title"
+    assert response.json()["short_summary"] == "AI summary."
+    assert response.json()["tags"] == []
+    assert response.json()["needs_ai_organization"] is False
+
+
+def test_post_notes_bypasses_ai_when_all_metadata_is_explicit(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def organize_mapping_text(*args, **kwargs) -> OrganizerMetadata:
+        raise AssertionError("organizer should not be called")
+
+    monkeypatch.setattr("mapping_memory.main.organize_mapping_text", organize_mapping_text)
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval", lambda *args, **kwargs: None
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/notes",
+            json={
+                "original_text": "Manual body",
+                "ai_title": "Manual title",
+                "short_summary": "Manual summary.",
+                "tags": [],
+            },
+        )
+
+    assert response.status_code == 201
+    assert response.json()["ai_title"] == "Manual title"
+    assert response.json()["short_summary"] == "Manual summary."
+    assert response.json()["tags"] == []
+    assert response.json()["needs_ai_organization"] is False
+
+
+def test_patch_notes_clears_organization_marker_only_with_completion_sentinel(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "mapping_memory.main.organize_mapping_text",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("unavailable")),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._index_note_for_retrieval", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "mapping_memory.main._reindex_note_for_retrieval", lambda *args, **kwargs: None
+    )
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite"))
+
+    with TestClient(app) as client:
+        created = client.post("/notes", json={"original_text": "Fallback body"}).json()
+        ordinary = client.patch(
+            f"/notes/{created['id']}",
+            json={"original_text": "Ordinary edit"},
+        ).json()
+        completed = client.patch(
+            f"/notes/{created['id']}",
+            json={
+                "ai_title": "Regenerated title",
+                "short_summary": "Regenerated summary.",
+                "tags": ["regenerated"],
+                "ai_organization_completed": True,
+            },
+        ).json()
+
+    assert created["needs_ai_organization"] is True
+    assert ordinary["needs_ai_organization"] is True
+    assert completed["needs_ai_organization"] is False
 
 
 def test_post_notes_preserves_original_text_exactly_with_ai_metadata(
@@ -244,6 +351,7 @@ def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
         "date_added": response.json()["date_added"],
         "updated_at": response.json()["date_added"],
         "category": None,
+        "needs_ai_organization": True,
     }
 
 

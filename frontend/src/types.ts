@@ -15,6 +15,7 @@ export type Note = {
   date_added: string;
   updated_at: string;
   category: Category | null;
+  needs_ai_organization: boolean;
 };
 
 export type NoteCardData = Pick<
@@ -58,6 +59,7 @@ export type NoteUpdate = {
   short_summary?: string;
   tags?: string[];
   category_id?: number | null;
+  ai_organization_completed?: true;
 };
 
 export type OrganizedNoteMetadata = {

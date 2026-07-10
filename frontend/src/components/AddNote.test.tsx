@@ -88,6 +88,9 @@ describe("AddNote copy", () => {
     renderAddNote({ isSaving: true });
 
     expect(screen.getByRole("button", { name: "Saving…" })).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Note toolbar" })).toHaveTextContent(
+      "Tidying up your note…",
+    );
   });
 
   test("previews the unsaved draft in read mode", () => {

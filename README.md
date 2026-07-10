@@ -54,6 +54,20 @@ files with YAML frontmatter, asks an LLM for title, summary, and tags when
 configured, indexes note chunks for retrieval, and exposes search and Ask
 endpoints that return sourced results from your own note collection.
 
+### First-save organization
+
+On a new note's first save, blank `title`, `summary`, and `tags` frontmatter
+fields are filled by AI when `OPENAI_API_KEY` is configured. Any values you
+write manually take precedence, including an explicit empty tag list sent
+through the API. Organization never rewrites the Markdown body or chooses a
+category.
+
+If the organizer is unavailable, the note still saves with local fallback
+metadata and shows **Needs a little tidying** in its toolbar. That status is
+stored internally in SQLite and is not added to YAML. Use **Regenerate details**
+and then **Save changes** to replace the metadata and clear the status. Later
+ordinary saves never invoke AI automatically.
+
 ## Local-first storage
 
 - **Markdown is the startup source of truth.** Creating, editing, deleting, or

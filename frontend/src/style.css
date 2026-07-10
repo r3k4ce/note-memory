@@ -242,6 +242,11 @@ body {
   background: transparent;
 }
 
+.workspace-center-content {
+  margin-inline: auto;
+  transition: width var(--duration-150) var(--ease-out);
+}
+
 .workspace-page-shell {
   border: 1px solid var(--color-page-border);
   border-radius: var(--radius-card);

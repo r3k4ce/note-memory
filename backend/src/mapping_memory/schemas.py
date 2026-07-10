@@ -88,6 +88,7 @@ class NoteUpdate(BaseModel):
     short_summary: str | None = None
     tags: list[str] | None = None
     category_id: int | None = None
+    ai_organization_completed: Literal[True] = True
 
     model_config = ConfigDict(extra="forbid")
 
@@ -165,6 +166,7 @@ class NoteRead(BaseModel):
     date_added: str
     updated_at: str
     category: CategoryRead | None = None
+    needs_ai_organization: bool
 
 
 class NoteOrganizeRequest(BaseModel):

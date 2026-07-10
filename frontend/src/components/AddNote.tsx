@@ -32,7 +32,11 @@ export function AddNote({
   surfaceRef,
   toolbarControls,
 }: AddNoteProps) {
-  const statusText = draftText.trim() ? `${draftText.length} chars` : `${APP_SHORTCUTS.capture.label} to focus`;
+  const statusText = isSaving
+    ? "Tidying up your note…"
+    : draftText.trim()
+      ? `${draftText.length} chars`
+      : `${APP_SHORTCUTS.capture.label} to focus`;
   const toolbar = (
     <NoteToolbar
       actions={

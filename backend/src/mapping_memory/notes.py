@@ -214,6 +214,7 @@ def create_note(
     category_id: int | None = None,
     vault_path: Path | None = None,
     markdown_path: str | None = None,
+    needs_ai_organization: bool = False,
 ) -> NoteRead:
     if not original_text.strip():
         raise ValueError("original_text must not be empty")
@@ -236,9 +237,10 @@ def create_note(
                 date_added,
                 updated_at,
                 category_id,
-                markdown_path
+                markdown_path,
+                needs_ai_organization
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 original_text,
@@ -249,6 +251,7 @@ def create_note(
                 timestamp,
                 category_id,
                 markdown_path,
+                needs_ai_organization,
             ),
         )
         note_id = cursor.lastrowid
@@ -298,6 +301,7 @@ def update_note(
     tags: list[str] | None = None,
     category_id: int | None | _Unset = _UNSET,
     vault_path: Path | None = None,
+    ai_organization_completed: bool = False,
 ) -> NoteRead | None:
     if original_text is not None and not original_text.strip():
         raise ValueError("original_text must not be empty")
@@ -338,7 +342,8 @@ def update_note(
                 short_summary = ?,
                 tags_json = ?,
                 updated_at = ?,
-                category_id = ?
+                category_id = ?,
+                needs_ai_organization = ?
             WHERE id = ?
             """,
             (
@@ -348,6 +353,7 @@ def update_note(
                 json.dumps(note_tags),
                 timestamp,
                 note_category_id,
+                False if ai_organization_completed else current_note.needs_ai_organization,
                 note_id,
             ),
         )
@@ -559,6 +565,7 @@ def _note_select_columns() -> str:
         notes.date_added,
         notes.updated_at,
         notes.markdown_path,
+        notes.needs_ai_organization,
         notes.category_id AS note_category_id,
         categories.id AS category_id,
         categories.name AS category_name,
@@ -588,6 +595,7 @@ def _note_from_row(row: Row) -> NoteRead:
         date_added=row["date_added"],
         updated_at=row["updated_at"],
         category=category,
+        needs_ai_organization=bool(row["needs_ai_organization"]),
     )
 
 

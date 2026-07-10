@@ -223,3 +223,15 @@ def test_note_update_keeps_existing_metadata_validation() -> None:
         "tags": ["routing", "memory"],
         "category_id": 1,
     }
+
+
+@pytest.mark.parametrize("value", [False, None, "true"])
+def test_note_update_ai_organization_completion_accepts_only_literal_true(value: object) -> None:
+    with pytest.raises(ValidationError):
+        NoteUpdate.model_validate({"ai_organization_completed": value})
+
+
+def test_note_update_accepts_ai_organization_completion_true() -> None:
+    note_update = NoteUpdate.model_validate({"ai_organization_completed": True})
+
+    assert note_update.model_dump(exclude_unset=True) == {"ai_organization_completed": True}

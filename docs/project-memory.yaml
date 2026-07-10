@@ -1,4 +1,27 @@
 entries:
+  - time_utc: "2026-07-10T00:38:11Z"
+    time_local: "2026-07-09T21:38:11-03:00"
+    summary: "Added a focus-only markdown width toggle."
+    changed:
+      - "Focus Mode now captures the latest pre-focus center width on button or resize-grip entry and offers Shrink editor / Expand editor controls between read/edit and Exit."
+      - "The shared center content can restore that captured width centered and viewport-clamped while the outer workspace and resize grips remain full-width."
+      - "Focus width resets to expanded whenever Focus Mode ends or either sidebar reopens."
+    verification:
+      - "Component coverage passed with 48 App tests; browser layout coverage passed with 6 Chromium tests."
+      - "Frontend lint and production build passed; all 147 frontend tests passed with one worker."
+      - "Full check backend passed with 228 tests and 1 integration skip, but its parallel frontend run hit the existing synchronous CodeMirror heading-render test flake twice; that 47-test file passes alone."
+  - time_utc: "2026-07-09T23:46:11Z"
+    time_local: "2026-07-09T20:46:11-03:00"
+    summary: "Restored automatic first-save note organization."
+    changed:
+      - "New-note YAML parsing now omits blank title, summary, and tags so POST /notes can organize only missing metadata while preserving manual fields, category, and body."
+      - "Added the backward-compatible internal needs_ai_organization SQLite marker, API read field, fallback persistence, vault-safe update behavior, and atomic clearing through ai_organization_completed: true."
+      - "Added first-save tidying copy, read/edit toolbar status, and regeneration-draft tracking so only a successful regeneration save clears the marker."
+      - "Documented first-save precedence, fallback status, and explicit later regeneration."
+    verification:
+      - "Confirmed focused backend tests failed before implementation, then passed with 79 tests; schema sentinel coverage passed with 34 tests."
+      - "Confirmed focused frontend tests failed before implementation, then passed with 19 tests; App integration coverage passed with 47 tests."
+      - "Full repository verification pending."
   - time_utc: "2026-07-09T18:33:19Z"
     time_local: "2026-07-09T15:33:19-03:00"
     summary: "Added desktop default snapping for pane resize drags."

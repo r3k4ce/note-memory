@@ -63,6 +63,7 @@ const note: Note = {
   date_added: "2026-07-03",
   updated_at: "2026-07-04",
   category: categories[0],
+  needs_ai_organization: false,
 };
 
 function renderDetail(props: Partial<ComponentProps<typeof NoteDetail>> = {}) {
@@ -182,6 +183,60 @@ describe("NoteDetail selected-note editing", () => {
     expect((editor as HTMLTextAreaElement).value).toContain("tags: ai, draft");
     expect((editor as HTMLTextAreaElement).value).toContain("Unsaved body");
     expect(onSaveEdit).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText("Save changes"));
+    await waitFor(() => {
+      expect(onSaveEdit).toHaveBeenCalledWith({
+        original_text: "Unsaved body",
+        ai_title: "AI title",
+        short_summary: "AI summary.",
+        tags: ["ai", "draft"],
+        category_id: 1,
+        ai_organization_completed: true,
+      });
+    });
+  });
+
+  test.each([false, true])("shows the tidying marker in edit and read modes", (readMode) => {
+    renderDetail({ note: { ...note, needs_ai_organization: true }, readMode });
+
+    const marker = screen.getByText("Needs a little tidying");
+    expect(marker).toBeInTheDocument();
+    expect(marker.closest("span")).toHaveAttribute(
+      "title",
+      "Use Regenerate details, then Save changes.",
+    );
+  });
+
+  test("ordinary saves do not claim AI organization completed", () => {
+    const onSaveEdit = vi.fn().mockResolvedValue(undefined);
+    renderDetail({ note: { ...note, needs_ai_organization: true }, onSaveEdit });
+
+    fireEvent.click(screen.getByLabelText("Save changes"));
+
+    expect(onSaveEdit).toHaveBeenCalledWith({
+      original_text: "Initial body",
+      ai_title: "Initial title",
+      short_summary: "Initial summary",
+      tags: ["alpha", "beta"],
+      category_id: 1,
+    });
+  });
+
+  test("failed regeneration leaves later saves ordinary", async () => {
+    const onRegenerateDetails = vi.fn().mockRejectedValue(new Error("Organizer unavailable"));
+    const onSaveEdit = vi.fn().mockResolvedValue(undefined);
+    renderDetail({
+      note: { ...note, needs_ai_organization: true },
+      onRegenerateDetails,
+      onSaveEdit,
+    });
+
+    fireEvent.click(screen.getByLabelText("Regenerate details"));
+    await screen.findByText("Organizer unavailable");
+    fireEvent.click(screen.getByLabelText("Save changes"));
+
+    expect(onSaveEdit).toHaveBeenCalledWith(expect.not.objectContaining({ ai_organization_completed: true }));
   });
 
   test("hides edit actions in read mode while showing the full markdown document", () => {

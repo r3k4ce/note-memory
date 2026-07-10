@@ -153,58 +153,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
     def create_note_endpoint(note: NoteCreate) -> NoteRead:
         _validate_category_id(note.category_id, settings=app_settings)
-        provided_metadata = (
-            note.ai_title is not None or note.short_summary is not None or note.tags is not None
-        )
-        if provided_metadata:
-            try:
-                created_note = create_note(
-                    app_settings.sqlite_path,
-                    note.original_text,
-                    ai_title=note.ai_title,
-                    short_summary=note.short_summary,
-                    tags=note.tags,
-                    category_id=note.category_id,
-                    vault_path=app_settings.vault_path,
-                )
-            except CategoryNotFoundError as error:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=str(error),
-                ) from error
-        else:
+        title = note.ai_title
+        summary = note.short_summary
+        tags = note.tags
+        needs_ai_organization = False
+        if title is None or summary is None or tags is None:
             try:
                 metadata = organize_mapping_text(note.original_text, settings=app_settings)
             except Exception:
                 logger.warning("AI organizer unavailable; saved note with fallback metadata")
-                try:
-                    created_note = create_note(
-                        app_settings.sqlite_path,
-                        note.original_text,
-                        category_id=note.category_id,
-                        vault_path=app_settings.vault_path,
-                    )
-                except CategoryNotFoundError as error:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=str(error),
-                    ) from error
+                needs_ai_organization = True
             else:
-                try:
-                    created_note = create_note(
-                        app_settings.sqlite_path,
-                        note.original_text,
-                        ai_title=metadata.title,
-                        short_summary=metadata.summary,
-                        tags=metadata.tags,
-                        category_id=note.category_id,
-                        vault_path=app_settings.vault_path,
-                    )
-                except CategoryNotFoundError as error:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=str(error),
-                    ) from error
+                title = title if title is not None else metadata.title
+                summary = summary if summary is not None else metadata.summary
+                tags = tags if tags is not None else metadata.tags
+
+        try:
+            created_note = create_note(
+                app_settings.sqlite_path,
+                note.original_text,
+                ai_title=title,
+                short_summary=summary,
+                tags=tags,
+                category_id=note.category_id,
+                vault_path=app_settings.vault_path,
+                needs_ai_organization=needs_ai_organization,
+            )
+        except CategoryNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
 
         try:
             _index_note_for_retrieval(created_note, settings=app_settings)
@@ -248,6 +227,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "ai_title": updates.get("ai_title"),
             "short_summary": updates.get("short_summary"),
             "tags": updates.get("tags"),
+            "ai_organization_completed": updates.get("ai_organization_completed", False),
         }
         if "category_id" in updates:
             update_kwargs["category_id"] = updates["category_id"]

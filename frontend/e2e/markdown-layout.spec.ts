@@ -208,6 +208,33 @@ async function getPaneWidths(page: Page) {
   });
 }
 
+async function getFocusWidthGeometry(page: Page) {
+  return page.evaluate(() => {
+    const centerContent = document.querySelector(".workspace-center-content");
+    const markdownSurface = document.querySelector(".markdown-page-surface");
+    if (!(centerContent instanceof HTMLElement) || !(markdownSurface instanceof HTMLElement)) {
+      throw new Error("Missing focus width geometry target");
+    }
+
+    const centerRect = centerContent.getBoundingClientRect();
+    const surfaceRect = markdownSurface.getBoundingClientRect();
+    return {
+      center: {
+        left: centerRect.left,
+        right: centerRect.right,
+        width: centerRect.width,
+      },
+      documentScrollWidth: document.documentElement.scrollWidth,
+      surface: {
+        left: surfaceRect.left,
+        right: surfaceRect.right,
+        width: surfaceRect.width,
+      },
+      viewportWidth: window.innerWidth,
+    };
+  });
+}
+
 async function dragGripBy(page: Page, label: string, deltaX: number) {
   const grip = page.getByRole("separator", { name: label });
   const box = await grip.boundingBox();
@@ -390,6 +417,51 @@ test("desktop resize grips stay in the visual gutters", async ({ page }) => {
   expect(collapsedGeometry.rightSidebar.width).toBeLessThanOrEqual(2);
   expect(collapsedGeometry.leftGrip.centerX).toBeCloseTo(0, 0);
   expect(collapsedGeometry.rightGrip.centerX).toBeCloseTo(collapsedGeometry.viewportWidth, 0);
+});
+
+test("focus mode toggles the customized markdown width in edit and read views", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Work" }).click();
+  await page.getByRole("button", { name: "Long workspace note" }).click();
+  await expect(page.getByLabel("Markdown source")).toBeVisible();
+
+  await dragGripBy(page, "Resize notes sidebar", 80);
+  await dragGripBy(page, "Resize Bun", -48);
+  const preFocus = await getFocusWidthGeometry(page);
+
+  await page.getByRole("button", { name: "Focus Mode" }).click();
+  await page.waitForTimeout(200);
+  const expandedEdit = await getFocusWidthGeometry(page);
+  expect(expandedEdit.surface.width).toBeGreaterThan(preFocus.surface.width + 100);
+
+  await page.getByRole("button", { name: "Shrink editor" }).click();
+  await page.waitForTimeout(200);
+  const shrunkEdit = await getFocusWidthGeometry(page);
+  expect(shrunkEdit.surface.width).toBeCloseTo(preFocus.surface.width, 0);
+  expect(Math.abs((shrunkEdit.surface.left + shrunkEdit.surface.right) / 2 - 720)).toBeLessThanOrEqual(1);
+
+  await page.getByRole("button", { name: "Read Mode" }).click();
+  await expect(page.getByRole("heading", { name: "Section 1", exact: true })).toBeVisible();
+  const shrunkRead = await getFocusWidthGeometry(page);
+  expect(shrunkRead.surface.width).toBeCloseTo(preFocus.surface.width, 0);
+  expect(Math.abs((shrunkRead.surface.left + shrunkRead.surface.right) / 2 - 720)).toBeLessThanOrEqual(1);
+
+  await page.getByRole("button", { name: "Expand editor" }).click();
+  await page.waitForTimeout(200);
+  const expandedRead = await getFocusWidthGeometry(page);
+  expect(expandedRead.surface.width).toBeCloseTo(expandedEdit.surface.width, 0);
+
+  await page.getByRole("button", { name: "Shrink editor" }).click();
+  await page.waitForTimeout(200);
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.waitForTimeout(200);
+  const narrow = await getFocusWidthGeometry(page);
+  expect(narrow.center.width).toBeLessThanOrEqual(narrow.viewportWidth);
+  expect(narrow.surface.right).toBeLessThanOrEqual(narrow.viewportWidth);
+  expect(narrow.documentScrollWidth).toBeLessThanOrEqual(narrow.viewportWidth);
 });
 
 test("desktop resize grips snap panes to their default widths near the magnet zone", async ({ page }) => {

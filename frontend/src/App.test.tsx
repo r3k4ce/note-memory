@@ -41,6 +41,7 @@ const { categories, notes } = vi.hoisted(() => {
       date_added: "2026-07-03T00:00:00Z",
       updated_at: "2026-07-03T00:00:00Z",
       category: mockCategories[0],
+      needs_ai_organization: false,
     },
     {
       id: 11,
@@ -51,6 +52,7 @@ const { categories, notes } = vi.hoisted(() => {
       date_added: "2026-07-04T00:00:00Z",
       updated_at: "2026-07-04T00:00:00Z",
       category: mockCategories[1],
+      needs_ai_organization: false,
     },
   ];
 
@@ -316,6 +318,7 @@ describe("App sidebar navigation", () => {
   test("keeps workspace textures behind solid pane and page surfaces", () => {
     const workspaceRootRule = getCssBlock(styleCss, ".workspace-root");
     const workspaceCenterRule = getCssBlock(styleCss, ".workspace-center");
+    const workspaceCenterContentRule = getCssBlock(styleCss, ".workspace-center-content");
     const workspacePaneRule = getCssBlock(styleCss, ".workspace-side-pane");
     const markdownPageRule = getCssBlock(styleCss, ".markdown-page-surface");
     const workspaceShellRule = getCssBlock(styleCss, ".workspace-page-shell");
@@ -326,6 +329,8 @@ describe("App sidebar navigation", () => {
     expect(workspaceRootRule).toContain("background-position: var(--workspace-bg-position)");
     expect(workspaceRootRule).toContain("background-repeat: no-repeat");
     expect(workspaceCenterRule).toContain("background: transparent");
+    expect(workspaceCenterContentRule).toContain("transition:");
+    expect(workspaceCenterContentRule).toContain("width var(--duration-150) var(--ease-out)");
     expect(workspacePaneRule).toContain("background-color: var(--color-panel-soft)");
     expect(markdownPageRule).toContain("background-color: var(--color-page)");
     expect(workspaceShellRule).not.toContain("background-image");
@@ -504,7 +509,7 @@ describe("App sidebar navigation", () => {
   });
 
   test("focuses the text area while keeping resize handles available, then restores panes", async () => {
-    render(<App />);
+    const { container } = render(<App />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
@@ -512,6 +517,22 @@ describe("App sidebar navigation", () => {
 
     const sidebar = screen.getByRole("complementary", { name: "Notes sidebar" });
     const assistant = screen.getByRole("complementary", { name: "Bun pane" });
+    const centerContent = container.querySelector(".workspace-center-content");
+
+    expect(centerContent).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Shrink editor" })).not.toBeInTheDocument();
+
+    vi.spyOn(centerContent as HTMLElement, "getBoundingClientRect").mockReturnValue({
+      bottom: 900,
+      height: 900,
+      left: 320,
+      right: 1088,
+      toJSON: () => ({}),
+      top: 0,
+      width: 768,
+      x: 320,
+      y: 0,
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Focus Mode" }));
 
@@ -519,13 +540,75 @@ describe("App sidebar navigation", () => {
     expect(assistant).toHaveStyle({ width: "0px" });
     expect(screen.getByRole("separator", { name: "Resize notes sidebar" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: "Resize Bun" })).toBeInTheDocument();
+    const shrinkEditor = screen.getByRole("button", { name: "Shrink editor" });
     expect(screen.getByRole("button", { name: "Exit" })).toBeInTheDocument();
+    expect(shrinkEditor).toHaveAttribute("title", "Shrink editor");
+    expect(shrinkEditor.previousElementSibling).toHaveAttribute("aria-label", "Read Mode");
+    expect(shrinkEditor.nextElementSibling).toHaveAttribute("aria-label", "Exit");
+
+    fireEvent.click(shrinkEditor);
+    expect(centerContent).toHaveStyle({ width: "768px" });
+    expect(screen.getByRole("button", { name: "Expand editor" })).toHaveAttribute(
+      "title",
+      "Expand editor",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand editor" }));
+    expect(centerContent).toHaveStyle({ width: "100%" });
+    expect(screen.getByRole("button", { name: "Shrink editor" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Shrink editor" }));
+    expect(screen.getByRole("button", { name: "Expand editor" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Exit" }));
 
     expect(sidebar).toHaveStyle({ width: "320px" });
     expect(assistant).toHaveStyle({ width: "352px" });
     expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Shrink editor" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Focus Mode" }));
+    expect(screen.getByRole("button", { name: "Shrink editor" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Expand editor" })).not.toBeInTheDocument();
+  });
+
+  test("shows an expanded focus-width control after resize-grip entry and resets after a pane reopens", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Work" })).toBeInTheDocument();
+    });
+
+    const notesSeparator = screen.getByRole("separator", { name: "Resize notes sidebar" });
+    const bunSeparator = screen.getByRole("separator", { name: "Resize Bun" });
+
+    fireEvent.pointerDown(notesSeparator, { clientX: 320, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 20, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+
+    expect(screen.queryByRole("button", { name: "Shrink editor" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Focus Mode" })).toBeInTheDocument();
+
+    fireEvent.pointerDown(bunSeparator, { clientX: 1088, pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 1440, pointerId: 2 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Shrink editor" }));
+    expect(screen.getByRole("button", { name: "Expand editor" })).toBeInTheDocument();
+
+    fireEvent.pointerDown(notesSeparator, { clientX: 0, pointerId: 3 });
+    fireEvent.pointerMove(window, { clientX: 240, pointerId: 3 });
+    fireEvent.pointerUp(window, { pointerId: 3 });
+
+    expect(screen.queryByRole("button", { name: "Expand editor" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Shrink editor" })).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(notesSeparator, { clientX: 240, pointerId: 4 });
+    fireEvent.pointerMove(window, { clientX: 0, pointerId: 4 });
+    fireEvent.pointerUp(window, { pointerId: 4 });
+
+    expect(screen.getByRole("button", { name: "Shrink editor" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Expand editor" })).not.toBeInTheDocument();
   });
 
   test("snaps the notes sidebar to its desktop default while dragged near it", async () => {
@@ -712,6 +795,11 @@ describe("App sidebar navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mock save note" }));
     await waitFor(() => {
       expect(screen.getByText("Workspace mode: edit-selected")).toBeInTheDocument();
+    });
+    expect(createNote).toHaveBeenCalledWith({
+      original_text: "Saved body",
+      ai_title: "Saved note",
+      category_id: 1,
     });
     expect(screen.getByText("Read mode: true")).toBeInTheDocument();
 
@@ -1349,6 +1437,7 @@ describe("App sidebar navigation", () => {
     vi.mocked(updateNote).mockResolvedValueOnce({
       ...notes[1],
       category: null,
+      needs_ai_organization: false,
       updated_at: "2026-07-05T00:00:00Z",
     });
 
