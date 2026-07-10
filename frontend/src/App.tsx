@@ -18,6 +18,7 @@ import {
   Folder,
   FolderOpen,
   GripVertical,
+  Maximize,
   Maximize2,
   Minimize2,
   Pencil,
@@ -1324,7 +1325,7 @@ export default function App() {
         title={isTextAreaPaneFocused ? "Exit" : "Focus Mode"}
         type="button"
       >
-        <Maximize2 aria-hidden="true" size={15} strokeWidth={2} />
+        <Maximize aria-hidden="true" size={15} strokeWidth={2} />
       </button>
     </>
   );
