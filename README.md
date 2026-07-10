@@ -46,8 +46,8 @@ The choice persists in `localStorage`.
   Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
   Markdown and GFM syntax while preserving raw Markdown.
 - **Right sidebar:** persistent Ask/chat with recent in-session history, explicit
-  Ask source scope, cited answers, and source snippets whose note links open
-  saved notes.
+  Ask source scope, formatted Markdown answers with clickable citations, and
+  source snippets whose note links open saved notes.
 
 The backend stores notes locally in SQLite and writes saved notes as Markdown
 files with YAML frontmatter, asks an LLM for title, summary, and tags when

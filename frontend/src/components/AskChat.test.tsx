@@ -148,7 +148,30 @@ describe("AskChat Ask Bun panel", () => {
     ).toBeInTheDocument();
   });
 
-  test("opens notes from citation chips", () => {
+  test("renders completed answers as GitHub-flavored Markdown", () => {
+    renderAskChat({
+      messages: [
+        {
+          id: "assistant:1",
+          role: "assistant",
+          content:
+            "## Summary\n\nThis is **important** and _grounded_.\n\n- First point\n- Second point\n\n`inline code`\n\n```ts\nconst answer = 42;\n```\n\n- [x] Reviewed\n\n| Note | Status |\n| --- | --- |\n| Ask Bun | Ready |",
+          status: "answered",
+          sources: [],
+        },
+      ],
+    });
+
+    expect(screen.getByRole("heading", { name: "Summary", level: 2 })).toBeInTheDocument();
+    expect(screen.getByText("important").tagName).toBe("STRONG");
+    expect(screen.getAllByRole("list")).toHaveLength(2);
+    expect(screen.getByText("inline code").tagName).toBe("CODE");
+    expect(screen.getByText("const answer = 42;").closest("pre")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  test("opens valid inline citations from formatted answers", () => {
     const { onSourceSelect } = renderAskChat({
       messages: [
         {
@@ -171,6 +194,31 @@ describe("AskChat Ask Bun panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open citation 1: React textarea notes" }));
 
     expect(onSourceSelect).toHaveBeenCalledWith(7);
+  });
+
+  test("leaves invalid and code citations as literal text", () => {
+    renderAskChat({
+      messages: [
+        {
+          id: "assistant:1",
+          role: "assistant",
+          content: "Unknown [2].\n\n`Code [1]`",
+          status: "answered",
+          sources: [
+            {
+              note_id: 7,
+              title: "React textarea notes",
+              date_added: "2026-07-04T01:02:03Z",
+              snippets: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByText("Unknown [2].")).toBeInTheDocument();
+    expect(screen.getByText("Code [1]").tagName).toBe("CODE");
+    expect(screen.queryByRole("button", { name: /Open citation/ })).not.toBeInTheDocument();
   });
 
   test("keeps custom disabled message visible when Ask has no selected notes", () => {

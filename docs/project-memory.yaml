@@ -1,4 +1,16 @@
 entries:
+  - time_utc: "2026-07-10T00:54:23Z"
+    time_local: "2026-07-09T21:54:23-03:00"
+    summary: "Rendered completed Ask Bun answers as compact GitHub-flavored Markdown."
+    changed:
+      - "Completed assistant answers now use the existing react-markdown and remark-gfm stack; pending, no-evidence, user, error, source-card, and backend behavior remain unchanged."
+      - "A local Markdown AST transform turns valid source references into accessible inline badges that open the matching note, while invalid and code references remain literal."
+      - "Added compact sidebar Markdown styles for prose, code, task lists, tables, blockquotes, links, and citation badges; removed the separate citation-chip row."
+      - "Documented formatted Markdown Ask answers in the README and added AskChat coverage for GFM rendering and citation boundaries."
+    verification:
+      - "Ran npm test -- src/components/AskChat.test.tsx: 9 passed."
+      - "Ran npm run typecheck, npm run lint, and npm run build from frontend/: all passed."
+      - "Ran ./scripts/check.sh: repository-wide backend and frontend checks passed."
   - time_utc: "2026-07-10T00:38:11Z"
     time_local: "2026-07-09T21:38:11-03:00"
     summary: "Added a focus-only markdown width toggle."

@@ -1,6 +1,8 @@
 import type { FormEvent, KeyboardEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, FileText, Quote, Send, Sparkles, TriangleAlert } from "lucide-react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { formatNoteDate } from "../dateFormat";
 import type { AskSource, ChatMessage } from "../types";
@@ -24,6 +26,48 @@ type AssistantBubbleProps = {
   sources: AskSource[];
   status?: "answered" | "no_evidence";
 };
+
+type MarkdownNode = {
+  children?: MarkdownNode[];
+  type: string;
+  url?: string;
+  value?: string;
+};
+
+function replaceCitations(node: MarkdownNode, sourceCount: number) {
+  if (!node.children || node.type === "code" || node.type === "inlineCode" || node.type === "link") {
+    return;
+  }
+
+  node.children = node.children.flatMap<MarkdownNode>((child): MarkdownNode | MarkdownNode[] => {
+    if (child.type !== "text" || !child.value) {
+      replaceCitations(child, sourceCount);
+      return child;
+    }
+
+    const parts = child.value.split(/(\[\d+\])/g);
+    if (parts.length === 1) {
+      return child;
+    }
+
+    return parts.filter(Boolean).map<MarkdownNode>((part) => {
+      const match = /^\[(\d+)\]$/.exec(part);
+      const sourceNumber = match ? Number(match[1]) : 0;
+      if (sourceNumber < 1 || sourceNumber > sourceCount) {
+        return { type: "text", value: part };
+      }
+      return {
+        type: "link",
+        url: `#citation-${sourceNumber}`,
+        children: [{ type: "text", value: String(sourceNumber) }],
+      };
+    });
+  });
+}
+
+function citationRemarkPlugin(sourceCount: number) {
+  return () => (tree: MarkdownNode) => replaceCitations(tree, sourceCount);
+}
 
 function formatMatchType(matchType: AskSource["snippets"][number]["match_type"]) {
   if (matchType === "selected") {
@@ -100,45 +144,6 @@ function SourceList({
   );
 }
 
-function CitationChips({
-  content,
-  onSourceSelect,
-  sources,
-}: {
-  content: string;
-  onSourceSelect: (noteId: number) => void;
-  sources: AskSource[];
-}) {
-  const citedIndexes = Array.from(content.matchAll(/\[(\d+)\]/g))
-    .map((match) => Number(match[1]))
-    .filter((sourceNumber, index, sourceNumbers) =>
-      sourceNumber >= 1 && sourceNumber <= sources.length && sourceNumbers.indexOf(sourceNumber) === index,
-    );
-
-  if (citedIndexes.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Cited notes">
-      {citedIndexes.map((sourceNumber) => {
-        const source = sources[sourceNumber - 1];
-        return (
-          <button
-            aria-label={`Open citation ${sourceNumber}: ${source.title}`}
-            className="inline-flex h-6 items-center rounded-full border border-border bg-bg px-2 text-[11px] font-semibold tabular-nums text-accent transition-colors hover:border-border-strong hover:bg-surface"
-            key={sourceNumber}
-            onClick={() => onSourceSelect(source.note_id)}
-            type="button"
-          >
-            [{sourceNumber}]
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function AssistantBubble({ content, isPending, onSourceSelect, sources, status }: AssistantBubbleProps) {
   const displayContent =
     status === "no_evidence"
@@ -148,10 +153,38 @@ function AssistantBubble({ content, isPending, onSourceSelect, sources, status }
   return (
     <div className="flex justify-start">
       <div className="max-w-[86%] rounded-2xl rounded-tl-md bg-surface px-4 py-4 text-[14px] leading-7 text-text-secondary shadow-soft">
-        <p className={isPending ? "whitespace-pre-wrap italic text-text-muted" : "whitespace-pre-wrap"}>{displayContent}</p>
-        {!isPending && status !== "no_evidence" ? (
-          <CitationChips content={content} onSourceSelect={onSourceSelect} sources={sources} />
-        ) : null}
+        {isPending || status === "no_evidence" ? (
+          <p className={isPending ? "whitespace-pre-wrap italic text-text-muted" : "whitespace-pre-wrap"}>{displayContent}</p>
+        ) : (
+          <div className="ask-answer">
+            <Markdown
+              components={{
+                a({ href, children, ...props }) {
+                  const match = /^#citation-(\d+)$/.exec(href ?? "");
+                  if (!match) {
+                    return <a href={href} {...props}>{children}</a>;
+                  }
+
+                  const sourceNumber = Number(match[1]);
+                  const source = sources[sourceNumber - 1];
+                  return (
+                    <button
+                      aria-label={`Open citation ${sourceNumber}: ${source.title}`}
+                      className="ask-citation"
+                      onClick={() => onSourceSelect(source.note_id)}
+                      type="button"
+                    >
+                      {sourceNumber}
+                    </button>
+                  );
+                },
+              }}
+              remarkPlugins={[remarkGfm, citationRemarkPlugin(sources.length)]}
+            >
+              {content}
+            </Markdown>
+          </div>
+        )}
         <SourceList onSourceSelect={onSourceSelect} sources={sources} />
       </div>
     </div>

@@ -683,6 +683,118 @@ body {
   margin-block: 0.35em;
 }
 
+/* Compact Markdown for completed Ask answers */
+.ask-answer {
+  color: var(--color-text-secondary);
+}
+
+.ask-answer :where(h1, h2, h3, h4) {
+  margin: 1rem 0 0.4rem;
+  color: var(--color-text-primary);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.ask-answer :where(h1) { font-size: 1.25rem; }
+.ask-answer :where(h2) { font-size: 1.125rem; }
+.ask-answer :where(h3, h4) { font-size: 1rem; }
+
+.ask-answer :where(p, ul, ol, blockquote, pre, table) {
+  margin: 0.65rem 0;
+}
+
+.ask-answer :where(ul, ol) {
+  padding-left: 1.25rem;
+}
+
+.ask-answer :where(li) {
+  margin: 0.2rem 0;
+}
+
+.ask-answer :where(blockquote) {
+  border-left: 3px solid var(--color-accent-muted);
+  padding-left: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.ask-answer :where(a) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ask-answer :where(code) {
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  padding: 0.1rem 0.3rem;
+  color: var(--color-text-primary);
+  font-size: 0.875em;
+}
+
+.ask-answer :where(pre) {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  padding: 0.65rem 0.75rem;
+}
+
+.ask-answer :where(pre code) {
+  padding: 0;
+  background: transparent;
+}
+
+.ask-answer :where(table) {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.ask-answer :where(th, td) {
+  border: 1px solid var(--color-border);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+
+.ask-answer :where(th) {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.ask-answer :where(input[type="checkbox"]) {
+  margin-right: 0.35rem;
+  accent-color: var(--color-accent);
+}
+
+.ask-citation {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  margin-inline: 0.15rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-accent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: text-top;
+}
+
+.ask-citation:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+}
+
+.ask-citation:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+}
+
 /* Shared sidebar row rhythm — used by All notes, Uncategorized, and category folder rows */
 .sidebar-row {
   padding: 0.7rem 1rem;
