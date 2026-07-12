@@ -6,8 +6,8 @@ Mapping Memory is a FastAPI backend with a React TypeScript frontend. Feature mo
 
 - [`features/layout`](../frontend/src/features/layout) owns pane sizing, resize/focus behavior, layout refs, and resize handles through `useWorkspaceLayout` and `PaneResizeHandle`.
 - [`features/ask`](../frontend/src/features/ask) owns Ask threads, messages, pending requests, and per-thread note scope in `useAskController`; `AskChat` is the controlled Bun pane view.
-- [`features/notebook`](../frontend/src/features/notebook) owns notebook and search behavior. `useNotebookController` manages notes/categories, selection, editing, filters, and drag/drop. `useSearchController` manages query timing, request invalidation, results, and result reconciliation. `NotesSidebar`, `BrowseTree`, `SearchResults`, and `CategoryManager` render controlled views.
-- [`components`](../frontend/src/components) owns the shared note workspace, editor/read surfaces, toolbar, and reusable presentation components.
+- [`features/notebook`](../frontend/src/features/notebook) owns notebook and search behavior. `useNotebookController` manages notes/categories, selection, editing, filters, and drag/drop. `useSearchController` manages query timing, request invalidation, results, and result reconciliation. `NotesSidebar`, `BrowseTree`, `SearchResults`, and `CategoryManager` render controlled views; `NotesSidebar` owns the settings-dialog open state and footer trigger.
+- [`components`](../frontend/src/components) owns the shared note workspace, editor/read surfaces, toolbar, reusable presentation components, and the central `SettingsDialog` with its Appearance and Memory sections.
 - [`App.tsx`](../frontend/src/App.tsx) composes the feature controllers and views, keyboard shortcuts, and the few cross-feature flows below. Feature-specific HTTP work stays in the controllers.
 
 ## Cross-feature flows

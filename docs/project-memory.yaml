@@ -1,4 +1,25 @@
 entries:
+  - time_utc: "2026-07-12T16:24:34Z"
+    time_local: "2026-07-12T13:24:34-03:00"
+    summary: "Simplified the Ask header chat controls."
+    changed:
+      - "Replaced the active-thread-title menu trigger with an icon-only Open chats button and added an adjacent icon-only New chat button."
+      - "Kept the existing dropdown actions and dismissal behavior while allowing direct new-chat creation and disabling both header controls during pending Ask requests."
+    verification:
+      - "Confirmed TDD red/green coverage; the focused Ask suite passed 24 tests."
+      - "Ran frontend typecheck, lint, all 178 unit tests, and the production build successfully."
+      - "Ran ./scripts/check.sh: backend checks and 262 tests passed with 3 skipped, and 178 frontend unit tests passed; Playwright timed out waiting 120 seconds for its configured web server."
+  - time_utc: "2026-07-12T15:51:35Z"
+    time_local: "2026-07-12T12:51:35-03:00"
+    summary: "Replaced Ask management overlays with a chat menu and central settings dialog."
+    changed:
+      - "Added an active-title Ask chat dropdown with new, switch, inline rename, delete, pending-state, dismissal, focus restoration, narrow-scope hiding, and bounded scrolling behavior."
+      - "Moved live Appearance and memory management into a responsive modal opened from the Notes sidebar footer; removed header theme and Ask memory triggers."
+      - "Documented NotesSidebar settings state ownership and shared SettingsDialog composition."
+    verification:
+      - "Confirmed focused TDD red/green coverage; 32 focused Ask/Settings/Appearance/Memory/NotesSidebar tests passed before the final trigger regression, then 18 Ask tests passed."
+      - "Ran frontend typecheck, lint, all 176 unit tests, and production build successfully."
+      - "Ran ./scripts/check.sh: backend checks and 262 tests passed with 3 skipped, and 176 frontend unit tests passed; Playwright could not start its configured Vite web server in the execution environment and timed out before browser tests."
   - time_utc: "2026-07-10T17:34:31Z"
     time_local: "2026-07-10T14:34:31-03:00"
     summary: "Documented the completed behavior-preserving frontend and backend architecture refactor."

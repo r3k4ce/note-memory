@@ -99,7 +99,8 @@ describe("NotesSidebar", () => {
     expect(sidebar).toHaveStyle({ width: "320px" });
     expect(within(sidebar).getByLabelText("Notebun Bun mark")).toHaveClass("bun-mark");
     expect(within(sidebar).getByText("Notebun")).toBeInTheDocument();
-    expect(within(sidebar).getByRole("button", { name: "Browse themes" })).toBeInTheDocument();
+    expect(within(sidebar).getByRole("button", { name: "Open settings" })).toBeInTheDocument();
+    expect(within(sidebar).queryByRole("button", { name: "Browse themes" })).not.toBeInTheDocument();
 
     fireEvent.click(within(sidebar).getByRole("button", { name: "New note" }));
     fireEvent.click(within(sidebar).getByRole("tab", { name: "Search" }));

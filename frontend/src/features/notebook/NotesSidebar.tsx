@@ -1,8 +1,8 @@
-import { Plus } from "lucide-react";
-import type { CSSProperties, Ref, RefObject } from "react";
+import { Plus, Settings } from "lucide-react";
+import { useRef, useState, type CSSProperties, type Ref, type RefObject } from "react";
 
 import { SearchBar } from "../../components/SearchBar";
-import { ThemeMenu } from "../../components/ThemeMenu";
+import { SettingsDialog } from "../../components/SettingsDialog";
 import { BrowseTree, type BrowseTreeProps } from "./BrowseTree";
 import { CategoryManager, type CategoryManagerProps } from "./CategoryManager";
 import { SearchResults, type SearchResultsProps } from "./SearchResults";
@@ -63,6 +63,8 @@ export function NotesSidebar({
   sidebarTab,
   style,
 }: NotesSidebarProps) {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const isBrowseTab = sidebarTab === "browse";
   const isSearchTab = sidebarTab === "search";
   const searchStatus = searchResultsProps.isSearching
@@ -88,9 +90,6 @@ export function NotesSidebar({
             </span>
           </span>
           <span className="text-lg font-semibold tracking-tight text-text-primary">Notebun</span>
-          <span className="ml-auto">
-            <ThemeMenu />
-          </span>
         </div>
       </div>
 
@@ -200,6 +199,20 @@ export function NotesSidebar({
           <BrowseTree {...browseTreeProps} />
         ) : null}
       </div>
+      <footer className="flex shrink-0 justify-end border-t border-border px-3 py-2.5">
+        <button
+          aria-label="Open settings"
+          className="rounded-md p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"
+          onClick={() => setIsSettingsOpen(true)}
+          ref={settingsTriggerRef}
+          type="button"
+        >
+          <Settings size={17} aria-hidden="true" />
+        </button>
+      </footer>
+      {isSettingsOpen ? (
+        <SettingsDialog onClose={() => setIsSettingsOpen(false)} triggerRef={settingsTriggerRef} />
+      ) : null}
     </aside>
   );
 }

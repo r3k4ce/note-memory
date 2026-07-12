@@ -1,92 +1,52 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 
 import { getThemeMode, useTheme } from "../hooks/useTheme";
 import { THEMES } from "./themes";
 
-export function ThemeMenu() {
+export function AppearanceSettings() {
   const { theme, setTheme, toggleTheme, themesForMode } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
-
   const currentMode = getThemeMode(theme);
   const isDark = currentMode === "dark";
-  const variants = themesForMode(currentMode);
 
   return (
-    <div className="relative flex items-center" ref={containerRef}>
-      <button
-        aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-        className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-text-primary"
-        onClick={toggleTheme}
-        type="button"
-      >
-        {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
-      </button>
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-        aria-label="Browse themes"
-        className="rounded-md p-1.5 text-text-muted opacity-70 transition-colors hover:bg-surface hover:text-text-primary hover:opacity-100"
-        onClick={() => setIsOpen((current) => !current)}
-        type="button"
-      >
-        <ChevronDown size={14} strokeWidth={2} />
-      </button>
-      {isOpen ? (
-        <div
-          className="surface-popover absolute right-0 top-full z-10 mt-1 min-w-[7.5rem] bg-bg px-1.5 py-1.5"
-          role="menu"
-        >
-          {variants.map((variantId) => {
-            const meta = THEMES[variantId];
-            const Icon = meta.icon;
-            const isActive = variantId === theme;
-            return (
-              <button
-                aria-checked={isActive}
-                className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-[12px] text-text-primary transition-colors hover:bg-surface-hover"
-                key={variantId}
-                onClick={() => {
-                  setTheme(variantId);
-                  setIsOpen(false);
-                }}
-                role="menuitemradio"
-                type="button"
-              >
-                <Icon aria-hidden="true" size={13} strokeWidth={2} />
-                <span className="flex-1">{meta.label}</span>
-                {isActive ? <Check aria-hidden="true" size={13} strokeWidth={2} /> : null}
-              </button>
-            );
-          })}
+    <section aria-labelledby="appearance-settings-title">
+      <div className="flex items-center gap-3">
+        <div>
+          <h3 className="font-semibold text-text-primary" id="appearance-settings-title">Appearance</h3>
+          <p className="mt-1 text-xs text-text-muted">Choose how Notebun looks.</p>
         </div>
-      ) : null}
-    </div>
+        <button
+          aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+          onClick={toggleTheme}
+          type="button"
+        >
+          {isDark ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+          {isDark ? "Light" : "Dark"}
+        </button>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {themesForMode(currentMode).map((variantId) => {
+          const meta = THEMES[variantId];
+          const Icon = meta.icon;
+          return (
+            <label
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${variantId === theme ? "border-accent bg-accent-muted text-accent" : "border-border text-text-secondary hover:bg-surface-hover"}`}
+              key={variantId}
+            >
+              <input
+                checked={variantId === theme}
+                className="sr-only"
+                name="theme-variant"
+                onChange={() => setTheme(variantId)}
+                type="radio"
+              />
+              <Icon size={15} aria-hidden="true" />
+              {meta.label}
+            </label>
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -9,7 +9,7 @@ import {
   updateMemory,
   updateMemorySettings,
 } from "../api";
-import { MemoryManager } from "./MemoryManager";
+import { MemorySettings } from "./MemoryManager";
 
 vi.mock("../api", () => ({
   deleteAllMemories: vi.fn(),
@@ -25,12 +25,13 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getMemorySettings).mockResolvedValue({ available: true, learning_enabled: true });
+  vi.mocked(updateMemorySettings).mockResolvedValue({ available: true, learning_enabled: false });
   vi.mocked(listMemories).mockResolvedValue([
     { id: "one", content: "Prefers concise answers.", created_at: null, updated_at: null },
   ]);
 });
 
-describe("MemoryManager", () => {
+describe("MemorySettings", () => {
   test("lists edits deletes and toggles learned memory", async () => {
     vi.mocked(updateMemory).mockResolvedValue({
       id: "one",
@@ -38,9 +39,7 @@ describe("MemoryManager", () => {
       created_at: null,
       updated_at: null,
     });
-    render(<MemoryManager />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Manage memory" }));
+    render(<MemorySettings />);
     expect(await screen.findByDisplayValue("Prefers concise answers.")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Learn from chats" })).toBeChecked();
 
@@ -59,8 +58,7 @@ describe("MemoryManager", () => {
 
   test("confirms forget everything and keeps cancellation safe", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
-    render(<MemoryManager />);
-    fireEvent.click(screen.getByRole("button", { name: "Manage memory" }));
+    render(<MemorySettings />);
     await screen.findByDisplayValue("Prefers concise answers.");
 
     fireEvent.click(screen.getByRole("button", { name: "Forget everything" }));
@@ -68,5 +66,21 @@ describe("MemoryManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Forget everything" }));
     await waitFor(() => expect(deleteAllMemories).toHaveBeenCalledTimes(1));
     expect(confirm).toHaveBeenCalledTimes(2);
+  });
+
+  test("shows loading, unavailable, empty, and error states", async () => {
+    let resolveSettings: (value: { available: boolean; learning_enabled: boolean }) => void = () => undefined;
+    vi.mocked(getMemorySettings).mockReturnValue(new Promise((resolve) => { resolveSettings = resolve; }));
+    vi.mocked(listMemories).mockResolvedValue([]);
+    const { rerender } = render(<MemorySettings />);
+    expect(screen.getByText("Loading memory…")).toBeInTheDocument();
+
+    resolveSettings({ available: false, learning_enabled: false });
+    expect(await screen.findByText(/Memory is unavailable/)).toBeInTheDocument();
+    expect(screen.getByText("No learned memories yet.")).toBeInTheDocument();
+
+    vi.mocked(getMemorySettings).mockRejectedValue(new Error("offline"));
+    rerender(<MemorySettings key="error" />);
+    expect(await screen.findByText("Couldn't open memory right now.")).toBeInTheDocument();
   });
 });

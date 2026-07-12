@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 
@@ -14,6 +14,7 @@ afterEach(() => {
 });
 
 function renderAskChat({
+  activeThreadId = 1,
   isSubmitDisabled = false,
   messages = [],
   onSourceSelect = vi.fn(),
@@ -23,7 +24,24 @@ function renderAskChat({
   onNewThread = vi.fn(),
   onRenameThread = vi.fn(),
   onThreadChange = vi.fn(),
+  threads = [
+    {
+      id: 1,
+      title: "Launch notes",
+      scope: { mode: "all" as const },
+      created_at: "2026-07-01T00:00:00Z",
+      updated_at: "2026-07-01T00:00:00Z",
+    },
+    {
+      id: 2,
+      title: "Follow-up",
+      scope: { mode: "custom" as const, note_ids: [7] },
+      created_at: "2026-07-02T00:00:00Z",
+      updated_at: "2026-07-02T00:00:00Z",
+    },
+  ],
 }: {
+  activeThreadId?: number | null;
   isSubmitDisabled?: boolean;
   messages?: ChatMessage[];
   onSourceSelect?: (noteId: number) => void;
@@ -33,6 +51,7 @@ function renderAskChat({
   onNewThread?: () => void;
   onRenameThread?: (threadId: number, newTitle: string) => void;
   onThreadChange?: (threadId: number) => void;
+  threads?: Parameters<typeof AskChat>[0]["threads"];
 } = {}) {
   const onSubmit = vi.fn();
 
@@ -41,23 +60,8 @@ function renderAskChat({
       askRef={createRef<HTMLTextAreaElement>()}
       isSubmitDisabled={isSubmitDisabled}
       messages={messages}
-      activeThreadId={1}
-      threads={[
-        {
-          id: 1,
-          title: "Launch notes",
-          scope: { mode: "all" },
-          created_at: "2026-07-01T00:00:00Z",
-          updated_at: "2026-07-01T00:00:00Z",
-        },
-        {
-          id: 2,
-          title: "Follow-up",
-          scope: { mode: "custom", note_ids: [7] },
-          created_at: "2026-07-02T00:00:00Z",
-          updated_at: "2026-07-02T00:00:00Z",
-        },
-      ]}
+      activeThreadId={activeThreadId}
+      threads={threads}
       onSourceSelect={onSourceSelect}
       onDeleteThread={onDeleteThread}
       onNewThread={onNewThread}
@@ -157,7 +161,7 @@ describe("AskChat Ask Bun panel", () => {
     expect(screen.getByText(/I'm drafting a grounded answer/)).toBeInTheDocument();
   });
 
-  test("shows memory update and Manage threads button in header", () => {
+  test("shows memory update and icon-only chat controls in the header", () => {
     renderAskChat({
       messages: [
         {
@@ -172,72 +176,116 @@ describe("AskChat Ask Bun panel", () => {
     });
 
     expect(screen.getByText("Memory updated")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Manage threads" })).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "Open chats" });
+    expect(trigger).toHaveTextContent("");
+    expect(screen.getByRole("button", { name: "New chat" })).toHaveTextContent("");
+    expect(screen.queryByText("Launch notes")).not.toBeInTheDocument();
+    expect(screen.getByText("Sniffing through All notes")).toHaveClass("max-[320px]:hidden");
   });
 
-  test("opens thread panel and dispatches thread actions", () => {
+  test("keeps the chat trigger icon-only while no active thread has loaded", () => {
+    renderAskChat({ activeThreadId: null, threads: [] });
+    expect(screen.getByRole("button", { name: "Open chats" })).toHaveTextContent("");
+  });
+
+  test("starts a new chat from the header without opening the menu", () => {
+    const { onNewThread } = renderAskChat();
+
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+
+    expect(onNewThread).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
+  });
+
+  test("starts a new chat from the header and closes an open menu", () => {
+    const { onNewThread } = renderAskChat();
+    fireEvent.click(screen.getByRole("button", { name: "Open chats" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+
+    expect(onNewThread).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
+  });
+
+  test("opens the menu and keeps it open after rename and delete", () => {
     const { onDeleteThread, onNewThread, onRenameThread, onThreadChange } = renderAskChat();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open chats" }));
 
-    expect(screen.getByRole("dialog", { name: "Thread management" })).toBeInTheDocument();
-    expect(screen.getByText("Threads")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("New Chat"));
-    expect(onNewThread).toHaveBeenCalledTimes(1);
+    const menu = screen.getByRole("menu", { name: "Chats" });
+    expect(menu).toHaveClass("w-64");
+    expect(within(menu).getByRole("list")).toHaveClass("max-h-80", "overflow-y-auto");
 
     fireEvent.click(screen.getByRole("button", { name: "Rename Launch notes" }));
     const input = screen.getByDisplayValue("Launch notes");
     fireEvent.change(input, { target: { value: "Renamed thread" } });
     fireEvent.click(screen.getByRole("button", { name: "Save title" }));
     expect(onRenameThread).toHaveBeenCalledWith(1, "Renamed thread");
+    expect(screen.getByRole("menu", { name: "Chats" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Follow-up" }));
     expect(onDeleteThread).toHaveBeenCalledWith(2);
+    expect(screen.getByRole("menu", { name: "Chats" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Follow-up"));
     expect(onThreadChange).toHaveBeenCalledWith(2);
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open chats" }));
+    fireEvent.click(screen.getByText("New Chat"));
+    expect(onNewThread).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
   });
 
-  test("closes thread panel when close button is clicked", () => {
+  test("dismisses on outside press and Escape and restores trigger focus", () => {
+    renderAskChat();
+    const trigger = screen.getByRole("button", { name: "Open chats" });
+
+    fireEvent.click(trigger);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  test("dismisses when the trigger is pressed again", () => {
+    renderAskChat();
+    const trigger = screen.getByRole("button", { name: "Open chats" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menu", { name: "Chats" })).toBeInTheDocument();
+
+    fireEvent.mouseDown(trigger);
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("menu", { name: "Chats" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  test("highlights active thread in the menu", () => {
     renderAskChat();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
-    expect(screen.getByRole("dialog", { name: "Thread management" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open chats" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Close thread panel" }));
-    expect(screen.queryByRole("dialog", { name: "Thread management" })).not.toBeInTheDocument();
-  });
-
-  test("closes thread panel after selecting a different thread", () => {
-    const { onThreadChange } = renderAskChat();
-
-    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
-    fireEvent.click(screen.getByText("Follow-up"));
-
-    expect(onThreadChange).toHaveBeenCalledWith(2);
-    expect(screen.queryByRole("dialog", { name: "Thread management" })).not.toBeInTheDocument();
-  });
-
-  test("highlights active thread in the panel", () => {
-    renderAskChat();
-
-    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
-
-    const activeRow = screen.getByText("Launch notes").closest("[class*='bg-accent-muted']");
+    const activeRow = within(screen.getByRole("menu", { name: "Chats" }))
+      .getByRole("menuitem", { name: "Launch notes" })
+      .closest("[class*='bg-accent-muted']");
     expect(activeRow).toBeInTheDocument();
   });
 
-  test("disables Manage threads button while an Ask request is pending", () => {
+  test("disables both chat controls while an Ask request is pending", () => {
     renderAskChat({ pendingMessageId: "assistant:pending" });
 
-    expect(screen.getByRole("button", { name: "Manage threads" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open chats" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New chat" })).toBeDisabled();
   });
 
   test("allows inline rename with Enter key", () => {
     const { onRenameThread } = renderAskChat();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open chats" }));
     fireEvent.click(screen.getByRole("button", { name: "Rename Follow-up" }));
 
     const input = screen.getByDisplayValue("Follow-up");
@@ -250,7 +298,7 @@ describe("AskChat Ask Bun panel", () => {
   test("cancels inline rename with Escape key", () => {
     const { onRenameThread } = renderAskChat();
 
-    fireEvent.click(screen.getByRole("button", { name: "Manage threads" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open chats" }));
     fireEvent.click(screen.getByRole("button", { name: "Rename Follow-up" }));
 
     const input = screen.getByDisplayValue("Follow-up");
