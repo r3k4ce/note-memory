@@ -79,7 +79,7 @@ export function NotesSidebar({
 
   return (
     <aside aria-label="Notes sidebar" className={className} ref={sidebarRef} style={style}>
-      <div className="shrink-0 border-b border-border px-3 py-6">
+      <div className="shrink-0 px-3 py-6">
         <div className="flex items-center gap-2">
           <span className="bun-mark" aria-label="Notebun Bun mark" role="img">
             <span className="bun-mark-ear bun-mark-ear-left" aria-hidden="true" />
@@ -199,7 +199,7 @@ export function NotesSidebar({
           <BrowseTree {...browseTreeProps} />
         ) : null}
       </div>
-      <footer className="flex shrink-0 justify-end border-t border-border px-3 py-2.5">
+      <footer className="flex shrink-0 justify-end px-3 py-2.5">
         <button
           aria-label="Open settings"
           className="rounded-md p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text-primary"

@@ -81,7 +81,9 @@ describe("AskChat Ask Bun panel", () => {
   test("uses Ask Bun heading and copy while keeping controlled submit behavior", () => {
     const { onSubmit } = renderAskChat();
 
-    expect(screen.getByRole("heading", { name: "Ask Bun" })).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { name: "Ask Bun" });
+    expect(heading).toBeInTheDocument();
+    expect(heading.closest("header")).not.toHaveClass("border-b", "border-border");
     expect(screen.getByText("Sniffing through All notes")).toBeInTheDocument();
     expect(
       screen.getByText("Ask Bun to sniff out decisions, trace sources, or spot gaps in the selected notes."),

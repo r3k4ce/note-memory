@@ -108,6 +108,20 @@ describe("NotesSidebar", () => {
     expect(onSidebarTabChange).toHaveBeenCalledWith("search");
   });
 
+  test("renders without pane-level horizontal dividers", () => {
+    render(<NotesSidebar {...createProps()} />);
+
+    expect(screen.queryByTestId("browse-sidebar-divider")).not.toBeInTheDocument();
+    expect(screen.getByText("Notebun").parentElement?.parentElement).not.toHaveClass(
+      "border-b",
+      "border-border",
+    );
+    expect(screen.getByRole("button", { name: "Open settings" }).closest("footer")).not.toHaveClass(
+      "border-t",
+      "border-border",
+    );
+  });
+
   test("renders search input and active-query status without backend workflows", () => {
     render(
       <NotesSidebar
@@ -133,6 +147,7 @@ describe("NotesSidebar", () => {
     expect(screen.getByText("Results for “work”")).toBeInTheDocument();
     expect(screen.getByText("No matching notes", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByRole("tree", { name: "Browse notes" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("browse-sidebar-divider")).not.toBeInTheDocument();
   });
 
   test("preserves the browse loading, error, and first-note empty states", () => {
