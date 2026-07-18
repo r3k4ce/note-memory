@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from "lucide-react";
 import type { DragEvent } from "react";
 
 import { NoteCard } from "../../components/NoteCard";
@@ -11,6 +11,7 @@ export type BrowseTreeProps = {
   expandedFolderKeys: Set<string>;
   getFolderDropTarget: (folder: BrowseFolder) => NoteDropTarget;
   isNoteSelected: (noteId: number) => boolean;
+  isNewNoteDisabled: boolean;
   notes: Note[];
   onCategoryFilterChange: (filter: CategoryFilter) => void;
   onFolderClick: (folder: BrowseFolder) => void;
@@ -19,6 +20,7 @@ export type BrowseTreeProps = {
   onFolderDrop: (event: DragEvent<HTMLButtonElement>, target: NoteDropTarget) => void;
   onNoteDragEnd: () => void;
   onNoteDragStart: (event: DragEvent<HTMLButtonElement>, noteId: number) => void;
+  onNewNoteForCategory: (categoryId: number) => void;
   onNoteSelect: (noteId: number) => void;
   onSetSourceNotesSelected: (noteIds: number[], selected: boolean) => void;
   onToggleAllNotes: () => void;
@@ -34,6 +36,7 @@ export function BrowseTree({
   expandedFolderKeys,
   getFolderDropTarget,
   isNoteSelected,
+  isNewNoteDisabled,
   notes,
   onCategoryFilterChange,
   onFolderClick,
@@ -42,6 +45,7 @@ export function BrowseTree({
   onFolderDrop,
   onNoteDragEnd,
   onNoteDragStart,
+  onNewNoteForCategory,
   onNoteSelect,
   onSetSourceNotesSelected,
   onToggleAllNotes,
@@ -90,10 +94,11 @@ export function BrowseTree({
           selectedFolderNoteCount > 0 && selectedFolderNoteCount < folderNoteIds.length;
         const folderDropTarget = getFolderDropTarget(folder);
         const isDropTarget = dropTargetKey === folder.key;
+        const categoryId = typeof folder.filter === "number" ? folder.filter : null;
 
         return (
           <div className="flex flex-col gap-1" key={folder.key}>
-            <div className="flex items-center gap-1 rounded-md pr-1">
+            <div className="group relative flex items-center gap-1 rounded-md pr-1">
               <input
                 aria-label={`Use ${folder.label} category for Ask`}
                 checked={isFolderAskSelected}
@@ -112,7 +117,7 @@ export function BrowseTree({
               <button
                 aria-expanded={isExpanded}
                 aria-selected={isSelected}
-                className={`sidebar-row flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
+                className={`sidebar-row peer flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 ${
                   isDropTarget
                     ? "bg-accent-muted text-text-primary ring-1 ring-accent/40"
                     : isSelected
@@ -142,11 +147,29 @@ export function BrowseTree({
                   />
                 )}
                 <FolderIcon aria-hidden="true" className="shrink-0" size={16} strokeWidth={2} />
-                <span className="min-w-0 flex-1 truncate">{folder.label}</span>
+                <span
+                  className={`min-w-0 flex-1 truncate ${
+                    categoryId !== null ? "mr-7" : ""
+                  }`}
+                >
+                  {folder.label}
+                </span>
                 <span aria-hidden="true" className="shrink-0 text-[12px] tabular-nums text-text-muted">
                   {folder.notes.length}
                 </span>
               </button>
+              {categoryId !== null ? (
+                <button
+                  aria-label={`New note in ${folder.label} category`}
+                  className="absolute right-7 shrink-0 rounded-md p-1 text-text-muted opacity-0 transition-[background-color,opacity] hover:bg-surface-hover hover:text-text-primary focus:bg-surface-hover focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 group-hover:bg-surface-hover group-hover:opacity-100 group-focus-within:bg-surface-hover group-focus-within:opacity-100 peer-focus:bg-surface-hover peer-focus:opacity-100 disabled:cursor-not-allowed disabled:!opacity-40"
+                  disabled={isNewNoteDisabled}
+                  onClick={() => onNewNoteForCategory(categoryId)}
+                  title={`New note in ${folder.label}`}
+                  type="button"
+                >
+                  <Plus aria-hidden="true" size={16} strokeWidth={2} />
+                </button>
+              ) : null}
             </div>
 
             {isExpanded ? (

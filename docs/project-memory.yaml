@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-18T00:00:00Z"
+    time_local: "2026-07-17T21:00:00-03:00"
+    summary: "Integrated category quick-create controls into Browse rows."
+    changed:
+      - "Named category rows reserve a stable in-row slot immediately before the note count for an accessible icon-only New note action, revealed on hover or keyboard focus; All notes and Uncategorized remain unchanged."
+      - "Quick-create opens a fresh frontmatter draft preassigned to the clicked category, clears an unsaved new-note draft, preserves dirty selected-note confirmation, and honors existing note-action disabled states."
+      - "Documented the named-category quick-create behavior in the README."
+    verification:
+      - "Ran focused BrowseTree, notebook controller, and note editor document tests: 23 passed."
+      - "Ran the full frontend suite (183 tests), TypeScript check, ESLint, and production build successfully."
   - time_utc: "2026-07-12T16:24:34Z"
     time_local: "2026-07-12T13:24:34-03:00"
     summary: "Simplified the Ask header chat controls."

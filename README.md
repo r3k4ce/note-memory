@@ -38,8 +38,9 @@ The choice persists in `localStorage`.
 
 - **Left sidebar:** explicit Browse and Search tabs, a collapsed category manager
   for creating/renaming/deleting categories, a browse category tree with nested
-  notes that can be dragged between categories, search match snippets, and
-  visible Ask source checkboxes for all notes, categories, and individual notes.
+  notes that can be dragged between categories, a hover- or focus-revealed
+  quick-create control integrated into each named category row, search match snippets, and visible Ask
+  source checkboxes for all notes, categories, and individual notes.
 - **Center workspace:** write new Markdown notes and open selected notes in the
   same full-height Markdown editor. Title, summary, tags, and category are
   edited through an Obsidian-compatible YAML frontmatter block, with a subtle

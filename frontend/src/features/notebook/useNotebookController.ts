@@ -590,6 +590,19 @@ export function useNotebookController(reconciliation: NotebookReconciliation) {
     return true;
   }, [canOpenSourceNote]);
 
+  const newNoteForCategory = useCallback(
+    (categoryId: number): boolean => {
+      if (!newNote()) return false;
+      const category = categories.find((currentCategory) => currentCategory.id === categoryId);
+      setDraftText(createBlankNoteEditorDocument(category?.name));
+      setDraftCategoryId(categoryId);
+      setSelectedCategoryFilter(categoryId);
+      setSaveError(null);
+      return true;
+    },
+    [categories, newNote],
+  );
+
   const editSelectedNote = useCallback(() => {
     if (!selectedNote) return;
     setEditError(null);
@@ -705,6 +718,7 @@ export function useNotebookController(reconciliation: NotebookReconciliation) {
     isUpdatingCategory,
     listError,
     newNote,
+    newNoteForCategory,
     notes,
     onDraftTextChange,
     openSourceNote,

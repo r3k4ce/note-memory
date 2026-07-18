@@ -210,6 +210,56 @@ describe("useNotebookController", () => {
     expect(result.current.workspaceMode).toBe("edit-selected");
   });
 
+  test("starts a blank category-assigned note after confirming a dirty selected edit", async () => {
+    vi.mocked(listNotes).mockResolvedValueOnce([workNote]);
+    vi.mocked(listCategories).mockResolvedValueOnce([workCategory]);
+    vi.mocked(getNote).mockResolvedValueOnce(workNote);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.isLoadingNotes).toBe(false));
+    act(() => result.current.selectNote(workNote.id));
+    await waitFor(() => expect(result.current.selectedNote).toEqual(workNote));
+    act(() => result.current.setIsSelectedNoteEditDirty(true));
+    act(() => result.current.onDraftTextChange("Unsaved new-note draft"));
+
+    let created = false;
+    act(() => {
+      created = result.current.newNoteForCategory(workCategory.id);
+    });
+
+    expect(created).toBe(true);
+    expect(confirm).toHaveBeenCalledWith("Discard unsaved note changes?");
+    expect(result.current.workspaceMode).toBe("new");
+    expect(result.current.selectedNoteId).toBeNull();
+    expect(result.current.selectedNote).toBeNull();
+    expect(result.current.selectedCategoryFilter).toBe(workCategory.id);
+    expect(result.current.draftCategoryId).toBe(workCategory.id);
+    expect(result.current.draftText).toBe(
+      "---\ntitle: \nsummary: \ntags: \ncategory: Work\n---\n",
+    );
+  });
+
+  test("keeps the dirty selected note open when category quick-create is declined", async () => {
+    vi.mocked(listNotes).mockResolvedValueOnce([workNote]);
+    vi.mocked(listCategories).mockResolvedValueOnce([workCategory]);
+    vi.mocked(getNote).mockResolvedValueOnce(workNote);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.isLoadingNotes).toBe(false));
+    act(() => result.current.selectNote(workNote.id));
+    await waitFor(() => expect(result.current.selectedNote).toEqual(workNote));
+    act(() => result.current.setIsSelectedNoteEditDirty(true));
+
+    let created = true;
+    act(() => {
+      created = result.current.newNoteForCategory(workCategory.id);
+    });
+
+    expect(created).toBe(false);
+    expect(result.current.workspaceMode).toBe("edit-selected");
+    expect(result.current.selectedNoteId).toBe(workNote.id);
+  });
+
   test("updates and deletes selected notes with exact confirmation and reconciliation", async () => {
     vi.mocked(listNotes).mockResolvedValueOnce([workNote]);
     vi.mocked(listCategories).mockResolvedValueOnce([workCategory]);

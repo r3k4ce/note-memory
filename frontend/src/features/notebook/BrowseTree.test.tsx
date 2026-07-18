@@ -38,6 +38,12 @@ const notes: Note[] = [
   },
 ];
 const folder = { filter: category.id, key: "category:1", label: "Work", notes } as const;
+const uncategorizedFolder = {
+  filter: "uncategorized" as const,
+  key: "uncategorized",
+  label: "Uncategorized",
+  notes: [],
+};
 
 function createProps(overrides: Partial<BrowseTreeProps> = {}): BrowseTreeProps {
   return {
@@ -49,8 +55,10 @@ function createProps(overrides: Partial<BrowseTreeProps> = {}): BrowseTreeProps 
       key: browseFolder.key,
     }),
     isNoteSelected: () => true,
+    isNewNoteDisabled: false,
     notes,
     onCategoryFilterChange: vi.fn(),
+    onNewNoteForCategory: vi.fn(),
     onFolderClick: vi.fn(),
     onFolderDragLeave: vi.fn(),
     onFolderDragOver: vi.fn(),
@@ -101,6 +109,59 @@ describe("BrowseTree", () => {
 
     fireEvent.click(checkbox);
     expect(onSetSourceNotesSelected).toHaveBeenCalledWith([10, 11], true);
+  });
+
+  test("integrates quick-create before the named category count without nesting it in the folder button", () => {
+    const onFolderClick = vi.fn();
+    const onNewNoteForCategory = vi.fn();
+    render(
+      <BrowseTree
+        {...createProps({
+          browseFolders: [uncategorizedFolder, folder],
+          onFolderClick,
+          onNewNoteForCategory,
+        })}
+      />,
+    );
+
+    const folderButton = screen.getByRole("button", { name: "Work" });
+    const quickCreateButton = screen.getByRole("button", { name: "New note in Work category" });
+    expect(quickCreateButton).toBeEnabled();
+    expect(folderButton).not.toContainElement(quickCreateButton);
+    expect(folderButton.parentElement).toHaveClass("relative", "group");
+    expect(folderButton).toHaveClass("peer");
+    expect(quickCreateButton).toHaveClass(
+      "absolute",
+      "right-7",
+      "group-hover:opacity-100",
+      "peer-focus:opacity-100",
+      "focus:opacity-100",
+      "group-hover:bg-surface-hover",
+    );
+    expect(
+      screen.queryByRole("button", { name: "New note in Uncategorized category" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /New note in All notes/ })).not.toBeInTheDocument();
+
+    fireEvent.click(quickCreateButton);
+
+    expect(onNewNoteForCategory).toHaveBeenCalledWith(category.id);
+    expect(onFolderClick).not.toHaveBeenCalled();
+
+    fireEvent.click(folderButton);
+    expect(onFolderClick).toHaveBeenCalledWith(folder);
+
+    fireEvent.click(within(folderButton).getByText(String(notes.length)));
+    expect(onFolderClick).toHaveBeenCalledTimes(2);
+  });
+
+  test("disables quick-create while note actions are unavailable", () => {
+    render(<BrowseTree {...createProps({ isNewNoteDisabled: true })} />);
+
+    expect(screen.getByRole("button", { name: "New note in Work category" })).toHaveClass(
+      "disabled:!opacity-40",
+    );
+    expect(screen.getByRole("button", { name: "New note in Work category" })).toBeDisabled();
   });
 
   test("forwards folder and note click and drag events without owning state", () => {

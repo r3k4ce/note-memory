@@ -94,8 +94,8 @@ export function serializeNoteEditorDocument(note: Note): string {
   ].join("\n");
 }
 
-export function createBlankNoteEditorDocument(): string {
-  return ["---", "title: ", "summary: ", "tags: ", "category: ", "---", ""].join("\n");
+export function createBlankNoteEditorDocument(categoryName = ""): string {
+  return ["---", "title: ", "summary: ", "tags: ", `category: ${categoryName}`, "---", ""].join("\n");
 }
 
 export function parseDraftNoteEditorDocument(
