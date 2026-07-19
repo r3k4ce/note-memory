@@ -451,13 +451,16 @@ def _search_app(
             tags=["tickets"],
         )
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        assert texts
-        return [[0.1, 0.2, 0.3]]
+    def embed_query(text: str, *, settings: Settings) -> list[float]:
+        assert text
+        return [0.1, 0.2, 0.3]
 
     FakeVectorStore.results = semantic_results or []
     FakeVectorStore.error = semantic_error
     FakeVectorStore.calls = []
-    monkeypatch.setattr("mapping_memory.search.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.search.chroma_index_ready", lambda settings: True, raising=False
+    )
+    monkeypatch.setattr("mapping_memory.search.embed_query", embed_query, raising=False)
     monkeypatch.setattr("mapping_memory.search.ChromaVectorStore", FakeVectorStore, raising=False)
-    return create_app(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+    return create_app(Settings(sqlite_path=sqlite_path, voyage_api_key=SecretStr("test-key")))

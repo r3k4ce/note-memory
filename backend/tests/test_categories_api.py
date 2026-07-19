@@ -19,7 +19,7 @@ def test_categories_router_registers_category_routes(tmp_path: Path) -> None:
 
 
 def test_categories_api_creates_lists_and_rejects_duplicates(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", voyage_api_key=None))
 
     with TestClient(app) as client:
         empty_response = client.get("/categories")
@@ -44,7 +44,7 @@ def test_categories_api_creates_lists_and_rejects_duplicates(tmp_path: Path) -> 
 
 
 def test_categories_api_renames_category_and_rejects_duplicates(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", voyage_api_key=None))
 
     with TestClient(app) as client:
         work_response = client.post("/categories", json={"name": "Work"})
@@ -87,7 +87,7 @@ def test_categories_api_rename_reindexes_category_notes(
         lambda note, **kwargs: reindexed_note_ids.append(note.id),
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", voyage_api_key=None))
 
     with TestClient(app) as client:
         category_response = client.post("/categories", json={"name": "Work"})
@@ -123,7 +123,7 @@ def test_categories_api_deletes_category_and_uncategorizes_notes(
         lambda note, **kwargs: reindexed_note_ids.append(note.id),
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", voyage_api_key=None))
 
     with TestClient(app) as client:
         category_response = client.post("/categories", json={"name": "Work"})
@@ -170,7 +170,7 @@ def test_categories_api_delete_reports_failed_reindex(
         ),
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", voyage_api_key=None))
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         category_response = client.post("/categories", json={"name": "Work"})

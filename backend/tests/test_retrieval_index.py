@@ -3,7 +3,13 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+from pydantic import SecretStr
 
+from mapping_memory.provider_fingerprint import (
+    chroma_fingerprint_path,
+    expected_chroma_fingerprint,
+    write_provider_fingerprint,
+)
 from mapping_memory.retrieval_index import (
     delete_note_from_retrieval,
     index_note_for_retrieval,
@@ -73,6 +79,22 @@ class FakeVectorStore:
     def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
         self.calls.append(("add_chunks", (list(chunks), embeddings)))
 
+    def recreate_collection(self) -> None:
+        self.calls.append(("recreate_collection", None))
+
+
+def _ready_settings(tmp_path: Path) -> Settings:
+    settings = Settings(
+        sqlite_path=tmp_path / "notes.sqlite",
+        chroma_path=tmp_path / "chroma",
+        voyage_api_key=SecretStr("test-key"),
+        voyage_embedding_dimensions=3,
+    )
+    write_provider_fingerprint(
+        chroma_fingerprint_path(settings), expected_chroma_fingerprint(settings)
+    )
+    return settings
+
 
 def test_reconcile_skips_reindex_when_vector_metadata_matches_exactly(
     tmp_path: Path,
@@ -93,7 +115,7 @@ def test_reconcile_skips_reindex_when_vector_metadata_matches_exactly(
         "mapping_memory.reindex.reindex_chroma",
         lambda settings: reindex_calls.append(settings),
     )
-    settings = Settings(sqlite_path=tmp_path / "notes.sqlite")
+    settings = _ready_settings(tmp_path)
 
     reconcile_chroma_with_sqlite(settings=settings)
 
@@ -115,11 +137,42 @@ def test_reconcile_reindexes_when_vector_metadata_differs(
         "mapping_memory.reindex.reindex_chroma",
         lambda settings: reindex_calls.append(settings),
     )
-    settings = Settings(sqlite_path=tmp_path / "notes.sqlite")
+    settings = _ready_settings(tmp_path)
 
     reconcile_chroma_with_sqlite(settings=settings)
 
     assert reindex_calls == [settings]
+    assert ("recreate_collection", None) in FakeVectorStore.instances[0].calls
+    assert not chroma_fingerprint_path(settings).exists()
+
+
+def test_reconcile_discards_legacy_collection_without_voyage_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    FakeVectorStore.instances = []
+    FakeVectorStore.current_metadata = {"legacy": {"note_id": 1}}
+    reindex_calls: list[Settings] = []
+    monkeypatch.setattr("mapping_memory.retrieval_index.list_notes", lambda path: [])
+    monkeypatch.setattr("mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore)
+    monkeypatch.setattr(
+        "mapping_memory.reindex.reindex_chroma",
+        lambda settings: reindex_calls.append(settings),
+    )
+    settings = Settings(
+        sqlite_path=tmp_path / "notes.sqlite",
+        chroma_path=tmp_path / "chroma",
+        voyage_api_key=None,
+    )
+
+    reconcile_chroma_with_sqlite(settings=settings)
+
+    assert reindex_calls == []
+    assert FakeVectorStore.instances[0].calls == [
+        ("get_chunk_metadata", None),
+        ("recreate_collection", None),
+    ]
+    assert not chroma_fingerprint_path(settings).exists()
 
 
 def test_reconcile_logs_and_swallows_failures(
@@ -133,10 +186,33 @@ def test_reconcile_logs_and_swallows_failures(
     )
 
     with caplog.at_level(logging.WARNING):
-        reconcile_chroma_with_sqlite(settings=Settings(sqlite_path=tmp_path / "notes.sqlite"))
+        reconcile_chroma_with_sqlite(
+            settings=Settings(
+                sqlite_path=tmp_path / "notes.sqlite",
+                chroma_path=tmp_path / "chroma",
+            )
+        )
 
     assert "Chroma index reconciliation unavailable; continuing with existing index" in caplog.text
     assert "sensitive failure" not in caplog.text
+
+
+def test_reconcile_invalidates_fingerprint_before_collection_recreation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingRecreationStore(FakeVectorStore):
+        def recreate_collection(self) -> None:
+            raise RuntimeError("recreation failed")
+
+    settings = _ready_settings(tmp_path)
+    FailingRecreationStore.current_metadata = {"legacy": {"note_id": 1}}
+    monkeypatch.setattr("mapping_memory.retrieval_index.list_notes", lambda path: [])
+    monkeypatch.setattr("mapping_memory.retrieval_index.ChromaVectorStore", FailingRecreationStore)
+
+    reconcile_chroma_with_sqlite(settings=settings)
+
+    assert not chroma_fingerprint_path(settings).exists()
 
 
 def test_index_note_embeds_then_adds_chunks(
@@ -146,18 +222,18 @@ def test_index_note_embeds_then_adds_chunks(
     calls: list[tuple[str, Any]] = []
     FakeVectorStore.instances = []
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        calls.append(("embed_texts", texts))
+    def embed_documents(texts: list[str], *, settings: Settings) -> list[list[float]]:
+        calls.append(("embed_documents", texts))
         return [[0.1, 0.2, 0.3] for _ in texts]
 
-    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts)
+    monkeypatch.setattr("mapping_memory.retrieval_index.embed_documents", embed_documents)
     monkeypatch.setattr("mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore)
-    settings = Settings(sqlite_path=tmp_path / "notes.sqlite")
+    settings = _ready_settings(tmp_path)
 
     index_note_for_retrieval(_note(), settings=settings)
 
     chunks, embeddings = FakeVectorStore.instances[0].calls[0][1]
-    assert calls == [("embed_texts", [chunks[0].text])]
+    assert calls == [("embed_documents", [chunks[0].text])]
     assert embeddings == [[0.1, 0.2, 0.3]]
 
 
@@ -174,16 +250,33 @@ def test_reindex_note_deletes_old_chunks_before_embedding_and_adding(
         def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
             calls.append("add")
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+    def embed_documents(texts: list[str], *, settings: Settings) -> list[list[float]]:
         calls.append("embed")
         return [[0.1, 0.2, 0.3] for _ in texts]
 
-    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts)
+    monkeypatch.setattr("mapping_memory.retrieval_index.embed_documents", embed_documents)
     monkeypatch.setattr("mapping_memory.retrieval_index.ChromaVectorStore", OrderedVectorStore)
 
-    reindex_note_for_retrieval(_note(), settings=Settings(sqlite_path=tmp_path / "notes.sqlite"))
+    reindex_note_for_retrieval(_note(), settings=_ready_settings(tmp_path))
 
     assert calls == ["delete:7", "embed", "add"]
+
+
+def test_failed_note_index_invalidates_completed_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _ready_settings(tmp_path)
+
+    def embed_documents(*_args: Any, **_kwargs: Any) -> list[list[float]]:
+        raise RuntimeError("failed")
+
+    monkeypatch.setattr("mapping_memory.retrieval_index.embed_documents", embed_documents)
+    monkeypatch.setattr("mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore)
+
+    with pytest.raises(RuntimeError, match="failed"):
+        index_note_for_retrieval(_note(), settings=settings)
+
+    assert not chroma_fingerprint_path(settings).exists()
 
 
 def test_delete_note_deletes_all_chunks_for_note(

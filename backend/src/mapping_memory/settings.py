@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,9 +15,17 @@ class Settings(BaseSettings):
     memory_enabled: bool = True
     memory_path: Path = Path("../data/memory")
     vault_path: Path = Path("../data/vault")
-    openai_api_key: SecretStr | None = None
-    openai_organizer_model: str = "gpt-5.4-mini"
-    openai_embedding_model: str = "text-embedding-3-small"
+    groq_api_key: SecretStr | None = None
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_reasoning_effort: Literal["low", "medium", "high"] = "medium"
+    groq_timeout_seconds: float = 60
+    groq_max_retries: int = 1
+    voyage_api_key: SecretStr | None = None
+    voyage_embedding_model: str = "voyage-4-large"
+    voyage_embedding_dimensions: int = 1024
+    voyage_reranker_model: str = "rerank-2.5"
+    voyage_timeout_seconds: float = 30
+    voyage_max_retries: int = 1
 
     @field_validator("sqlite_path", "chroma_path", "memory_path", "vault_path", mode="after")
     @classmethod
@@ -25,6 +34,13 @@ class Settings(BaseSettings):
             return value
 
         return (BACKEND_DIR / value).resolve()
+
+    @field_validator("groq_api_key", "voyage_api_key", mode="after")
+    @classmethod
+    def blank_provider_key_is_unconfigured(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None or not value.get_secret_value().strip():
+            return None
+        return value
 
     @model_validator(mode="after")
     def resolve_default_vault_next_to_sqlite(self) -> "Settings":

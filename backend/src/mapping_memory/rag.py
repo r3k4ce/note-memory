@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -7,13 +8,15 @@ from typing import Any, Literal, cast
 from mapping_memory import retrieval_index
 from mapping_memory.category_scope import CategoryScope
 from mapping_memory.chunking import ChunkType, RetrievalChunk
-from mapping_memory.embeddings import embed_texts
+from mapping_memory.embeddings import embed_query
 from mapping_memory.exact_search import ExactSearchMatch, search_notes_exact_matches
 from mapping_memory.fts import tags_to_text
 from mapping_memory.notes import get_note, list_notes
+from mapping_memory.provider_fingerprint import chroma_index_ready
 from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, build_chunk_id
+from mapping_memory.voyage_reranker import rerank_chunks
 
 RAG_RETRIEVAL_LIMIT = 20
 RAG_FALLBACK_RETRIEVAL_LIMIT = 100
@@ -22,6 +25,8 @@ RAG_FINAL_CHUNK_LIMIT = 8
 RAG_SELECTED_NOTE_RESCUE_LIMIT = 5
 RAG_LOCAL_MATCH_LIMIT = 8
 RAG_FUZZY_SCORE_CUTOFF = 85.0
+
+logger = logging.getLogger(__name__)
 
 RagMatchType = Literal["semantic", "exact", "fuzzy", "selected"]
 
@@ -82,20 +87,29 @@ def prepare_retrieval_context(
         sources_by_note_id=sources_by_note_id,
         accepted_count=accepted_count,
     )
-    if accepted_count < RAG_FINAL_CHUNK_LIMIT:
+    if accepted_count < RAG_FINAL_CHUNK_LIMIT and chroma_index_ready(settings):
         try:
             retrieval_query = build_retrieval_query(query, history or [])
-            embedding = embed_texts([retrieval_query], settings=settings)[0]
+            embedding = embed_query(retrieval_query, settings=settings)
             vector_store = ChromaVectorStore(settings=settings)
             _sync_scope_category_metadata(vector_store, settings=settings, category_scope=scope)
             where = _combined_chroma_where(category_scope=scope, note_ids=note_ids)
             hits = _query_hits(
                 vector_store, embedding, where=where, fallback_where=scope.chroma_where
             )
+            if selected_note_ids is not None:
+                hits = [
+                    hit
+                    for hit in hits
+                    if _metadata_int(hit.metadata.get("note_id")) in selected_note_ids
+                ][:RAG_RETRIEVAL_LIMIT]
         except Exception:
-            if accepted_count == 0:
-                raise
+            logger.warning("Ask semantic retrieval unavailable; continuing with local evidence")
         else:
+            try:
+                hits = rerank_chunks(retrieval_query, hits, settings=settings)
+            except Exception:
+                logger.warning("Ask semantic reranking unavailable; preserving Chroma order")
             accepted_count = _add_vector_hits_to_sources(
                 hits,
                 settings=settings,

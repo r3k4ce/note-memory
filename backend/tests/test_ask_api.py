@@ -134,7 +134,11 @@ def test_ask_uses_memory_as_untrusted_context_learns_and_persists_turn(
             )
         ),
     )
-    settings = Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite",
+        groq_api_key=SecretStr("test-groq-key"),
+        voyage_api_key=SecretStr("test-voyage-key"),
+    )
     init_db(settings.sqlite_path)
     response = _post_ask(
         _ask_endpoint(create_ask_router(settings, memory_adapter=FakeMemory())),
@@ -151,6 +155,48 @@ def test_ask_uses_memory_as_untrusted_context_learns_and_persists_turn(
         "user",
         "assistant",
     ]
+
+
+def test_groq_only_ask_skips_memory_and_answers_from_local_evidence(tmp_path, monkeypatch) -> None:
+    from mapping_memory.ask import create_ask_router
+
+    source = _source(note_id=7, title="Local source", date_added="2026-07-01T01:00:00Z")
+    memory_calls: list[str] = []
+
+    class MemoryMustNotRun:
+        def search(self, query: str) -> list[Any]:
+            memory_calls.append("search")
+            return []
+
+        def learn(self, user_message: str, assistant_message: str) -> int:
+            memory_calls.append("learn")
+            return 0
+
+    monkeypatch.setattr(
+        "mapping_memory.ask.prepare_retrieval_context",
+        lambda *_, **__: RagRetrievalContext(sources=(source,), formatted_context="local context"),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.ask.generate_grounded_answer",
+        lambda **_: GroundedAnswer(
+            status="answered",
+            claims=[GroundedClaim(text="Use the local checklist.", evidence_ids=["chunk-7"])],
+        ),
+    )
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite", groq_api_key=SecretStr("test-groq-key")
+    )
+    init_db(settings.sqlite_path)
+
+    response = _post_ask(
+        _ask_endpoint(create_ask_router(settings, memory_adapter=MemoryMustNotRun())),
+        {"question": "What should we use?"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "Use the local checklist. [1]"
+    assert response.json()["memory_updates"] == 0
+    assert memory_calls == []
 
 
 def test_ask_persists_turn_to_requested_thread_and_titles_first_question(
@@ -177,7 +223,9 @@ def test_ask_persists_turn_to_requested_thread_and_titles_first_question(
             claims=[GroundedClaim(text="Thread answer.", evidence_ids=["chunk-7"])],
         ),
     )
-    settings = Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite", groq_api_key=SecretStr("test-groq-key")
+    )
     init_db(settings.sqlite_path)
     thread = create_chat_thread(
         settings.sqlite_path,
@@ -235,7 +283,11 @@ def test_ask_learns_from_no_evidence_and_memory_failures_never_fail_answer(
         "mapping_memory.ask.prepare_retrieval_context",
         lambda *_, **__: RagRetrievalContext(sources=(), formatted_context=""),
     )
-    settings = Settings(sqlite_path=tmp_path / "ask.sqlite", openai_api_key=SecretStr("test-key"))
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite",
+        groq_api_key=SecretStr("test-groq-key"),
+        voyage_api_key=SecretStr("test-voyage-key"),
+    )
     init_db(settings.sqlite_path)
     response = _post_ask(
         _ask_endpoint(create_ask_router(settings, memory_adapter=FailingMemory())),
@@ -924,7 +976,7 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
             AskHistoryMessage(role="user", content="What source is relevant?"),
             AskHistoryMessage(role="assistant", content="The saved card is relevant."),
         ],
-        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_model="test-model"),
         client=fake_client,
     )
 
@@ -934,7 +986,8 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
     )
     call = fake_client.chat.completions.calls[0]
     assert call["model"] == "test-model"
-    assert call["response_format"] is GroundedAnswer
+    assert call["response_format"]["type"] == "json_schema"
+    assert call["response_format"]["json_schema"]["schema"] == GroundedAnswer.model_json_schema()
     assert call["messages"][0] == {"role": "system", "content": ANSWER_SYSTEM_PROMPT}
     user_message = call["messages"][1]["content"]
     assert "Card title: Saved card" in user_message
@@ -955,7 +1008,7 @@ def test_generate_grounded_answer_includes_only_recent_history_in_prompt() -> No
         "What happened next?",
         context="Card title: Saved card\nRelevant text:\nUse saved decision.",
         history=[AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)],
-        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_model="test-model"),
         client=fake_client,
     )
 
@@ -971,13 +1024,14 @@ class FakeCompletions:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    def parse(self, **kwargs: Any) -> SimpleNamespace:
+    def create(self, **kwargs: Any) -> SimpleNamespace:
         self.calls.append(kwargs)
         message = SimpleNamespace(
-            parsed=GroundedAnswer(
+            content=GroundedAnswer(
                 status="answered",
                 claims=[GroundedClaim(text="Use saved decision.", evidence_ids=["saved-decision"])],
-            )
+            ).model_dump_json(),
+            refusal=None,
         )
         choice = SimpleNamespace(message=message)
         return SimpleNamespace(choices=[choice])
@@ -1057,7 +1111,7 @@ def _ask_app(
     )
     settings = Settings(
         sqlite_path=tmp_path / "ask.sqlite",
-        openai_api_key=SecretStr("test-key"),
+        groq_api_key=SecretStr("test-groq-key"),
     )
     init_db(settings.sqlite_path)
     return _ask_endpoint(create_ask_router(settings))
@@ -1084,14 +1138,22 @@ def _ask_app_with_real_retrieval(
     if init_db_first:
         init_db(sqlite_path)
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        assert texts == [expected_query]
+    def embed_query(text: str, *, settings: Settings) -> list[float]:
+        assert text == expected_query
         assert settings.sqlite_path == sqlite_path
-        return [[0.1, 0.2, 0.3]]
+        return [0.1, 0.2, 0.3]
 
     FakeAskVectorStore.results = vector_results
     FakeAskVectorStore.calls = []
-    monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.rag.chroma_index_ready", lambda settings: True, raising=False
+    )
+    monkeypatch.setattr("mapping_memory.rag.embed_query", embed_query, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.rag.rerank_chunks",
+        lambda query, candidates, *, settings: list(candidates),
+        raising=False,
+    )
     monkeypatch.setattr("mapping_memory.rag.ChromaVectorStore", FakeAskVectorStore, raising=False)
 
     def generate_grounded_answer(**kwargs: Any):
@@ -1110,7 +1172,13 @@ def _ask_app_with_real_retrieval(
         "mapping_memory.ask.generate_grounded_answer", generate_grounded_answer, raising=False
     )
     return _ask_endpoint(
-        create_ask_router(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+        create_ask_router(
+            Settings(
+                sqlite_path=sqlite_path,
+                groq_api_key=SecretStr("test-groq-key"),
+                voyage_api_key=SecretStr("test-voyage-key"),
+            )
+        )
     )
 
 

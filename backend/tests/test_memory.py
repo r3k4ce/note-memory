@@ -1,5 +1,7 @@
 import os
+import sys
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -56,8 +58,13 @@ def _settings(tmp_path: Path) -> Settings:
     return Settings(
         sqlite_path=tmp_path / "app.sqlite",
         memory_path=tmp_path / "memory",
-        openai_api_key=SecretStr("test-key"),
+        groq_api_key=SecretStr("test-groq-key"),
+        voyage_api_key=SecretStr("test-voyage-key"),
     )
+
+
+def test_mem0_telemetry_is_disabled() -> None:
+    assert os.environ["MEM0_TELEMETRY"] == "False"
 
 
 def test_memory_adapter_scopes_search_learning_and_crud_to_local_owner(tmp_path: Path) -> None:
@@ -95,9 +102,23 @@ def test_memory_adapter_builds_dedicated_persistent_mem0_config(
             return FakeMem0()
 
     monkeypatch.setattr("mapping_memory.memory.Memory", FakeMemory)
+    voyage_embeddings = object()
+    monkeypatch.setattr(
+        "mapping_memory.memory._create_voyage_embeddings",
+        lambda settings: voyage_embeddings,
+        raising=False,
+    )
+    configured_clients: list[object] = []
+    monkeypatch.setattr(
+        "mapping_memory.memory._configure_mem0_groq_client",
+        lambda memory, settings: configured_clients.append(memory),
+        raising=False,
+    )
     settings = _settings(tmp_path)
 
-    MemoryAdapter(settings).list()
+    adapter = MemoryAdapter(settings)
+    assert adapter.initialize() is True
+    adapter.list()
 
     assert captured["vector_store"]["provider"] == "chroma"
     assert captured["vector_store"]["config"] == {
@@ -105,8 +126,19 @@ def test_memory_adapter_builds_dedicated_persistent_mem0_config(
         "path": str(settings.memory_path / "chroma"),
     }
     assert captured["history_db_path"] == str(settings.memory_path / "history.sqlite")
-    assert captured["llm"]["config"]["model"] == settings.openai_organizer_model
-    assert captured["embedder"]["config"]["model"] == settings.openai_embedding_model
+    assert captured["llm"] == {
+        "provider": "groq",
+        "config": {
+            "api_key": "test-groq-key",
+            "model": settings.groq_model,
+            "reasoning_effort": settings.groq_reasoning_effort,
+        },
+    }
+    assert captured["embedder"] == {
+        "provider": "langchain",
+        "config": {"model": voyage_embeddings},
+    }
+    assert len(configured_clients) == 1
     instructions = captured["custom_instructions"].lower()
     assert "assistant-originated" in instructions
     assert "credentials" in instructions
@@ -184,9 +216,16 @@ def test_chat_thread_api_crud_messages_and_validation(tmp_path: Path, monkeypatc
         assert client.get(f"/chat/threads/{thread['id']}/messages").status_code == 404
 
 
-@pytest.mark.parametrize(("memory_enabled", "has_key"), [(False, True), (True, False)])
-def test_memory_settings_report_unavailable_without_feature_and_key(
-    tmp_path: Path, monkeypatch, memory_enabled: bool, has_key: bool
+@pytest.mark.parametrize(
+    ("memory_enabled", "groq_key", "voyage_key"),
+    [(False, True, True), (True, False, False), (True, True, False), (True, False, True)],
+)
+def test_memory_settings_report_unavailable_without_feature_and_both_keys(
+    tmp_path: Path,
+    monkeypatch,
+    memory_enabled: bool,
+    groq_key: bool,
+    voyage_key: bool,
 ) -> None:
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.reconcile_chroma_with_sqlite", lambda **_: None
@@ -195,7 +234,8 @@ def test_memory_settings_report_unavailable_without_feature_and_key(
         sqlite_path=tmp_path / "app.sqlite",
         memory_path=tmp_path / "memory",
         memory_enabled=memory_enabled,
-        openai_api_key=SecretStr("test-key") if has_key else None,
+        groq_api_key=SecretStr("test-groq-key") if groq_key else None,
+        voyage_api_key=SecretStr("test-voyage-key") if voyage_key else None,
     )
     with TestClient(create_app(settings)) as client:
         response = client.get("/memory-settings")
@@ -203,14 +243,212 @@ def test_memory_settings_report_unavailable_without_feature_and_key(
     assert response.json()["available"] is False
 
 
-def test_mem0_live_crud_filtering_and_persistence_compatibility(tmp_path: Path) -> None:
-    if os.getenv("RUN_MEM0_INTEGRATION_TESTS") != "1":
-        pytest.skip("Set RUN_MEM0_INTEGRATION_TESTS=1 to run live Mem0/OpenAI tests")
-    settings = Settings(memory_path=tmp_path / "memory")
-    if settings.openai_api_key is None:
-        pytest.skip("OPENAI_API_KEY is not configured")
+def test_incompatible_memory_is_preserved_when_either_key_is_missing(tmp_path: Path) -> None:
+    settings = Settings(
+        memory_path=tmp_path / "memory",
+        groq_api_key=SecretStr("test-groq-key"),
+        voyage_api_key=None,
+    )
+    settings.memory_path.mkdir(parents=True)
+    marker = settings.memory_path / "legacy-memory.bin"
+    marker.write_text("legacy")
+    (settings.memory_path / "memory-provider.json").write_text('{"llm_provider":"openai"}')
 
     adapter = MemoryAdapter(settings)
+
+    assert adapter.initialize() is False
+    assert marker.read_text() == "legacy"
+    assert adapter.available is False
+
+
+def test_incompatible_memory_is_reset_with_both_keys_and_no_backup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _settings(tmp_path)
+    settings.memory_path.mkdir(parents=True)
+    marker = settings.memory_path / "legacy-memory.bin"
+    marker.write_text("legacy")
+    (settings.memory_path / "memory-provider.json").write_text('{"llm_provider":"openai"}')
+    fake = FakeMem0()
+
+    class FakeMemory:
+        @classmethod
+        def from_config(cls, config: dict[str, Any]) -> FakeMem0:
+            return fake
+
+    monkeypatch.setattr("mapping_memory.memory.Memory", FakeMemory)
+    monkeypatch.setattr(
+        "mapping_memory.memory._create_voyage_embeddings", lambda settings: object(), raising=False
+    )
+    monkeypatch.setattr(
+        "mapping_memory.memory._configure_mem0_groq_client",
+        lambda memory, settings: None,
+        raising=False,
+    )
+
+    adapter = MemoryAdapter(settings)
+
+    assert adapter.initialize() is True
+    assert not marker.exists()
+    assert (settings.memory_path / "memory-provider.json").is_file()
+    assert adapter.available is True
+    assert list(tmp_path.glob("*backup*")) == []
+
+
+def test_compatible_memory_fingerprint_preserves_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mapping_memory.provider_fingerprint import (
+        expected_memory_fingerprint,
+        memory_fingerprint_path,
+        write_provider_fingerprint,
+    )
+
+    settings = _settings(tmp_path)
+    settings.memory_path.mkdir(parents=True)
+    marker = settings.memory_path / "current-memory.bin"
+    marker.write_text("current")
+    write_provider_fingerprint(
+        memory_fingerprint_path(settings), expected_memory_fingerprint(settings)
+    )
+    monkeypatch.setattr("mapping_memory.memory.MemoryAdapter._memory", lambda self: FakeMem0())
+
+    adapter = MemoryAdapter(settings)
+
+    assert adapter.initialize() is True
+    assert marker.read_text() == "current"
+    assert adapter.available is True
+
+
+def test_memory_fingerprint_is_written_only_after_successful_initialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _settings(tmp_path)
+
+    class FailingMemory:
+        @classmethod
+        def from_config(cls, config: dict[str, Any]) -> None:
+            raise RuntimeError("provider details")
+
+    monkeypatch.setattr("mapping_memory.memory.Memory", FailingMemory)
+    monkeypatch.setattr(
+        "mapping_memory.memory._create_voyage_embeddings", lambda settings: object(), raising=False
+    )
+
+    adapter = MemoryAdapter(settings)
+
+    assert adapter.initialize() is False
+    assert not (settings.memory_path / "memory-provider.json").exists()
+    assert adapter.available is False
+
+
+def test_memory_reset_refuses_path_containing_canonical_note_data(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "app.sqlite"
+    sqlite_path.write_text("canonical notes")
+    settings = Settings(
+        sqlite_path=sqlite_path,
+        chroma_path=tmp_path / "chroma",
+        vault_path=tmp_path / "vault",
+        memory_path=tmp_path,
+        groq_api_key=SecretStr("test-groq-key"),
+        voyage_api_key=SecretStr("test-voyage-key"),
+    )
+
+    adapter = MemoryAdapter(settings)
+
+    assert adapter.initialize() is False
+    assert sqlite_path.read_text() == "canonical notes"
+    assert adapter.available is False
+
+
+def test_mem0_groq_client_injects_reasoning_effort(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mapping_memory.memory import _configure_mem0_groq_client
+
+    calls: list[dict[str, Any]] = []
+
+    class FakeCompletions:
+        def create(self, **kwargs: Any) -> str:
+            calls.append(kwargs)
+            return "response"
+
+    base_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+    memory = SimpleNamespace(llm=SimpleNamespace(client=None))
+    settings = _settings(Path("/tmp/memory-client-test"))
+    configured_settings: list[Settings] = []
+    monkeypatch.setattr(
+        "mapping_memory.memory.create_groq_client",
+        lambda received: configured_settings.append(received) or base_client,
+    )
+
+    _configure_mem0_groq_client(memory, settings)
+    response = memory.llm.client.chat.completions.create(model=settings.groq_model)
+
+    assert response == "response"
+    assert configured_settings == [settings]
+    assert calls == [
+        {"model": settings.groq_model, "reasoning_effort": settings.groq_reasoning_effort}
+    ]
+
+
+def test_mem0_voyage_bridge_uses_configured_sync_and_async_clients(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mapping_memory.memory import _create_voyage_embeddings
+
+    captured: dict[str, Any] = {}
+
+    class FakeVoyageAIEmbeddings:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["embeddings"] = kwargs
+            self._client: object | None = None
+            self._aclient: object | None = None
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["async_client"] = kwargs
+
+    fake_langchain_voyage = ModuleType("langchain_voyageai")
+    fake_langchain_voyage.VoyageAIEmbeddings = FakeVoyageAIEmbeddings  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "langchain_voyageai", fake_langchain_voyage)
+    monkeypatch.setattr("mapping_memory.memory._install_mem0_langchain_core_alias", lambda: None)
+    sync_client = object()
+    monkeypatch.setattr(
+        "mapping_memory.memory.create_voyage_client", lambda settings: sync_client, raising=False
+    )
+    monkeypatch.setattr("voyageai.client_async.AsyncClient", FakeAsyncClient)
+    settings = _settings(tmp_path).model_copy(
+        update={"voyage_timeout_seconds": 23.0, "voyage_max_retries": 2}
+    )
+
+    embeddings = _create_voyage_embeddings(settings)
+
+    assert embeddings._client is sync_client
+    assert isinstance(embeddings._aclient, FakeAsyncClient)
+    assert captured["embeddings"] == {
+        "model": settings.voyage_embedding_model,
+        "api_key": settings.voyage_api_key,
+        "output_dimension": settings.voyage_embedding_dimensions,
+        "batch_size": 64,
+    }
+    assert captured["async_client"] == {
+        "api_key": "test-voyage-key",
+        "timeout": 23.0,
+        "max_retries": 2,
+    }
+
+
+@pytest.mark.live
+def test_mem0_live_crud_filtering_and_persistence_compatibility(tmp_path: Path) -> None:
+    if os.getenv("RUN_MEM0_INTEGRATION_TESTS") != "1":
+        pytest.skip("Set RUN_MEM0_INTEGRATION_TESTS=1 to run live Mem0 provider tests")
+    settings = Settings(memory_path=tmp_path / "memory")
+    if settings.groq_api_key is None or settings.voyage_api_key is None:
+        pytest.skip("GROQ_API_KEY and VOYAGE_API_KEY are not configured")
+
+    adapter = MemoryAdapter(settings)
+    assert adapter.initialize() is True
     client = adapter._memory()
     added = client.add(
         [{"role": "user", "content": "I prefer compact Markdown answers."}],
@@ -223,6 +461,7 @@ def test_mem0_live_crud_filtering_and_persistence_compatibility(tmp_path: Path) 
         adapter.update(memory_id, "Prefers short Markdown answers.")
 
         reloaded = MemoryAdapter(settings)
+        assert reloaded.initialize() is True
         assert next(record for record in reloaded.list() if record.id == memory_id).content == (
             "Prefers short Markdown answers."
         )
@@ -249,16 +488,18 @@ def live_memory_policy_messages() -> dict[str, tuple[str, str]]:
     }
 
 
+@pytest.mark.live
 def test_mem0_live_extraction_policy(
     tmp_path: Path, live_memory_policy_messages: dict[str, tuple[str, str]]
 ) -> None:
     if os.getenv("RUN_MEM0_POLICY_TESTS") != "1":
         pytest.skip("Set RUN_MEM0_POLICY_TESTS=1 to run live memory extraction policy tests")
     settings = Settings(memory_path=tmp_path / "policy-memory")
-    if settings.openai_api_key is None:
-        pytest.skip("OPENAI_API_KEY is not configured")
+    if settings.groq_api_key is None or settings.voyage_api_key is None:
+        pytest.skip("GROQ_API_KEY and VOYAGE_API_KEY are not configured")
 
     adapter = MemoryAdapter(settings)
+    assert adapter.initialize() is True
     try:
         for user_message, assistant_message in live_memory_policy_messages.values():
             adapter.learn(user_message, assistant_message)

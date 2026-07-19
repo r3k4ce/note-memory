@@ -9,6 +9,11 @@ from mapping_memory.chunking import create_retrieval_chunks
 from mapping_memory.db import init_db
 from mapping_memory.main import create_app
 from mapping_memory.notes import create_note, get_note
+from mapping_memory.provider_fingerprint import (
+    chroma_fingerprint_path,
+    expected_chroma_fingerprint,
+    write_provider_fingerprint,
+)
 from mapping_memory.retrieval_index import reconcile_chroma_with_sqlite
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import build_chunk_id, build_chunk_metadata
@@ -33,7 +38,7 @@ def test_create_app_imports_markdown_file_from_vault(tmp_path: Path) -> None:
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
             vault_path=vault_path,
-            openai_api_key=None,
+            voyage_api_key=None,
         )
     )
 
@@ -78,6 +83,9 @@ def test_create_app_reconciles_chroma_after_markdown_vault_sync(
         def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
             return {}
 
+        def recreate_collection(self) -> None:
+            return None
+
     def reindex_chroma(settings: Settings) -> object:
         reindex_calls.append(settings)
         return object()
@@ -90,7 +98,7 @@ def test_create_app_reconciles_chroma_after_markdown_vault_sync(
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
             vault_path=vault_path,
-            openai_api_key=None,
+            voyage_api_key=SecretStr("test-key"),
         )
     )
 
@@ -120,7 +128,7 @@ def test_create_app_does_not_backfill_markdown_for_existing_sqlite_notes(
         Settings(
             sqlite_path=sqlite_path,
             vault_path=vault_path,
-            openai_api_key=None,
+            voyage_api_key=None,
         )
     )
 
@@ -149,7 +157,7 @@ def test_create_app_deletes_sqlite_note_when_tracked_markdown_file_is_missing(
         Settings(
             sqlite_path=sqlite_path,
             vault_path=vault_path,
-            openai_api_key=None,
+            voyage_api_key=None,
         )
     )
 
@@ -177,6 +185,9 @@ def test_create_app_reindexes_when_sqlite_notes_have_empty_chroma(
         def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
             return {}
 
+        def recreate_collection(self) -> None:
+            return None
+
     def reindex_chroma(settings: Settings) -> object:
         reindex_calls.append(settings)
         return object()
@@ -186,7 +197,11 @@ def test_create_app_reindexes_when_sqlite_notes_have_empty_chroma(
     )
     monkeypatch.setattr("mapping_memory.reindex.reindex_chroma", reindex_chroma, raising=False)
     reconcile_chroma_with_sqlite(
-        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
+        settings=Settings(
+            sqlite_path=sqlite_path,
+            chroma_path=tmp_path / "chroma",
+            voyage_api_key=SecretStr("test-key"),
+        )
     )
 
     assert len(reindex_calls) == 1
@@ -232,9 +247,15 @@ def test_create_app_skips_reindex_when_chroma_matches_sqlite(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
     monkeypatch.setattr("mapping_memory.reindex.reindex_chroma", reindex_chroma, raising=False)
-    reconcile_chroma_with_sqlite(
-        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
+    settings = Settings(
+        sqlite_path=sqlite_path,
+        chroma_path=tmp_path / "chroma",
+        voyage_api_key=SecretStr("test-key"),
     )
+    write_provider_fingerprint(
+        chroma_fingerprint_path(settings), expected_chroma_fingerprint(settings)
+    )
+    reconcile_chroma_with_sqlite(settings=settings)
 
     assert reindex_calls == []
 
@@ -271,6 +292,9 @@ def test_create_app_reindexes_when_chroma_metadata_is_stale(
                 }
             }
 
+        def recreate_collection(self) -> None:
+            return None
+
     def reindex_chroma(settings: Settings) -> object:
         reindex_calls.append(settings)
         return object()
@@ -280,7 +304,11 @@ def test_create_app_reindexes_when_chroma_metadata_is_stale(
     )
     monkeypatch.setattr("mapping_memory.reindex.reindex_chroma", reindex_chroma, raising=False)
     reconcile_chroma_with_sqlite(
-        settings=Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
+        settings=Settings(
+            sqlite_path=sqlite_path,
+            chroma_path=tmp_path / "chroma",
+            voyage_api_key=SecretStr("test-key"),
+        )
     )
 
     assert len(reindex_calls) == 1
@@ -301,6 +329,9 @@ def test_create_app_reindexes_when_sqlite_is_empty_but_chroma_has_chunks(
         def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
             return {"note:999:chunk:0": {"note_id": 999}}
 
+        def recreate_collection(self) -> None:
+            return None
+
     def reindex_chroma(settings: Settings) -> object:
         reindex_calls.append(settings)
         return object()
@@ -309,9 +340,15 @@ def test_create_app_reindexes_when_sqlite_is_empty_but_chroma_has_chunks(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
     monkeypatch.setattr("mapping_memory.reindex.reindex_chroma", reindex_chroma, raising=False)
-    reconcile_chroma_with_sqlite(settings=Settings(sqlite_path=sqlite_path, openai_api_key=None))
+    reconcile_chroma_with_sqlite(
+        settings=Settings(
+            sqlite_path=sqlite_path,
+            chroma_path=tmp_path / "chroma",
+            voyage_api_key=None,
+        )
+    )
 
-    assert len(reindex_calls) == 1
+    assert reindex_calls == []
 
 
 def test_create_app_logs_reindex_failure_without_crashing(
@@ -330,6 +367,9 @@ def test_create_app_logs_reindex_failure_without_crashing(
         def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
             return {}
 
+        def recreate_collection(self) -> None:
+            return None
+
     def reindex_chroma(settings: Settings) -> object:
         raise RuntimeError("provider failure with sensitive details")
 
@@ -339,7 +379,11 @@ def test_create_app_logs_reindex_failure_without_crashing(
     monkeypatch.setattr("mapping_memory.reindex.reindex_chroma", reindex_chroma, raising=False)
     with caplog.at_level(logging.WARNING):
         reconcile_chroma_with_sqlite(
-            settings=Settings(sqlite_path=sqlite_path, openai_api_key=None)
+            settings=Settings(
+                sqlite_path=sqlite_path,
+                chroma_path=tmp_path / "chroma",
+                voyage_api_key=SecretStr("test-key"),
+            )
         )
 
     assert "Chroma index reconciliation unavailable; continuing with existing index" in caplog.text

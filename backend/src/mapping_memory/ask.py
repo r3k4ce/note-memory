@@ -57,10 +57,11 @@ def create_ask_router(
 
         category_scope = _validated_category_scope(request, settings=settings)
         memory_context: list[str] = []
-        try:
-            memory_context = [record.content for record in adapter.search(request.question)]
-        except Exception:
-            logger.warning("Memory search unavailable; continuing without personalization")
+        if _memory_configured(settings):
+            try:
+                memory_context = [record.content for record in adapter.search(request.question)]
+            except Exception:
+                logger.warning("Memory search unavailable; continuing without personalization")
         try:
             retrieval_context = prepare_retrieval_context(
                 request.question,
@@ -131,24 +132,32 @@ def _complete_turn(
     settings: Settings,
     adapter: MemoryClient,
 ) -> AskResponse:
-    updates = 0
-    try:
-        if learning_enabled(settings.sqlite_path, LOCAL_OWNER_ID):
-            updates = adapter.learn(question, response.answer)
-    except Exception:
-        logger.warning("Memory learning unavailable; continuing without an update")
-    completed = response.model_copy(update={"memory_updates": updates})
     try:
         append_chat_turn(
             settings.sqlite_path,
             LOCAL_OWNER_ID,
             question,
-            completed,
+            response,
             thread_id=thread_id,
         )
     except Exception:
         logger.warning("Chat transcript persistence unavailable")
-    return completed
+
+    updates = 0
+    try:
+        if _memory_configured(settings) and learning_enabled(settings.sqlite_path, LOCAL_OWNER_ID):
+            updates = adapter.learn(question, response.answer)
+    except Exception:
+        logger.warning("Memory learning unavailable; continuing without an update")
+    return response.model_copy(update={"memory_updates": updates})
+
+
+def _memory_configured(settings: Settings) -> bool:
+    return (
+        settings.memory_enabled
+        and settings.groq_api_key is not None
+        and settings.voyage_api_key is not None
+    )
 
 
 def _ask_sources(sources: tuple[RagSource, ...]) -> list[AskSource]:

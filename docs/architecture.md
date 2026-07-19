@@ -18,11 +18,14 @@ Mapping Memory is a FastAPI backend with a React TypeScript frontend. Feature mo
 
 ## Backend boundaries
 
-- [`main.py`](../backend/src/mapping_memory/main.py) assembles settings, memory, middleware, routers, and application lifespan. Startup initializes SQLite, synchronizes the Markdown vault, then reconciles Chroma with SQLite.
+- [`main.py`](../backend/src/mapping_memory/main.py) assembles settings, memory, middleware, routers, health capabilities, and application lifespan. Startup initializes SQLite, synchronizes the Markdown vault, reconciles Chroma with SQLite/provider fingerprints, then best-effort initializes memory.
 - [`notes_api.py`](../backend/src/mapping_memory/notes_api.py) and [`categories_api.py`](../backend/src/mapping_memory/categories_api.py) own HTTP validation, status/error mapping, AI organization orchestration, and best-effort retrieval-index updates. Other endpoint families remain in their own Ask, memory, and search routers.
 - [`notes.py`](../backend/src/mapping_memory/notes.py) owns SQLite note/category CRUD, FTS maintenance, and Markdown mirror writes. [`vault_sync.py`](../backend/src/mapping_memory/vault_sync.py) owns startup reconciliation from Markdown file deletion, addition, and newer file content back into SQLite.
-- [`exact_search.py`](../backend/src/mapping_memory/exact_search.py) owns scoped FTS candidate lookup plus literal-match filtering and snippets. [`retrieval_index.py`](../backend/src/mapping_memory/retrieval_index.py) owns note chunking, embedding, and per-note/full Chroma lifecycle operations.
-- [`search.py`](../backend/src/mapping_memory/search.py) owns the `/search` router and merges exact, fuzzy, and optional semantic results. [`rag.py`](../backend/src/mapping_memory/rag.py) builds scoped Ask retrieval context from exact, vector, fuzzy, and selected-note rescue candidates; Ask answer generation and citation validation remain in the Ask/AI boundary.
+- [`ai.py`](../backend/src/mapping_memory/ai.py) preserves application-facing organizer/grounded-answer contracts and prompts; [`groq_ai.py`](../backend/src/mapping_memory/groq_ai.py) owns Groq construction, strict structured output, and sanitized provider failures.
+- [`voyage_embeddings.py`](../backend/src/mapping_memory/voyage_embeddings.py) owns native Voyage document/query embeddings. [`voyage_reranker.py`](../backend/src/mapping_memory/voyage_reranker.py) reranks only semantic Ask candidates. [`provider_fingerprint.py`](../backend/src/mapping_memory/provider_fingerprint.py) owns narrow Chroma and Mem0 compatibility records.
+- [`exact_search.py`](../backend/src/mapping_memory/exact_search.py) owns scoped FTS candidate lookup plus literal-match filtering and snippets. [`retrieval_index.py`](../backend/src/mapping_memory/retrieval_index.py) owns note chunking, document embedding, and per-note/full Chroma lifecycle operations.
+- [`search.py`](../backend/src/mapping_memory/search.py) owns the `/search` router and merges exact, fuzzy, and optional semantic results without reranking. [`rag.py`](../backend/src/mapping_memory/rag.py) builds scoped Ask retrieval context from exact, reranked semantic, fuzzy, and selected-note rescue candidates; Ask answer generation and citation validation remain in the Ask/AI boundary.
+- [`memory.py`](../backend/src/mapping_memory/memory.py) preserves the Mem0 application adapter while configuring native Groq plus the LangChain Voyage embedding bridge. Memory is ready only with both provider keys and a compatible initialized store.
 
 ## Tests
 

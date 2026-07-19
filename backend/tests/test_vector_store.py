@@ -76,7 +76,7 @@ def test_build_chunk_id_uses_stable_note_and_chunk_index() -> None:
 
 
 def test_settings_resolves_relative_chroma_path() -> None:
-    settings = Settings(openai_api_key=None, chroma_path=Path("../data/test-chroma"))
+    settings = Settings(voyage_api_key=None, chroma_path=Path("../data/test-chroma"))
 
     assert settings.chroma_path.is_absolute()
     assert settings.chroma_path.name == "test-chroma"
@@ -138,7 +138,7 @@ def test_store_gets_or_creates_configured_collection() -> None:
     collection = FakeCollection()
     client = FakeClient(collection)
 
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=client)
 
     assert store.collection is collection
     assert client.collection_names == [COLLECTION_NAME]
@@ -146,7 +146,7 @@ def test_store_gets_or_creates_configured_collection() -> None:
 
 def test_add_chunks_sends_ids_documents_embeddings_and_metadata_to_chroma() -> None:
     collection = FakeCollection()
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
     chunks = [
         RetrievalChunk(
             note_id=9,
@@ -222,7 +222,7 @@ def test_add_chunks_sends_ids_documents_embeddings_and_metadata_to_chroma() -> N
 def test_count_chunks_returns_collection_count() -> None:
     collection = FakeCollection()
     collection.count_value = 3
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
 
     assert store.count_chunks() == 3
 
@@ -233,7 +233,7 @@ def test_get_chunk_metadata_returns_metadata_by_chunk_id() -> None:
         "ids": ["note:7:chunk:0", "note:8:chunk:0"],
         "metadatas": [{"note_id": 7}, {"note_id": 8}],
     }
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
 
     assert store.get_chunk_metadata() == {
         "note:7:chunk:0": {"note_id": 7},
@@ -244,7 +244,7 @@ def test_get_chunk_metadata_returns_metadata_by_chunk_id() -> None:
 
 def test_add_chunks_rejects_mismatched_embedding_count() -> None:
     collection = FakeCollection()
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
     chunk = RetrievalChunk(
         note_id=9,
         chunk_index=0,
@@ -265,7 +265,7 @@ def test_add_chunks_rejects_mismatched_embedding_count() -> None:
 
 def test_query_by_embedding_returns_normalized_results() -> None:
     collection = FakeCollection()
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
 
     results = store.query_by_embedding([0.1, 0.2], limit=3)
 
@@ -285,7 +285,7 @@ def test_query_by_embedding_returns_normalized_results() -> None:
 
 def test_query_by_embedding_passes_metadata_filter_when_provided() -> None:
     collection = FakeCollection()
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
 
     store.query_by_embedding([0.1, 0.2], limit=3, where={"category_scope": "category:7"})
 
@@ -301,7 +301,7 @@ def test_query_by_embedding_passes_metadata_filter_when_provided() -> None:
 
 def test_update_chunk_metadata_updates_known_chunk_ids_only() -> None:
     collection = FakeCollection()
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
     chunk = RetrievalChunk(
         note_id=9,
         chunk_index=0,
@@ -346,7 +346,7 @@ def test_update_chunk_metadata_updates_known_chunk_ids_only() -> None:
 
 def test_delete_chunks_for_note_deletes_by_note_id_metadata() -> None:
     collection = FakeCollection()
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=FakeClient(collection))
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=FakeClient(collection))
 
     store.delete_chunks_for_note(7)
 
@@ -356,7 +356,7 @@ def test_delete_chunks_for_note_deletes_by_note_id_metadata() -> None:
 def test_recreate_collection_deletes_and_reopens_collection() -> None:
     collection = FakeCollection()
     client = FakeClient(collection)
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=client)
 
     store.recreate_collection()
 
@@ -369,7 +369,7 @@ def test_recreate_collection_ignores_missing_collection_only() -> None:
     collection = FakeCollection()
     client = FakeClient(collection)
     client.delete_exception = NotFoundError("Collection does not exist")
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=client)
 
     store.recreate_collection()
 
@@ -381,7 +381,7 @@ def test_recreate_collection_propagates_unexpected_chroma_errors() -> None:
     collection = FakeCollection()
     client = FakeClient(collection)
     client.delete_exception = RuntimeError("provider failed")
-    store = ChromaVectorStore(settings=Settings(openai_api_key=None), client=client)
+    store = ChromaVectorStore(settings=Settings(voyage_api_key=None), client=client)
 
     with pytest.raises(RuntimeError, match="provider failed"):
         store.recreate_collection()

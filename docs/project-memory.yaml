@@ -1,4 +1,24 @@
 entries:
+  - time_utc: "2026-07-19T01:41:10Z"
+    time_local: "2026-07-18T22:41:10-03:00"
+    summary: "Disabled Mem0 anonymous telemetry."
+    changed:
+      - "Set MEM0_TELEMETRY=False before importing Mem0 so local learned memory cannot create PostHog clients or send usage events."
+      - "Added a regression assertion for the import-time telemetry setting."
+    verification:
+      - "Ran Ruff check and format check, Pyright, and pytest: 312 passed, 2 opt-in live tests skipped, 89.35% coverage."
+  - time_utc: "2026-07-19T01:00:20Z"
+    time_local: "2026-07-18T22:00:20-03:00"
+    summary: "Migrated runtime AI providers from OpenAI to Groq and Voyage."
+    changed:
+      - "Kept the application-facing AI contracts and prompts while moving organization and grounded Ask generation to configurable Groq GPT-OSS structured outputs with sanitized failures."
+      - "Added Voyage document/query embeddings, 1024-dimension validation, 64-text rebuild batches, and Ask-only semantic reranking with Chroma-order fallback and existing evidence limits."
+      - "Added Chroma and Mem0 provider fingerprints, safe startup reconciliation, complete-index readiness checks, and a Groq plus LangChain Voyage Mem0 bridge available only when both keys are configured."
+      - "Added additive health capabilities, provider key-matrix fallbacks, offline fake-client regression coverage, updated dependencies and lockfile, and replaced active OpenAI setup documentation."
+    verification:
+      - "Ran uv sync --dev, Ruff check and format check, Pyright, and pytest: 311 passed, 2 opt-in live Mem0 tests skipped, 89.34% coverage."
+      - "Ran 183 frontend unit tests, ESLint, and the production build successfully; no frontend files changed."
+      - "Ran ./scripts/check.sh through backend and frontend unit checks; its 6 existing Playwright layout tests failed because the Work locator also matches New note in Work category."
   - time_utc: "2026-07-18T00:00:00Z"
     time_local: "2026-07-17T21:00:00-03:00"
     summary: "Integrated category quick-create controls into Browse rows."

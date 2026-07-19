@@ -10,7 +10,9 @@ requires-python = ">=3.12"
 dependencies = [
     "chromadb>=1.5.9",
     "fastapi>=0.138.2",
-    "openai>=2.44.0",
+    "groq>=0.37.1",
+    "langchain-voyageai>=0.4.0",
+    "voyageai>=0.3.5",
     "pydantic-settings>=2.14.2",
     "pyyaml>=6.0.3",
     "python-dotenv>=1.2.2",
@@ -66,6 +68,7 @@ reportMissingTypeStubs = false
 minversion = "8.0"
 addopts = "-ra --strict-markers --strict-config --cov --cov-report=term-missing:skip-covered --cov-report=xml"
 testpaths = ["tests"]
+markers = ["live: opt-in tests that call configured external providers"]
 
 [tool.coverage.run]
 branch = true

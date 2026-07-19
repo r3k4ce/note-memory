@@ -1,4 +1,5 @@
 from contextlib import AbstractAsyncContextManager
+from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
@@ -6,7 +7,21 @@ import anyio
 import anyio.to_thread
 import fastapi.testclient
 import httpx
+import pytest
 from fastapi import FastAPI
+
+
+@pytest.fixture(autouse=True)
+def isolate_provider_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "app.sqlite"))
+    monkeypatch.setenv("VAULT_PATH", str(tmp_path / "vault"))
+    monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
+    monkeypatch.setenv("MEMORY_PATH", str(tmp_path / "memory"))
+    if request.node.get_closest_marker("live") is None:
+        monkeypatch.setenv("GROQ_API_KEY", "")
+        monkeypatch.setenv("VOYAGE_API_KEY", "")
 
 
 # Starlette 1.3.1's bundled TestClient uses httpx2 in this environment, and

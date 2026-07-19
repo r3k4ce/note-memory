@@ -8,10 +8,11 @@ from rapidfuzz import fuzz, process
 
 from mapping_memory import retrieval_index
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
-from mapping_memory.embeddings import embed_texts
+from mapping_memory.embeddings import embed_query
 from mapping_memory.exact_search import ExactSearchMatch, search_notes_exact_matches
 from mapping_memory.fts import SNIPPET_MAX_CHARS, collapse_whitespace, tags_to_text
 from mapping_memory.notes import get_category, get_note, list_notes
+from mapping_memory.provider_fingerprint import chroma_index_ready
 from mapping_memory.schemas import NoteRead, SearchResult
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, VectorSearchResult
@@ -63,7 +64,7 @@ def create_search_router(settings: Settings) -> APIRouter:
             query, settings=settings, category_scope=category_scope, exact_matches=exact_matches
         )
         semantic_hits: list[SemanticSearchMatch] = []
-        if semantic:
+        if semantic and chroma_index_ready(settings):
             try:
                 semantic_hits = _search_semantic_notes(
                     query, settings=settings, category_scope=category_scope
@@ -84,7 +85,7 @@ def _search_semantic_notes(
     settings: Settings,
     category_scope: CategoryScope,
 ) -> list[SemanticSearchMatch]:
-    embedding = embed_texts([query], settings=settings)[0]
+    embedding = embed_query(query, settings=settings)
     vector_store = ChromaVectorStore(settings=settings)
     _sync_scope_category_metadata(vector_store, settings=settings, category_scope=category_scope)
     hits = vector_store.query_by_embedding(

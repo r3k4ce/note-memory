@@ -6,19 +6,19 @@
 ![License](https://img.shields.io/github/license/r3k4ce/note-memory?style=flat-square)
 ![Last commit](https://img.shields.io/github/last-commit/r3k4ce/note-memory?style=flat-square)
 
-FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; RapidFuzz &middot; ChromaDB &middot; OpenAI
+FastAPI &middot; React &middot; TypeScript &middot; SQLite (FTS5) &middot; RapidFuzz &middot; ChromaDB &middot; Groq &middot; Voyage
 
 > [!WARNING]
 > **Privacy and work data.**
 >
 > Notes, the active Ask transcript, and learned memories are stored locally in `data/`.
-> When `OPENAI_API_KEY` is set, note text, questions, and selected chat text are sent to
-> the OpenAI API account configured in `backend/.env` for metadata, embeddings, Ask
-> answers, and memory extraction.
+> When configured, Groq receives note text, questions, and selected chat text for
+> metadata, Ask answers, and memory extraction. Voyage receives note chunks and
+> retrieval queries for embeddings, plus semantic Ask candidates for reranking.
 > Do not paste confidential or work-restricted material unless your company policy
-> explicitly permits sending it to that OpenAI account.
-> Without `OPENAI_API_KEY`, notes still save with local fallback metadata but search uses
-> local exact and fuzzy matching only (Ask answers are disabled).
+> explicitly permits sending it to both configured provider accounts.
+> Without provider keys, notes still save with local fallback metadata and local exact
+> and fuzzy search remains available.
 
 ## What it is
 
@@ -61,7 +61,7 @@ endpoints that return sourced results from your own note collection.
 ### First-save organization
 
 On a new note's first save, blank `title`, `summary`, and `tags` frontmatter
-fields are filled by AI when `OPENAI_API_KEY` is configured. Any values you
+fields are filled by AI when `GROQ_API_KEY` is configured. Any values you
 write manually take precedence, including an explicit empty tag list sent
 through the API. Organization never rewrites the Markdown body or chooses a
 category.
@@ -87,9 +87,10 @@ ordinary saves never invoke AI automatically.
   It can be deleted at any time and re-created from SQLite. Creating, editing,
   deleting, and category changes update Chroma best-effort. On startup, the
   backend compares SQLite notes against stored Chroma chunk metadata and rebuilds
-  the index when it is empty, incomplete, or stale and `OPENAI_API_KEY` is
-  configured. Search falls back to local exact and fuzzy matching while the index
-  is empty or unavailable. Ask uses Chroma for semantic retrieval and also
+  the index when it is empty, incomplete, stale, or provider-incompatible. A
+  compatible fingerprint is written only after a complete Voyage rebuild. Search
+  falls back to local exact and fuzzy matching while the index is empty or unavailable.
+  Ask uses Chroma for semantic retrieval and also
   rescues explicitly selected notes from SQLite when vector retrieval misses them.
 - **Memory is separate and durable.** Embedded Mem0 stores the single local owner's
   curated profile beneath `data/memory/`, separate from the rebuildable note index.
@@ -142,16 +143,28 @@ The backend reads `backend/.env` on startup. Copy `backend/.env.example` to
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | _empty_ | Enables AI metadata, embeddings, and Ask answers. Leave unset to run with fallback metadata plus local exact/fuzzy search. |
-| `OPENAI_ORGANIZER_MODEL` | `gpt-5.4-mini` | Model used to generate note title, summary, and tags, and to answer Ask questions. |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Model used to embed retrieval chunks and search/ask queries. |
+| `GROQ_API_KEY` | _empty_ | Enables note organization and Ask answer generation. |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq model used for organization, Ask answers, and Mem0 extraction. |
+| `GROQ_REASONING_EFFORT` | `medium` | Groq reasoning effort. |
+| `GROQ_TIMEOUT_SECONDS` | `60` | Groq request timeout. |
+| `GROQ_MAX_RETRIES` | `1` | Groq SDK retry limit. |
+| `VOYAGE_API_KEY` | _empty_ | Enables semantic indexing/search and Ask semantic retrieval/reranking. |
+| `VOYAGE_EMBEDDING_MODEL` | `voyage-4-large` | Model used for document and query embeddings. |
+| `VOYAGE_EMBEDDING_DIMENSIONS` | `1024` | Required embedding vector dimensions. |
+| `VOYAGE_RERANKER_MODEL` | `rerank-2.5` | Model used to rerank Ask semantic candidates only. |
+| `VOYAGE_TIMEOUT_SECONDS` | `30` | Voyage request timeout. |
+| `VOYAGE_MAX_RETRIES` | `1` | Voyage SDK retry limit. |
 | `SQLITE_PATH` | `../data/mapping_memory.sqlite` | SQLite database file (canonical note storage). Resolved relative to `backend/`. |
 | `CHROMA_PATH` | `../data/chroma` | Chroma persistent index directory. Rebuildable from SQLite. Resolved relative to `backend/`. |
-| `MEMORY_ENABLED` | `true` | Enables embedded user memory when an OpenAI key is configured. |
+| `MEMORY_ENABLED` | `true` | Enables embedded user memory when both provider keys are configured. |
 | `MEMORY_PATH` | `../data/memory` | Durable Mem0 Chroma and history storage, separate from the note index. |
 
 The frontend reads `VITE_BACKEND_BASE_URL` at build time. If unset, it defaults to
 `http://localhost:8000`.
+
+With neither key, storage, fallback metadata, and exact/fuzzy search work. Groq alone
+adds organization and locally grounded Ask. Voyage alone adds semantic indexing and
+sidebar search. Both keys enable the full Ask reranking and learned-memory flow.
 
 ## Run
 
@@ -219,9 +232,9 @@ Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType "applicati
     -Body '{"question":"What notes have I saved?","note_ids":[1]}'
 ```
 
-Expected health response: `{ "status": "ok" }`. See `backend/README.md` for the
-full list of PowerShell examples covering categories, note body edits, selected-note
-Ask scope, chat history, PATCH, and DELETE.
+The health response always retains `"status": "ok"` and includes a `capabilities`
+object describing configured providers and ready local stores. See `backend/README.md`
+for the full response and PowerShell examples.
 
 ## MVP verification checklist
 
@@ -246,7 +259,7 @@ Walk through these once after a clean install:
 - [ ] Right sidebar Ask/chat restores durable threads, switches each thread's saved source scope, and cites saved-note sources with snippets
 - [ ] A durable preference appears in the memory manager after a successful turn and remains after reload
 - [ ] Editing/deleting memories works, and clearing chat does not forget memories
-- [ ] `uv run python -m mapping_memory.reindex` rebuilds Chroma from SQLite when run from `backend/` with `OPENAI_API_KEY`
+- [ ] `uv run python -m mapping_memory.reindex` rebuilds Chroma from SQLite when run from `backend/` with `VOYAGE_API_KEY`
 
 ## Where local data is stored
 
@@ -266,9 +279,11 @@ SQLite is then used as the source for Chroma. Chroma stores a rebuildable
 retrieval index in `data/chroma/`: embedded note chunks plus metadata used by
 semantic search and Ask retrieval.
 
-Backend startup checks SQLite notes against Chroma chunk metadata and rebuilds
-the Chroma collection when it is empty, incomplete, or stale and
-`OPENAI_API_KEY` is configured. Run the reindex command manually when
+Backend startup checks SQLite notes, Chroma chunk metadata, and
+`data/chroma/index-provider.json`. A legacy or incompatible collection is discarded
+immediately, even without a Voyage key. With `VOYAGE_API_KEY`, startup rebuilds the
+collection synchronously and writes the fingerprint only after every embedding batch
+and Chroma add succeeds. Run the reindex command manually when
 `data/chroma/` is missing, has been deleted, looks stale, or semantic search /
 Ask retrieval is not reflecting the notes saved in SQLite. Reindex after Ask
 retrieval changes so stored chunk metadata, including source offsets and sync
@@ -280,7 +295,7 @@ Run from `backend/`:
 uv run python -m mapping_memory.reindex
 ```
 
-The command requires `OPENAI_API_KEY` because it recreates embeddings. It does
+The command requires `VOYAGE_API_KEY` because it recreates embeddings. It does
 not delete SQLite data.
 
 ## Reset local data
@@ -318,9 +333,8 @@ uv run python -m pytest
 Pop-Location
 ```
 
-Live OpenAI API tests are skipped by default. Set
-`RUN_OPENAI_INTEGRATION_TESTS=1` when you intentionally want pytest to call the
-OpenAI API.
+Live provider tests are skipped by default. The opt-in Mem0 checks require both keys;
+see `backend/README.md` for their environment switches.
 
 To run format, lint, typecheck, and tests together (backend) plus tests, lint,
 and build (frontend), use the repo-level check script:

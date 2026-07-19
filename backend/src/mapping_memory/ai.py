@@ -1,8 +1,13 @@
 from typing import Any, Literal
 
-from openai import OpenAI, OpenAIError
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
+from mapping_memory.groq_ai import (
+    GroqProviderError,
+    GroqResponseError,
+    GroqUnavailableError,
+    request_structured_output,
+)
 from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 
@@ -67,6 +72,26 @@ class GroundedClaim(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        stripped_value = value.strip()
+        if not stripped_value:
+            raise ValueError("claim text must not be blank")
+        return stripped_value
+
+    @field_validator("evidence_ids", mode="before")
+    @classmethod
+    def evidence_ids_must_be_non_blank_strings(cls, value: Any) -> list[str]:
+        if not isinstance(value, list) or not value:
+            raise ValueError("evidence_ids must be a non-empty list")
+        normalized: list[str] = []
+        for evidence_id in value:
+            if not isinstance(evidence_id, str) or not evidence_id.strip():
+                raise ValueError("evidence_ids must contain non-blank strings")
+            normalized.append(evidence_id.strip())
+        return normalized
+
 
 class GroundedAnswer(BaseModel):
     status: Literal["answered", "no_evidence"]
@@ -128,21 +153,20 @@ def organize_mapping_text(
         raise ValueError("original_text must not be empty")
 
     app_settings = settings or Settings()
-    organizer_client = client or _openai_client(app_settings)
-    completion = organizer_client.chat.completions.parse(
-        model=app_settings.openai_organizer_model,
-        messages=[
-            {"role": "system", "content": ORGANIZER_SYSTEM_PROMPT},
-            {"role": "user", "content": f"Original note text:\n\n{original_text}"},
-        ],
-        response_format=OrganizerMetadata,
-    )
-    message = completion.choices[0].message
-    parsed = message.parsed
-    if parsed is None:
-        raise OrganizerResponseError("OpenAI did not return valid organizer metadata")
-
-    return parsed
+    try:
+        return request_structured_output(
+            [
+                {"role": "system", "content": ORGANIZER_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Original note text:\n\n{original_text}"},
+            ],
+            OrganizerMetadata,
+            settings=app_settings,
+            client=client,
+        )
+    except GroqResponseError as error:
+        raise OrganizerResponseError("AI did not return valid organizer metadata") from error
+    except (GroqUnavailableError, GroqProviderError) as error:
+        raise OrganizerUnavailableError(str(error)) from error
 
 
 def generate_grounded_answer(
@@ -160,11 +184,9 @@ def generate_grounded_answer(
         raise ValueError("context must not be empty")
 
     app_settings = settings or Settings()
-    answer_client = client or _answer_openai_client(app_settings)
     try:
-        completion = answer_client.chat.completions.parse(
-            model=app_settings.openai_organizer_model,
-            messages=[
+        return request_structured_output(
+            [
                 {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
                 {
                     "role": "user",
@@ -176,18 +198,14 @@ def generate_grounded_answer(
                     ),
                 },
             ],
-            response_format=GroundedAnswer,
+            GroundedAnswer,
+            settings=app_settings,
+            client=client,
         )
-    except OpenAIError as error:
-        raise AnswerUnavailableError("OpenAI answer request failed") from error
-    except ValidationError as error:
-        raise AnswerResponseError("OpenAI did not return valid grounded output") from error
-
-    answer = completion.choices[0].message.parsed
-    if not isinstance(answer, GroundedAnswer):
-        raise AnswerResponseError("OpenAI did not return valid grounded output")
-
-    return answer
+    except GroqResponseError as error:
+        raise AnswerResponseError("AI did not return valid grounded output") from error
+    except (GroqUnavailableError, GroqProviderError) as error:
+        raise AnswerUnavailableError("AI answer request failed") from error
 
 
 def _answer_user_prompt(
@@ -217,17 +235,3 @@ def _format_answer_history(history: list[AskHistoryMessage]) -> str:
         return "No recent chat history."
 
     return "\n".join(f"{message.role}: {message.content}" for message in recent_history)
-
-
-def _openai_client(settings: Settings) -> OpenAI:
-    if settings.openai_api_key is None:
-        raise OrganizerUnavailableError("OPENAI_API_KEY is required to organize note text")
-
-    return OpenAI(api_key=settings.openai_api_key.get_secret_value())
-
-
-def _answer_openai_client(settings: Settings) -> OpenAI:
-    if settings.openai_api_key is None:
-        raise AnswerUnavailableError("OPENAI_API_KEY is required to answer questions")
-
-    return OpenAI(api_key=settings.openai_api_key.get_secret_value())

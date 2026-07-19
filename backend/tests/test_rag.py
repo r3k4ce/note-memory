@@ -55,7 +55,7 @@ def test_prepare_retrieval_context_groups_chunks_by_note(
         tags=["alpha", "routing"],
     )
     second_note = create_note(sqlite_path, "Second note body", ai_title="Second card")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -135,7 +135,7 @@ def test_prepare_retrieval_context_embeds_recent_history_query(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     note = create_note(sqlite_path, "Included note body", ai_title="Included")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [_hit(note.id, 0, "included chunk")],
@@ -165,7 +165,7 @@ def test_prepare_retrieval_context_limits_chunks_per_note_and_final_chunk_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     notes = [create_note(sqlite_path, f"Note {index}") for index in range(5)]
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -190,7 +190,7 @@ def test_prepare_retrieval_context_keeps_exact_evidence_ahead_of_full_semantic_b
 ) -> None:
     exact_note = create_note(sqlite_path, "The exact decision is amber-42.", ai_title="Exact")
     semantic_notes = [create_note(sqlite_path, f"Semantic note {index}") for index in range(4)]
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -215,12 +215,15 @@ def test_prepare_retrieval_context_returns_exact_evidence_when_semantic_retrieva
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     note = create_note(sqlite_path, "The local decision is amber-42.", ai_title="Exact")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
 
-    def embed_texts(*_args, **_kwargs):
+    def embed_query(*_args, **_kwargs):
         raise RuntimeError("semantic retrieval unavailable")
 
-    monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts)
+    monkeypatch.setattr(
+        "mapping_memory.rag.chroma_index_ready", lambda settings: True, raising=False
+    )
+    monkeypatch.setattr("mapping_memory.rag.embed_query", embed_query, raising=False)
 
     from mapping_memory.rag import prepare_retrieval_context
 
@@ -236,7 +239,7 @@ def test_prepare_retrieval_context_skips_invalid_or_missing_notes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     note = create_note(sqlite_path, "Usable note")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -264,7 +267,7 @@ def test_prepare_retrieval_context_filters_specific_category(
         sqlite_path, "Included note body", ai_title="Included", category_id=category.id
     )
     excluded = create_note(sqlite_path, "Excluded note body", ai_title="Excluded")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -301,7 +304,7 @@ def test_prepare_retrieval_context_filters_uncategorized_scope(
     excluded = create_note(
         sqlite_path, "Excluded project note", ai_title="Excluded", category_id=category.id
     )
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -331,7 +334,7 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
 ) -> None:
     included = create_note(sqlite_path, "Included note body", ai_title="Included")
     excluded = create_note(sqlite_path, "Excluded note body", ai_title="Excluded")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -370,7 +373,7 @@ def test_prepare_retrieval_context_returns_empty_for_empty_selected_note_ids(
     sqlite_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(monkeypatch, [_hit(1, 0, "unused chunk")])
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -401,7 +404,7 @@ def test_prepare_retrieval_context_rescues_selected_note_context_when_vector_mis
         "This unselected note must not be used for the answer.",
         ai_title="Unselected note",
     )
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [],
@@ -433,7 +436,7 @@ def test_prepare_retrieval_context_adds_exact_local_evidence_when_vector_misses(
         tags=["release"],
     )
     create_note(sqlite_path, "Unrelated note body", ai_title="Other note")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(monkeypatch, [], expected_query="user: citron-427")
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -459,7 +462,7 @@ def test_prepare_retrieval_context_adds_fuzzy_title_or_tag_evidence(
         ai_title="Cerulean rollout checklist",
         tags=["launch-plan"],
     )
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(monkeypatch, [], expected_query="user: cerulean rolluot")
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -484,7 +487,7 @@ def test_prepare_retrieval_context_adds_selected_note_rescue_chunk_when_vector_h
         short_summary="QA before release.",
         tags=["launch"],
     )
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [_hit(selected.id, 1, "semantic hit from selected note but not the answer")],
@@ -517,7 +520,7 @@ def test_prepare_retrieval_context_filters_category_and_selected_note_ids(
     excluded_by_selection = create_note(
         sqlite_path, "Wrong selected note", ai_title="Wrong selection", category_id=category.id
     )
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
@@ -558,15 +561,22 @@ def test_prepare_retrieval_context_falls_back_when_note_id_filter_query_fails(
 ) -> None:
     included = create_note(sqlite_path, "Included note body", ai_title="Included")
     excluded = create_note(sqlite_path, "Excluded note body", ai_title="Excluded")
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(
         monkeypatch,
         [
             _hit(excluded.id, 0, "excluded chunk"),
-            _hit(included.id, 0, "included chunk"),
+            *[_hit(included.id, index, f"included chunk {index}") for index in range(25)],
         ],
         query_errors=[RuntimeError("unsupported filter")],
     )
+    reranker_documents: list[str] = []
+
+    def rerank_chunks(query, candidates, *, settings):
+        reranker_documents.extend(candidate.text for candidate in candidates)
+        return list(candidates)
+
+    monkeypatch.setattr("mapping_memory.rag.rerank_chunks", rerank_chunks)
 
     from mapping_memory.rag import prepare_retrieval_context
 
@@ -577,6 +587,7 @@ def test_prepare_retrieval_context_falls_back_when_note_id_filter_query_fails(
     )
 
     assert [source.note_id for source in context.sources] == [included.id]
+    assert reranker_documents == [f"included chunk {index}" for index in range(20)]
     assert FakeVectorStore.calls == [
         {
             "embedding": [0.1, 0.2, 0.3],
@@ -591,7 +602,7 @@ def test_prepare_retrieval_context_returns_empty_context_cleanly(
     sqlite_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = Settings(sqlite_path=sqlite_path, openai_api_key=None)
+    settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
     _install_fakes(monkeypatch, [])
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -600,6 +611,69 @@ def test_prepare_retrieval_context_returns_empty_context_cleanly(
 
     assert context.sources == ()
     assert context.formatted_context == ""
+
+
+def test_prepare_retrieval_context_reranks_only_semantic_hits_with_history_query(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = create_note(sqlite_path, "First body", ai_title="First")
+    second = create_note(sqlite_path, "Second body", ai_title="Second")
+    hits = [_hit(first.id, 0, "complete first chunk"), _hit(second.id, 0, "complete second chunk")]
+    captured: dict[str, Any] = {}
+    _install_fakes(
+        monkeypatch,
+        hits,
+        expected_query="user: Earlier question\nassistant: Earlier answer\nuser: Current question",
+    )
+
+    def rerank_chunks(query, candidates, *, settings):
+        captured["query"] = query
+        captured["documents"] = [candidate.text for candidate in candidates]
+        return [candidates[1], candidates[0]]
+
+    monkeypatch.setattr("mapping_memory.rag.rerank_chunks", rerank_chunks, raising=False)
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context(
+        "Current question",
+        settings=Settings(sqlite_path=sqlite_path),
+        history=[
+            AskHistoryMessage(role="user", content="Earlier question"),
+            AskHistoryMessage(role="assistant", content="Earlier answer"),
+        ],
+    )
+
+    assert [source.note_id for source in context.sources] == [second.id, first.id]
+    assert captured == {
+        "query": "user: Earlier question\nassistant: Earlier answer\nuser: Current question",
+        "documents": ["complete first chunk", "complete second chunk"],
+    }
+
+
+def test_prepare_retrieval_context_preserves_chroma_order_when_reranking_fails(
+    sqlite_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = create_note(sqlite_path, "First body", ai_title="First")
+    second = create_note(sqlite_path, "Second body", ai_title="Second")
+    _install_fakes(
+        monkeypatch,
+        [_hit(first.id, 0, "first chunk"), _hit(second.id, 0, "second chunk")],
+        expected_query="user: question",
+    )
+    monkeypatch.setattr(
+        "mapping_memory.rag.rerank_chunks",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("provider details")),
+        raising=False,
+    )
+
+    from mapping_memory.rag import prepare_retrieval_context
+
+    context = prepare_retrieval_context("question", settings=Settings(sqlite_path=sqlite_path))
+
+    assert [source.note_id for source in context.sources] == [first.id, second.id]
 
 
 def test_prepare_retrieval_context_rejects_blank_question(sqlite_path: Path) -> None:
@@ -616,15 +690,23 @@ def _install_fakes(
     query_errors: list[Exception] | None = None,
     expected_query: str = "user: source question",
 ) -> None:
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        assert texts == [expected_query]
+    def embed_query(text: str, *, settings: Settings) -> list[float]:
+        assert text == expected_query
         assert settings.sqlite_path
-        return [[0.1, 0.2, 0.3]]
+        return [0.1, 0.2, 0.3]
 
     FakeVectorStore.results = results
     FakeVectorStore.calls = []
     FakeVectorStore.query_errors = list(query_errors or [])
-    monkeypatch.setattr("mapping_memory.rag.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.rag.chroma_index_ready", lambda settings: True, raising=False
+    )
+    monkeypatch.setattr("mapping_memory.rag.embed_query", embed_query, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.rag.rerank_chunks",
+        lambda query, candidates, *, settings: list(candidates),
+        raising=False,
+    )
     monkeypatch.setattr("mapping_memory.rag.ChromaVectorStore", FakeVectorStore, raising=False)
 
 

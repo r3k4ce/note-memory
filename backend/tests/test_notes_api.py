@@ -39,19 +39,22 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
             return {}
 
+        def recreate_collection(self) -> None:
+            return None
+
         def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
             self.add_calls.append({"chunks": list(chunks), "embeddings": embeddings})
 
     def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
         calls.append(original_text)
-        assert settings.openai_organizer_model == "test-model"
+        assert settings.groq_model == "test-model"
         return OrganizerMetadata(
             title="AI route labels",
             summary="AI summary for route label notes.",
             tags=["routing", "labels", "retrieval"],
         )
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+    def embed_documents(texts: list[str], *, settings: Settings) -> list[list[float]]:
         embedding_calls.append({"texts": texts, "settings": settings})
         return [[0.1, 0.2, 0.3] for _ in texts]
 
@@ -60,15 +63,19 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         organize_mapping_text,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.embed_documents", embed_documents, raising=False
+    )
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
     app = create_app(
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
-            openai_api_key=SecretStr("test-key"),
-            openai_organizer_model="test-model",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+            groq_model="test-model",
         )
     )
 
@@ -89,7 +96,7 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
         "needs_ai_organization": False,
     }
     assert len(store_instances) == 2
-    assert store_instances[1].settings.openai_embedding_model == "text-embedding-3-small"
+    assert store_instances[1].settings.voyage_embedding_model == "voyage-4-large"
     assert len(store_instances[1].add_calls) == 1
     add_call = store_instances[1].add_calls[0]
     chunks = add_call["chunks"]
@@ -119,7 +126,7 @@ def test_post_notes_keeps_saved_note_when_indexing_fails(
             tags=["indexing"],
         )
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+    def embed_documents(texts: list[str], *, settings: Settings) -> list[list[float]]:
         raise RuntimeError("embedding provider failure with sensitive details")
 
     monkeypatch.setattr(
@@ -127,9 +134,16 @@ def test_post_notes_keeps_saved_note_when_indexing_fails(
         organize_mapping_text,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.embed_documents", embed_documents, raising=False
+    )
     app = create_app(
-        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+        )
     )
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
@@ -169,7 +183,12 @@ def test_post_notes_uses_fallback_metadata_when_organizer_fails(
         raising=False,
     )
     app = create_app(
-        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+        )
     )
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
@@ -193,7 +212,13 @@ def test_post_notes_uses_fallback_metadata_when_organizer_fails(
 
 
 def test_post_notes_uses_fallback_metadata_when_api_key_missing(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=None,
+            voyage_api_key=None,
+        )
+    )
 
     with TestClient(app) as client:
         response = client.post("/notes", json={"original_text": "Missing key title\nBody"})
@@ -333,7 +358,12 @@ def test_post_notes_preserves_original_text_exactly_with_ai_metadata(
         raising=False,
     )
     app = create_app(
-        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+        )
     )
 
     with TestClient(app) as client:
@@ -346,7 +376,9 @@ def test_post_notes_preserves_original_text_exactly_with_ai_metadata(
 
 
 def test_post_notes_creates_note_with_fallback_metadata(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.post("/notes", json={"original_text": "\n  API note title  \nBody text"})
@@ -373,7 +405,7 @@ def test_post_notes_organize_returns_ai_metadata_for_body_draft(
 
     def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
         calls.append(original_text)
-        assert settings.openai_organizer_model == "test-model"
+        assert settings.groq_model == "test-model"
         return OrganizerMetadata(
             title="Regenerated title",
             summary="Regenerated summary.",
@@ -388,8 +420,10 @@ def test_post_notes_organize_returns_ai_metadata_for_body_draft(
     app = create_app(
         Settings(
             sqlite_path=tmp_path / "notes-api.sqlite",
-            openai_api_key=SecretStr("test-key"),
-            openai_organizer_model="test-model",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+            groq_model="test-model",
         )
     )
 
@@ -419,7 +453,12 @@ def test_post_notes_organize_reports_ai_failure_without_saving_note(
         raising=False,
     )
     app = create_app(
-        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+        )
     )
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
@@ -449,7 +488,9 @@ def test_patch_note_updates_metadata_and_get_returns_updated_note(
         lambda *args, **kwargs: None,
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": "Original body"})
@@ -488,7 +529,9 @@ def test_patch_note_updates_original_text_and_get_returns_updated_body(
         lambda *args, **kwargs: None,
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": "Original body"})
@@ -529,7 +572,9 @@ def test_patch_note_calls_reindex_with_updated_body(
         reindex_note_for_retrieval,
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": "Original body"})
@@ -564,9 +609,6 @@ def test_patch_note_refreshes_exact_search_for_updated_body(
         ) -> list[Any]:
             return []
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        return [[0.1, 0.2, 0.3] for _ in texts]
-
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.index_note_for_retrieval",
         lambda *args, **kwargs: None,
@@ -577,9 +619,10 @@ def test_patch_note_refreshes_exact_search_for_updated_body(
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.search.embed_texts", embed_texts, raising=False)
     monkeypatch.setattr("mapping_memory.search.ChromaVectorStore", FakeVectorStore, raising=False)
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     original_text = f"Stable title\n{'padding ' * 40}oldbodyonly."
 
@@ -612,7 +655,9 @@ def test_patch_note_rejects_empty_or_invalid_metadata(
         lambda *args, **kwargs: None,
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": "Original body"})
@@ -648,13 +693,16 @@ def test_patch_note_reindexes_chroma_chunks(
         def get_chunk_metadata(self) -> dict[str, dict[str, Any]]:
             return {}
 
+        def recreate_collection(self) -> None:
+            return None
+
         def delete_chunks_for_note(self, note_id: int) -> None:
             self.delete_calls.append(note_id)
 
         def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
             self.add_calls.append({"chunks": list(chunks), "embeddings": embeddings})
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+    def embed_documents(texts: list[str], *, settings: Settings) -> list[list[float]]:
         embedding_calls.append({"texts": texts, "settings": settings})
         return [[0.4, 0.5, 0.6] for _ in texts]
 
@@ -663,11 +711,20 @@ def test_patch_note_reindexes_chroma_chunks(
         lambda *args, **kwargs: None,
         raising=False,
     )
-    monkeypatch.setattr("mapping_memory.retrieval_index.embed_texts", embed_texts, raising=False)
+    monkeypatch.setattr(
+        "mapping_memory.retrieval_index.embed_documents", embed_documents, raising=False
+    )
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=None,
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+        )
+    )
 
     with TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": "Original body"})
@@ -719,7 +776,9 @@ def test_patch_note_keeps_sqlite_update_when_reindex_fails(
         reindex_note_for_retrieval,
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": original_text})
@@ -760,7 +819,9 @@ def test_delete_note_removes_note_and_chroma_chunks(
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         first_response = client.post("/notes", json={"original_text": "Delete API note"})
@@ -793,7 +854,9 @@ def test_delete_note_returns_404_for_missing_id(
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.delete("/notes/999999")
@@ -825,7 +888,9 @@ def test_delete_note_keeps_sqlite_delete_when_chroma_cleanup_fails(
     monkeypatch.setattr(
         "mapping_memory.retrieval_index.ChromaVectorStore", FakeVectorStore, raising=False
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with caplog.at_level(logging.WARNING), TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": original_text})
@@ -842,7 +907,9 @@ def test_delete_note_keeps_sqlite_delete_when_chroma_cleanup_fails(
 
 
 def test_get_notes_lists_saved_notes(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         older_response = client.post("/notes", json={"original_text": "Older API note"})
@@ -854,7 +921,9 @@ def test_get_notes_lists_saved_notes(tmp_path: Path) -> None:
 
 
 def test_get_note_returns_saved_note(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         created_response = client.post("/notes", json={"original_text": "One API note"})
@@ -865,7 +934,9 @@ def test_get_note_returns_saved_note(tmp_path: Path) -> None:
 
 
 def test_get_note_returns_404_for_missing_id(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.get("/notes/999999")
@@ -875,7 +946,9 @@ def test_get_note_returns_404_for_missing_id(tmp_path: Path) -> None:
 
 
 def test_post_notes_rejects_empty_original_text(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.post("/notes", json={"original_text": " \n\t "})
@@ -885,7 +958,9 @@ def test_post_notes_rejects_empty_original_text(tmp_path: Path) -> None:
 
 
 def test_local_vite_origin_can_preflight_patch(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.options(
@@ -901,7 +976,9 @@ def test_local_vite_origin_can_preflight_patch(tmp_path: Path) -> None:
 
 
 def test_local_vite_origin_can_preflight_delete(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.options(
@@ -917,7 +994,9 @@ def test_local_vite_origin_can_preflight_delete(tmp_path: Path) -> None:
 
 
 def test_local_vite_origin_receives_cors_headers(tmp_path: Path) -> None:
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         response = client.options(
@@ -946,7 +1025,9 @@ def test_notes_api_creates_updates_and_filters_by_category(
         lambda *args, **kwargs: None,
         raising=False,
     )
-    app = create_app(Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=None))
+    app = create_app(
+        Settings(sqlite_path=tmp_path / "notes-api.sqlite", groq_api_key=None, voyage_api_key=None)
+    )
 
     with TestClient(app) as client:
         category_response = client.post("/categories", json={"name": "Projects"})
@@ -995,7 +1076,12 @@ def test_post_notes_rejects_invalid_category_before_organizer(
         raising=False,
     )
     app = create_app(
-        Settings(sqlite_path=tmp_path / "notes-api.sqlite", openai_api_key=SecretStr("test-key"))
+        Settings(
+            sqlite_path=tmp_path / "notes-api.sqlite",
+            groq_api_key=SecretStr("test-key"),
+            voyage_api_key=SecretStr("test-voyage-key"),
+            memory_enabled=False,
+        )
     )
 
     with TestClient(app) as client:

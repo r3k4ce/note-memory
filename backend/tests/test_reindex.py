@@ -5,8 +5,8 @@ import pytest
 from pydantic import SecretStr
 
 from mapping_memory.db import init_db
-from mapping_memory.embeddings import EmbeddingUnavailableError
-from mapping_memory.notes import create_category, create_note
+from mapping_memory.embeddings import EmbeddingProviderError, EmbeddingUnavailableError
+from mapping_memory.notes import create_note
 from mapping_memory.reindex import reindex_chroma
 from mapping_memory.settings import Settings
 
@@ -15,167 +15,106 @@ class FakeVectorStore:
     instances: ClassVar[list["FakeVectorStore"]] = []
 
     def __init__(self, *, settings: Settings) -> None:
+        self.calls: list[tuple[str, Any]] = []
         self.settings = settings
-        self.calls: list[dict[str, Any]] = []
-        FakeVectorStore.instances.append(self)
+        self.instances.append(self)
 
     def recreate_collection(self) -> None:
-        self.calls.append({"method": "recreate_collection"})
+        self.calls.append(("recreate", None))
 
     def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
-        self.calls.append(
-            {"method": "add_chunks", "chunks": list(chunks), "embeddings": embeddings}
-        )
+        self.calls.append(("add", (list(chunks), embeddings)))
 
 
-def test_reindex_rebuilds_all_sqlite_notes(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+def _settings(tmp_path: Path, *, with_key: bool = True) -> Settings:
+    return Settings(
+        sqlite_path=tmp_path / "notes.sqlite",
+        chroma_path=tmp_path / "chroma",
+        voyage_api_key=SecretStr("test-key") if with_key else None,
+        voyage_embedding_dimensions=3,
+    )
+
+
+def test_reindex_recreates_embeds_documents_adds_and_writes_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    sqlite_path = tmp_path / "notes.sqlite"
-    chroma_path = tmp_path / "chroma"
-    init_db(sqlite_path)
-    category = create_category(sqlite_path, "Projects")
-    create_note(
-        sqlite_path,
-        "Categorized note body",
-        ai_title="Project note",
-        short_summary="Project summary.",
-        tags=["project"],
-        category_id=category.id,
-    )
-    create_note(
-        sqlite_path,
-        "Loose note body",
-        ai_title="Loose note",
-        short_summary="Loose summary.",
-        tags=["loose"],
-    )
+    settings = _settings(tmp_path)
+    init_db(settings.sqlite_path)
+    create_note(settings.sqlite_path, "A body", ai_title="A note")
     embedding_calls: list[list[str]] = []
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
+    def embed_documents(texts: list[str], *, settings: Settings) -> list[list[float]]:
         embedding_calls.append(texts)
-        return [[float(index), 0.2, 0.3] for index, _text in enumerate(texts)]
+        return [[0.1, 0.2, 0.3] for _ in texts]
 
     FakeVectorStore.instances = []
-    monkeypatch.setattr("mapping_memory.reindex.embed_texts", embed_texts, raising=False)
-    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.reindex.embed_documents", embed_documents, raising=False)
+    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore)
 
-    summary = reindex_chroma(
-        Settings(
-            sqlite_path=sqlite_path,
-            chroma_path=chroma_path,
-            openai_api_key=SecretStr("test-key"),
-        )
-    )
+    summary = reindex_chroma(settings)
 
-    assert summary.notes_indexed == 2
-    assert summary.chunks_indexed == 2
-    assert summary.chroma_path == chroma_path
-    assert len(FakeVectorStore.instances) == 1
-    assert [call["method"] for call in FakeVectorStore.instances[0].calls] == [
-        "recreate_collection",
-        "add_chunks",
-    ]
-    add_call = FakeVectorStore.instances[0].calls[1]
-    chunks = add_call["chunks"]
-    assert [chunk.title for chunk in chunks] == ["Loose note", "Project note"]
-    assert chunks[0].category_id is None
-    assert chunks[0].category_name is None
-    assert chunks[1].category_id == category.id
-    assert chunks[1].category_name == "Projects"
+    store = FakeVectorStore.instances[0]
+    assert [name for name, _ in store.calls] == ["recreate", "add"]
+    chunks, embeddings = store.calls[1][1]
     assert embedding_calls == [[chunk.text for chunk in chunks]]
-    assert add_call["embeddings"] == [[0.0, 0.2, 0.3], [1.0, 0.2, 0.3]]
+    assert embeddings == [[0.1, 0.2, 0.3]]
+    assert summary.notes_indexed == 1
+    assert summary.chunks_indexed == 1
+    assert (settings.chroma_path / "index-provider.json").is_file()
 
 
-def test_reindex_embeds_before_recreating_collection(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+def test_reindex_recreates_before_embedding_and_writes_no_fingerprint_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    sqlite_path = tmp_path / "notes.sqlite"
-    init_db(sqlite_path)
-    create_note(sqlite_path, "Body")
+    settings = _settings(tmp_path)
+    init_db(settings.sqlite_path)
+    create_note(settings.sqlite_path, "A body")
     calls: list[str] = []
 
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        calls.append("embed")
-        return [[0.1, 0.2, 0.3] for _text in texts]
-
-    class OrderedFakeVectorStore(FakeVectorStore):
+    class OrderedStore(FakeVectorStore):
         def recreate_collection(self) -> None:
             calls.append("recreate")
 
-        def add_chunks(self, chunks: list[Any], *, embeddings: list[list[float]]) -> None:
-            calls.append("add")
+    def embed_documents(*_args: Any, **_kwargs: Any) -> list[list[float]]:
+        calls.append("embed")
+        raise EmbeddingProviderError("sanitized failure")
 
-    monkeypatch.setattr("mapping_memory.reindex.embed_texts", embed_texts, raising=False)
-    monkeypatch.setattr(
-        "mapping_memory.reindex.ChromaVectorStore", OrderedFakeVectorStore, raising=False
-    )
+    monkeypatch.setattr("mapping_memory.reindex.embed_documents", embed_documents, raising=False)
+    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", OrderedStore)
 
-    reindex_chroma(Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key")))
+    with pytest.raises(EmbeddingProviderError):
+        reindex_chroma(settings)
 
-    assert calls == ["embed", "recreate", "add"]
+    assert calls == ["recreate", "embed"]
+    assert not (settings.chroma_path / "index-provider.json").exists()
 
 
-def test_reindex_missing_openai_key_fails_before_chroma(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+def test_reindex_missing_voyage_key_discards_collection_before_failing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    sqlite_path = tmp_path / "notes.sqlite"
-    init_db(sqlite_path)
-    create_note(sqlite_path, "Body")
-
-    def create_vector_store(*args: Any, **kwargs: Any) -> FakeVectorStore:
-        raise AssertionError("Chroma should not be touched without OPENAI_API_KEY")
-
-    monkeypatch.setattr(
-        "mapping_memory.reindex.ChromaVectorStore", create_vector_store, raising=False
-    )
-
-    with pytest.raises(EmbeddingUnavailableError, match=r"OPENAI_API_KEY.*Embeddings require it"):
-        reindex_chroma(Settings(sqlite_path=sqlite_path, openai_api_key=None))
-
-
-def test_reindex_zero_notes_resets_to_empty_collection(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    sqlite_path = tmp_path / "notes.sqlite"
-    init_db(sqlite_path)
-
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        raise AssertionError("No embedding call is needed when there are no chunks")
-
+    settings = _settings(tmp_path, with_key=False)
+    init_db(settings.sqlite_path)
+    create_note(settings.sqlite_path, "A body")
     FakeVectorStore.instances = []
-    monkeypatch.setattr("mapping_memory.reindex.embed_texts", embed_texts, raising=False)
-    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore)
 
-    summary = reindex_chroma(
-        Settings(sqlite_path=sqlite_path, openai_api_key=SecretStr("test-key"))
-    )
+    with pytest.raises(EmbeddingUnavailableError, match="VOYAGE_API_KEY"):
+        reindex_chroma(settings)
 
-    assert summary.notes_indexed == 0
-    assert summary.chunks_indexed == 0
-    assert FakeVectorStore.instances[0].calls == [{"method": "recreate_collection"}]
+    assert FakeVectorStore.instances[0].calls == [("recreate", None)]
+    assert not (settings.chroma_path / "index-provider.json").exists()
 
 
-def test_reindex_zero_notes_without_openai_key_resets_to_empty_collection(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+def test_empty_reindex_with_voyage_key_writes_completed_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    sqlite_path = tmp_path / "notes.sqlite"
-    init_db(sqlite_path)
-
-    def embed_texts(texts: list[str], *, settings: Settings) -> list[list[float]]:
-        raise AssertionError("No embedding call is needed when there are no chunks")
-
+    settings = _settings(tmp_path)
+    init_db(settings.sqlite_path)
     FakeVectorStore.instances = []
-    monkeypatch.setattr("mapping_memory.reindex.embed_texts", embed_texts, raising=False)
-    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore, raising=False)
+    monkeypatch.setattr("mapping_memory.reindex.ChromaVectorStore", FakeVectorStore)
 
-    summary = reindex_chroma(Settings(sqlite_path=sqlite_path, openai_api_key=None))
+    summary = reindex_chroma(settings)
 
-    assert summary.notes_indexed == 0
     assert summary.chunks_indexed == 0
-    assert FakeVectorStore.instances[0].calls == [{"method": "recreate_collection"}]
+    assert FakeVectorStore.instances[0].calls == [("recreate", None)]
+    assert (settings.chroma_path / "index-provider.json").is_file()

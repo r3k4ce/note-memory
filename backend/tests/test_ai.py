@@ -1,15 +1,15 @@
-import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from mapping_memory.ai import (
     ANSWER_FALLBACK,
     ANSWER_SYSTEM_PROMPT,
+    AnswerResponseError,
     GroundedAnswer,
     GroundedClaim,
     OrganizerMetadata,
@@ -23,13 +23,13 @@ from mapping_memory.settings import Settings
 
 class FakeCompletions:
     def __init__(self, parsed: Any | None, refusal: str | None = None) -> None:
-        self.parsed = parsed
+        self.content = parsed.model_dump_json() if isinstance(parsed, BaseModel) else parsed
         self.refusal = refusal
         self.calls: list[dict[str, Any]] = []
 
-    def parse(self, **kwargs: Any) -> SimpleNamespace:
+    def create(self, **kwargs: Any) -> SimpleNamespace:
         self.calls.append(kwargs)
-        message = SimpleNamespace(parsed=self.parsed, refusal=self.refusal)
+        message = SimpleNamespace(content=self.content, refusal=self.refusal)
         choice = SimpleNamespace(message=message)
         return SimpleNamespace(choices=[choice])
 
@@ -50,13 +50,17 @@ def test_organize_mapping_text_returns_validated_metadata() -> None:
 
     result = organize_mapping_text(
         "messy notes about route planning labels",
-        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_model="test-model"),
         client=client,
     )
 
     assert result == parsed
     assert client.completions.calls[0]["model"] == "test-model"
-    assert client.completions.calls[0]["response_format"] is OrganizerMetadata
+    response_format = client.completions.calls[0]["response_format"]
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    assert response_format["json_schema"]["schema"] == OrganizerMetadata.model_json_schema()
+    assert client.completions.calls[0]["reasoning_effort"] == "medium"
     assert client.completions.calls[0]["messages"][0]["role"] == "system"
     system_prompt = client.completions.calls[0]["messages"][0]["content"].lower()
     assert "organize messy notes into clean reference cards" in system_prompt
@@ -68,37 +72,13 @@ def test_organize_mapping_text_returns_validated_metadata() -> None:
     )
 
 
-def test_organize_mapping_text_calls_openai_api_with_real_key() -> None:
-    if os.getenv("RUN_OPENAI_INTEGRATION_TESTS") != "1":
-        pytest.skip("Set RUN_OPENAI_INTEGRATION_TESTS=1 to run live OpenAI API tests")
-
-    settings = Settings()
-    if settings.openai_api_key is None:
-        pytest.skip("OPENAI_API_KEY is not configured")
-
-    result = organize_mapping_text(
-        """
-        Trail map note: use blue for water access points near River Road.
-        Add retrieval tags for trailheads, water access, and River Road.
-        Do not mention parking because this note does not include parking details.
-        """,
-        settings=settings,
-    )
-
-    assert result.title.strip()
-    assert result.summary.strip()
-    assert 0 <= len(result.tags) <= 10
-    assert all(tag == tag.lower() for tag in result.tags)
-    assert all(tag.strip() == tag for tag in result.tags)
-
-
 def test_organize_mapping_text_rejects_missing_parsed_response() -> None:
     client = FakeClient(None, refusal="No valid output")
 
     with pytest.raises(OrganizerResponseError, match="valid organizer metadata"):
         organize_mapping_text(
             "note text",
-            settings=Settings(openai_api_key=None),
+            settings=Settings(groq_api_key=None),
             client=client,
         )
 
@@ -161,14 +141,14 @@ def test_organizer_metadata_rejects_empty_tags() -> None:
 
 
 def test_missing_api_key_raises_without_crashing_app_layer(tmp_path: Path) -> None:
-    settings = Settings(sqlite_path=tmp_path / "notes.sqlite", openai_api_key=None)
+    settings = Settings(sqlite_path=tmp_path / "notes.sqlite", groq_api_key=None)
     app = create_app(settings)
 
     with TestClient(app) as client:
         response = client.get("/health")
 
     assert response.status_code == 200
-    with pytest.raises(OrganizerUnavailableError, match="OPENAI_API_KEY"):
+    with pytest.raises(OrganizerUnavailableError, match="GROQ_API_KEY"):
         organize_mapping_text("note text", settings=settings)
 
 
@@ -213,7 +193,7 @@ def test_generate_grounded_answer_delimits_untrusted_memory_context() -> None:
         "What should we do?",
         context="Evidence ID: saved-1\nChunk: Use the saved checklist.",
         memory_context=["Prefers concise answers.", "Uses TypeScript."],
-        settings=Settings(openai_api_key=None, openai_organizer_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_model="test-model"),
         client=fake_client,
     )
 
@@ -224,3 +204,23 @@ def test_generate_grounded_answer_delimits_untrusted_memory_context() -> None:
     assert "never evidence for saved-note claims" in user_message
     assert "</user_profile_context>" in user_message
     assert user_message.index("<user_profile_context>") < user_message.index("Saved-note context:")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"status":"answered","claims":[{"text":" ","evidence_ids":["saved-1"]}]}',
+        '{"status":"answered","claims":[{"text":"Claim","evidence_ids":[]}]}',
+        '{"status":"answered","claims":[{"text":"Claim","evidence_ids":[1]}]}',
+    ],
+)
+def test_generate_grounded_answer_rejects_invalid_claim_structures(content: str) -> None:
+    from mapping_memory.ai import generate_grounded_answer
+
+    with pytest.raises(AnswerResponseError, match="valid grounded output"):
+        generate_grounded_answer(
+            "What should we do?",
+            context="Evidence ID: saved-1\nChunk: Use the saved checklist.",
+            settings=Settings(groq_api_key=None),
+            client=FakeClient(content),
+        )

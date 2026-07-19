@@ -6,16 +6,33 @@
 uv sync --dev
 ```
 
-The backend starts without `backend/.env` and without `OPENAI_API_KEY`. When `OPENAI_API_KEY` is configured, note creation attempts AI metadata and falls back to local metadata if AI is unavailable. After a note is saved to SQLite, the backend writes an Obsidian-compatible Markdown file with YAML frontmatter to `VAULT_PATH`, defaulting beside the SQLite database at `../data/vault`. Startup reconciles the vault into SQLite by importing new Markdown files, applying newer tracked Markdown edits, and deleting SQLite notes whose tracked Markdown file was removed; it does not backfill Markdown files for older SQLite rows. Note creation also attempts retrieval chunking, embeddings, and Chroma indexing; indexing failures are logged and do not roll back the saved note. Embeddings use `OPENAI_EMBEDDING_MODEL`, defaulting to `text-embedding-3-small`. The local Chroma vector store uses `CHROMA_PATH`, defaulting to `../data/chroma`, and remains rebuildable rather than canonical storage. Ask uses Chroma for semantic retrieval and rescues explicitly selected notes from SQLite when vector retrieval misses them.
+The backend starts without `backend/.env` or provider keys. `GROQ_API_KEY` enables
+note organization and Ask generation with `openai/gpt-oss-120b` by default.
+`VOYAGE_API_KEY` enables 1024-dimensional `voyage-4-large` document/query embeddings,
+semantic search, and Ask-only `rerank-2.5` reranking. Learned Mem0 memory requires both
+keys. Notes always save to SQLite and the Markdown vault; provider failures do not roll
+back storage. Startup reconciles the vault into SQLite, then validates and, when needed,
+rebuilds the derived Chroma note index.
 
 > [!WARNING]
 > **Privacy and work data.**
 >
-> Notes are stored locally in SQLite and Chroma, but when `OPENAI_API_KEY` is set,
-> note text, Ask questions, and selected chat text are sent to the configured OpenAI
-> API account for metadata, embeddings, grounded answers, memory extraction, and
-> memory embeddings. Do not store confidential or
-> work-restricted material unless your policy permits sending it to that account.
+> Groq receives note text, Ask questions, and selected chat text for metadata,
+> grounded answers, and memory extraction. Voyage receives note chunks and retrieval
+> queries for embeddings, plus semantic Ask candidates for reranking. Do not store
+> confidential or work-restricted material unless your policy permits sending it to
+> both configured provider accounts.
+
+Copy `.env.example` to `.env` only when you are ready to provide real keys. The
+provider model names, dimensions, timeout, and retry settings in that template are
+configurable. The four supported key states are:
+
+| Keys | Available provider features |
+| --- | --- |
+| Neither | Fallback metadata and exact/fuzzy local search |
+| Groq only | Organization and Ask over exact/fuzzy/selected-note evidence |
+| Voyage only | Semantic indexing and sidebar search |
+| Both | Full semantic Ask, reranking, and learned memory |
 
 ## Run
 
@@ -32,8 +49,22 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 Expected response:
 
 ```json
-{ "status": "ok" }
+{
+  "status": "ok",
+  "capabilities": {
+    "groq": true,
+    "voyage": true,
+    "organization": true,
+    "semantic_search": true,
+    "ask": true,
+    "reranking": true,
+    "memory": true
+  }
+}
 ```
+
+Health checks inspect configuration and local fingerprints only; they make no live
+provider requests.
 
 Create a category:
 
@@ -123,10 +154,11 @@ chunks of saved notes plus metadata used by semantic search and Ask retrieval.
 Chroma is rebuildable. Run the reindex command when the Chroma directory is
 missing, has been deleted, looks stale, or semantic search / Ask retrieval
 is not reflecting the notes saved in SQLite. Backend startup also compares
-SQLite notes against Chroma chunk metadata and rebuilds the Chroma collection
-when it is empty, incomplete, or stale and `OPENAI_API_KEY` is configured.
-Reindex after retrieval changes so stored chunk metadata, including source
-offsets and sync hashes, is refreshed.
+SQLite notes against Chroma chunk metadata and the provider fingerprint at
+`CHROMA_PATH/index-provider.json`. Legacy or incompatible collections are recreated
+immediately, including when no Voyage key is available. With `VOYAGE_API_KEY`, startup
+rebuilds in document batches of at most 64 and writes the fingerprint only after full
+success. A failed or partial rebuild remains unavailable and is retried next startup.
 
 Run from `backend/`:
 
@@ -134,7 +166,7 @@ Run from `backend/`:
 uv run python -m mapping_memory.reindex
 ```
 
-The reindex command requires `OPENAI_API_KEY` because it recreates embeddings. It embeds
+The reindex command requires `VOYAGE_API_KEY` because it recreates embeddings. It embeds
 all SQLite notes, recreates the Chroma collection, writes fresh chunks, and prints the
 notes indexed, chunks indexed, and Chroma path. It does not delete SQLite data and is
 safe to run multiple times.
@@ -207,7 +239,10 @@ Invoke-RestMethod http://127.0.0.1:8000/memory-settings -Method Patch -ContentTy
 
 Mem0 uses `MEMORY_PATH` (default `../data/memory`) for the dedicated
 `user_memories` Chroma collection and history database. Do not delete it when rebuilding
-the note index. Embedded storage is for the current single-process local deployment.
+the note index. Its provider fingerprint is `MEMORY_PATH/memory-provider.json`.
+Incompatible memory is preserved while either key is missing; with both keys it is
+deleted and initialized as a fresh Groq/Voyage store. Existing memories are not backed
+up or migrated. Embedded storage is for the current single-process local deployment.
 
 ## Test
 
@@ -215,7 +250,8 @@ the note index. Embedded storage is for the current single-process local deploym
 uv run python -m pytest
 ```
 
-The live Mem0/OpenAI CRUD and persistence compatibility check is opt-in:
+The live Groq/Voyage Mem0 CRUD and persistence compatibility check is opt-in and
+requires both provider keys:
 
 ```powershell
 $env:RUN_MEM0_INTEGRATION_TESTS = "1"
