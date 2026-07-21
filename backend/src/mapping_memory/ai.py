@@ -160,9 +160,8 @@ def organize_mapping_text(
                 {"role": "user", "content": f"Original note text:\n\n{original_text}"},
             ],
             OrganizerMetadata,
+            role="utility",
             settings=app_settings,
-            model=app_settings.groq_utility_model,
-            reasoning_effort=app_settings.groq_utility_reasoning_effort,
             client=client,
         )
     except GroqResponseError as error:
@@ -201,9 +200,8 @@ def generate_grounded_answer(
                 },
             ],
             GroundedAnswer,
+            role="chat",
             settings=app_settings,
-            model=app_settings.groq_chat_model,
-            reasoning_effort=app_settings.groq_chat_reasoning_effort,
             client=client,
         )
     except GroqResponseError as error:

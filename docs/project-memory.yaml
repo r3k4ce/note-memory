@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-21T21:38:35Z"
+    time_local: "2026-07-21T18:38:35-0300"
+    summary: "Added role-aware Groq chat, streaming, structured-output, and tool-call request primitives."
+    changed:
+      - "Mapped Chat, Utility, Validation, and Web requests to the existing role-specific Groq model and reasoning settings through one mockable provider boundary."
+      - "Added sanitized rate-limit, timeout, cancellation, provider, and response failures; strict structured output remains a separate non-streaming, non-tool request path."
+      - "Migrated organizer metadata to Utility and grounded Ask answers to Chat while preserving their application-level error contracts."
+    verification:
+      - "Ran Ruff format check and lint, Pyright (0 errors), and focused no-network pytest: 75 passed across Groq, AI, and Ask coverage."
   - time_utc: "2026-07-21T21:16:07Z"
     time_local: "2026-07-21T18:16:07-0300"
     summary: "Added Groq model roles and Chat tool-support startup validation."
