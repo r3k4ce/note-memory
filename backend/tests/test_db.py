@@ -150,6 +150,7 @@ def test_init_db_replaces_legacy_chat_data_and_preserves_non_chat_tables(tmp_pat
     assert tuple(non_chat) == (1, 1, 0)
     assert "idx_generation_jobs_status_created" in indexes
     assert "completed" in message_sql and "answered" not in message_sql
+    assert "sources_json" not in message_sql
 
 
 def test_reset_development_chat_data_requires_explicit_permission(tmp_path) -> None:

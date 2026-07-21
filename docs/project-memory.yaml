@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-21T22:40:16Z"
+    time_local: "2026-07-21T19:40:16-0300"
+    summary: "Replaced legacy assistant source JSON with normalized reply audit records."
+    changed:
+      - "Reset chat-owned tables on startup when chat_messages contains sources_json, while preserving notes, categories, memory settings, and other non-chat data."
+      - "Added normalized assistant source snapshots, claims, claim-source mappings, and validation results with constrained source identities, ordering, uniqueness, cascades, and bounded diagnostics."
+      - "Added optional transactional audit persistence and owner-scoped audit reads; legacy ChatMessageRead.sources remains empty until source-card rendering consumes snapshots."
+    verification:
+      - "Ran focused schema, chat, and database tests (52 passed), plus Ruff format/lint and Pyright (0 errors)."
+      - "Ran ./scripts/check.sh: formatter, lint, and Pyright passed; backend suite began with 355 collected tests (output capture ended before its final summary)."
   - time_utc: "2026-07-21T22:15:00Z"
     time_local: "2026-07-21T19:15:00-0300"
     summary: "Replaced disposable development chat persistence with job-backed turns and immutable relational scope snapshots."

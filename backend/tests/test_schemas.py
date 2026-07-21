@@ -1,7 +1,17 @@
 import pytest
 from pydantic import ValidationError
 
-from mapping_memory.schemas import AskRequest, AskResponse, AskSource, NoteUpdate, SearchResult
+from mapping_memory.schemas import (
+    AskRequest,
+    AskResponse,
+    AskSource,
+    AssistantClaim,
+    AssistantReplyAudit,
+    AssistantSourceSnapshot,
+    AssistantValidationResult,
+    NoteUpdate,
+    SearchResult,
+)
 
 
 def test_ask_request_accepts_note_ids() -> None:
@@ -55,6 +65,90 @@ def test_ask_response_accepts_status_and_evidence_summary() -> None:
     assert response.evidence_summary.source_count == 1
     assert response.evidence_summary.snippet_count == 2
     assert response.evidence_summary.match_types == ["exact", "semantic"]
+
+
+def test_assistant_reply_audit_requires_source_specific_identity_and_bounded_snippets() -> None:
+    audit = AssistantReplyAudit(
+        sources=[
+            AssistantSourceSnapshot(
+                source_id="note-1",
+                source_type="note",
+                title="Launch checklist",
+                source_date="2026-07-01",
+                cited_snippet="Ship the onboarding checklist before launch.",
+                citation_order=1,
+                note_id=7,
+                source_start=12,
+                source_end=54,
+                note_version_updated_at="2026-07-01T12:00:00+00:00",
+            ),
+            AssistantSourceSnapshot(
+                source_id="web-1",
+                source_type="web",
+                title="Release notes",
+                cited_snippet="The release notes confirm the rollout date.",
+                citation_order=2,
+                url="https://example.com/release-notes",
+            ),
+        ],
+        claims=[
+            AssistantClaim(
+                claim_id="claim-1", text="The checklist ships first.", source_ids=["note-1"]
+            )
+        ],
+        validation_results=[
+            AssistantValidationResult(
+                result_id="validation-1",
+                kind="code",
+                outcome="passed",
+                details={"rule": "citation"},
+            )
+        ],
+    )
+
+    assert audit.sources[0].note_id == 7
+    assert audit.claims[0].source_ids == ["note-1"]
+
+    with pytest.raises(ValidationError, match="web sources"):
+        AssistantSourceSnapshot(
+            source_id="web-with-note",
+            source_type="web",
+            title="Web",
+            cited_snippet="Snippet",
+            citation_order=1,
+            note_id=1,
+            url="https://example.com",
+        )
+    with pytest.raises(ValidationError, match="360"):
+        AssistantSourceSnapshot(
+            source_id="long",
+            source_type="web",
+            title="Web",
+            cited_snippet="a" * 361,
+            citation_order=1,
+            url="https://example.com",
+        )
+    with pytest.raises(ValidationError, match="known source"):
+        AssistantReplyAudit(
+            sources=[
+                AssistantSourceSnapshot(
+                    source_id="web-1",
+                    source_type="web",
+                    title="Web",
+                    cited_snippet="Snippet",
+                    citation_order=1,
+                    url="https://example.com",
+                )
+            ],
+            claims=[AssistantClaim(claim_id="claim-1", text="Claim", source_ids=["missing"])],
+        )
+    with pytest.raises(ValidationError, match="4 KiB"):
+        AssistantValidationResult(
+            result_id="oversized",
+            kind="semantic",
+            outcome="failed",
+            details={"diagnostic": "x" * 4096},
+        )
 
 
 @pytest.mark.parametrize("match_type", ["exact", "semantic", "hybrid", "fuzzy"])

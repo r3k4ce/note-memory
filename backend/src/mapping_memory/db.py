@@ -101,10 +101,14 @@ def _legacy_chat_schema_exists(connection: sqlite3.Connection) -> bool:
     message_sql = connection.execute(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_messages'"
     ).fetchone()["sql"]
-    return "'completed'" not in message_sql
+    return "'completed'" not in message_sql or "sources_json" in message_sql
 
 
 def _reset_chat_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS assistant_claim_sources")
+    connection.execute("DROP TABLE IF EXISTS assistant_claims")
+    connection.execute("DROP TABLE IF EXISTS assistant_validation_results")
+    connection.execute("DROP TABLE IF EXISTS assistant_source_snapshots")
     connection.execute("DROP TABLE IF EXISTS chat_turn_scope_note_ids")
     connection.execute("DROP TABLE IF EXISTS chat_turn_scopes")
     connection.execute("DROP TABLE IF EXISTS generation_jobs")
@@ -141,7 +145,6 @@ def _create_chat_tables(connection: sqlite3.Connection) -> None:
                 ))
             ),
             evidence_summary_json TEXT,
-            sources_json TEXT,
             created_at TEXT NOT NULL
         )
         """
@@ -216,6 +219,102 @@ def _create_chat_tables(connection: sqlite3.Connection) -> None:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_generation_jobs_thread_created "
         "ON generation_jobs(thread_id, created_at, id)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assistant_source_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assistant_message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+            generation_job_id INTEGER NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+            source_id TEXT NOT NULL CHECK (length(trim(source_id)) > 0),
+            source_type TEXT NOT NULL CHECK (source_type IN ('note', 'web')),
+            title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+            source_date TEXT CHECK (source_date IS NULL OR length(trim(source_date)) > 0),
+            cited_snippet TEXT NOT NULL CHECK (
+                length(trim(cited_snippet)) > 0 AND length(cited_snippet) <= 360
+            ),
+            citation_order INTEGER NOT NULL CHECK (citation_order >= 1),
+            note_id INTEGER,
+            source_start INTEGER,
+            source_end INTEGER,
+            note_version_updated_at TEXT,
+            url TEXT,
+            CHECK (
+                (source_type = 'note' AND note_id IS NOT NULL AND note_id > 0
+                    AND source_start IS NOT NULL AND source_start >= 0
+                    AND source_end IS NOT NULL AND source_end >= source_start
+                    AND length(trim(note_version_updated_at)) > 0 AND url IS NULL)
+                OR (source_type = 'web' AND length(trim(url)) > 0
+                    AND note_id IS NULL AND source_start IS NULL AND source_end IS NULL
+                    AND note_version_updated_at IS NULL)
+            ),
+            UNIQUE (assistant_message_id, source_id),
+            UNIQUE (assistant_message_id, citation_order)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assistant_claims (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assistant_message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+            generation_job_id INTEGER NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+            claim_id TEXT NOT NULL CHECK (length(trim(claim_id)) > 0),
+            claim_text TEXT NOT NULL CHECK (length(trim(claim_text)) > 0),
+            claim_order INTEGER NOT NULL CHECK (claim_order >= 1),
+            UNIQUE (assistant_message_id, claim_id),
+            UNIQUE (assistant_message_id, claim_order)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assistant_claim_sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assistant_message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+            generation_job_id INTEGER NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+            assistant_claim_id INTEGER NOT NULL REFERENCES assistant_claims(id) ON DELETE CASCADE,
+            assistant_source_snapshot_id INTEGER NOT NULL
+                REFERENCES assistant_source_snapshots(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL CHECK (position >= 1),
+            UNIQUE (assistant_claim_id, position),
+            UNIQUE (assistant_claim_id, assistant_source_snapshot_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assistant_validation_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assistant_message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+            generation_job_id INTEGER NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+            result_id TEXT NOT NULL CHECK (length(trim(result_id)) > 0),
+            kind TEXT NOT NULL CHECK (kind IN ('code', 'semantic')),
+            outcome TEXT NOT NULL CHECK (outcome IN ('passed', 'failed')),
+            details_json TEXT NOT NULL CHECK (
+                length(details_json) <= 4096 AND json_valid(details_json)
+            ),
+            result_order INTEGER NOT NULL CHECK (result_order >= 1),
+            UNIQUE (assistant_message_id, result_id),
+            UNIQUE (assistant_message_id, result_order)
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_sources_message_order "
+        "ON assistant_source_snapshots(assistant_message_id, citation_order)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_claims_message_order "
+        "ON assistant_claims(assistant_message_id, claim_order)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_claim_sources_claim_order "
+        "ON assistant_claim_sources(assistant_claim_id, position)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_assistant_validations_message_order "
+        "ON assistant_validation_results(assistant_message_id, result_order)"
     )
 
 

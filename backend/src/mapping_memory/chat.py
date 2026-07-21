@@ -11,7 +11,10 @@ from mapping_memory.db import connect_db
 from mapping_memory.schemas import (
     AskEvidenceSummary,
     AskResponse,
-    AskSource,
+    AssistantClaim,
+    AssistantReplyAudit,
+    AssistantSourceSnapshot,
+    AssistantValidationResult,
     ChatMessageRead,
     ChatThreadRead,
 )
@@ -171,19 +174,23 @@ def set_generation_job_progress(
 
 
 def complete_generation_job(
-    sqlite_path: Path, user_id: str, job_id: int, response: AskResponse
+    sqlite_path: Path,
+    user_id: str,
+    job_id: int,
+    response: AskResponse,
+    *,
+    audit: AssistantReplyAudit | None = None,
 ) -> GenerationJobRead | None:
     with closing(connect_db(sqlite_path)) as connection:
         with connection:
             job = _require_active_job(connection, user_id, job_id, expected="running")
             now = _now()
             connection.execute(
-                """UPDATE chat_messages SET content = ?, status = 'completed', evidence_summary_json = ?,
-                   sources_json = ? WHERE id = ?""",
+                """UPDATE chat_messages SET content = ?, status = 'completed', evidence_summary_json = ?
+                   WHERE id = ?""",
                 (
                     response.answer,
                     response.evidence_summary.model_dump_json(),
-                    json.dumps([source.model_dump(mode="json") for source in response.sources]),
                     job["assistant_message_id"],
                 ),
             )
@@ -192,6 +199,8 @@ def complete_generation_job(
                    finished_at = ?, updated_at = ? WHERE id = ?""",
                 (now, now, job_id),
             )
+            if audit is not None:
+                _write_assistant_reply_audit(connection, job, audit)
         row = _get_job_row(connection, user_id, job_id)
     return _job_from_row(row) if row else None
 
@@ -301,11 +310,12 @@ def append_chat_turn(
     response: AskResponse,
     *,
     thread_id: int | None = None,
+    audit: AssistantReplyAudit | None = None,
 ) -> None:
     with closing(connect_db(sqlite_path)) as connection, connection:
         job_id = _create_generation_turn(connection, user_id, question, thread_id=thread_id)
         _mark_running(connection, user_id, job_id)
-        _complete_job(connection, user_id, job_id, response)
+        _complete_job(connection, user_id, job_id, response, audit=audit)
 
 
 def list_chat_messages(
@@ -325,6 +335,45 @@ def list_chat_messages(
             (user_id, thread_id),
         ).fetchall()
     return [_message_from_row(row) for row in rows]
+
+
+def get_assistant_reply_audit(
+    sqlite_path: Path, user_id: str, assistant_message_id: int
+) -> AssistantReplyAudit | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        message = connection.execute(
+            """SELECT id FROM chat_messages
+               WHERE id = ? AND user_id = ? AND role = 'assistant'""",
+            (assistant_message_id, user_id),
+        ).fetchone()
+        if message is None:
+            return None
+        source_rows = connection.execute(
+            """SELECT * FROM assistant_source_snapshots
+               WHERE assistant_message_id = ? ORDER BY citation_order""",
+            (assistant_message_id,),
+        ).fetchall()
+        claim_rows = connection.execute(
+            """SELECT claims.*, snapshots.source_id
+               FROM assistant_claims AS claims
+               LEFT JOIN assistant_claim_sources AS mappings ON mappings.assistant_claim_id = claims.id
+               LEFT JOIN assistant_source_snapshots AS snapshots
+                 ON snapshots.id = mappings.assistant_source_snapshot_id
+               WHERE claims.assistant_message_id = ?
+               ORDER BY claims.claim_order, mappings.position""",
+            (assistant_message_id,),
+        ).fetchall()
+        validation_rows = connection.execute(
+            """SELECT * FROM assistant_validation_results
+               WHERE assistant_message_id = ? ORDER BY result_order""",
+            (assistant_message_id,),
+        ).fetchall()
+    if not source_rows and not claim_rows and not validation_rows:
+        return None
+    sources = [_source_snapshot_from_row(row) for row in source_rows]
+    claims = _claims_from_rows(claim_rows)
+    validations = [_validation_result_from_row(row) for row in validation_rows]
+    return AssistantReplyAudit(sources=sources, claims=claims, validation_results=validations)
 
 
 def clear_chat(sqlite_path: Path, user_id: str) -> None:
@@ -446,21 +495,142 @@ def _mark_running(connection: Any, user_id: str, job_id: int) -> None:
     )
 
 
-def _complete_job(connection: Any, user_id: str, job_id: int, response: AskResponse) -> None:
+def _complete_job(
+    connection: Any,
+    user_id: str,
+    job_id: int,
+    response: AskResponse,
+    *,
+    audit: AssistantReplyAudit | None = None,
+) -> None:
     job = _require_active_job(connection, user_id, job_id, expected="running")
     now = _now()
     connection.execute(
-        """UPDATE chat_messages SET content = ?, status = 'completed', evidence_summary_json = ?, sources_json = ? WHERE id = ?""",
+        """UPDATE chat_messages SET content = ?, status = 'completed', evidence_summary_json = ? WHERE id = ?""",
         (
             response.answer,
             response.evidence_summary.model_dump_json(),
-            json.dumps([source.model_dump(mode="json") for source in response.sources]),
             job["assistant_message_id"],
         ),
     )
     connection.execute(
         "UPDATE generation_jobs SET status = 'completed', progress_stage = 'finalizing', finished_at = ?, updated_at = ? WHERE id = ?",
         (now, now, job_id),
+    )
+    if audit is not None:
+        _write_assistant_reply_audit(connection, job, audit)
+
+
+def _write_assistant_reply_audit(connection: Any, job: Any, audit: AssistantReplyAudit) -> None:
+    source_row_ids: dict[str, int] = {}
+    for source in audit.sources:
+        cursor = connection.execute(
+            """INSERT INTO assistant_source_snapshots (
+                assistant_message_id, generation_job_id, source_id, source_type, title, source_date,
+                cited_snippet, citation_order, note_id, source_start, source_end,
+                note_version_updated_at, url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                job["assistant_message_id"],
+                job["id"],
+                source.source_id,
+                source.source_type,
+                source.title,
+                source.source_date,
+                source.cited_snippet,
+                source.citation_order,
+                source.note_id,
+                source.source_start,
+                source.source_end,
+                source.note_version_updated_at,
+                source.url,
+            ),
+        )
+        if cursor.lastrowid is None:
+            raise RuntimeError("created assistant source did not return an id")
+        source_row_ids[source.source_id] = int(cursor.lastrowid)
+    for claim_order, claim in enumerate(audit.claims, start=1):
+        cursor = connection.execute(
+            """INSERT INTO assistant_claims (
+                assistant_message_id, generation_job_id, claim_id, claim_text, claim_order
+            ) VALUES (?, ?, ?, ?, ?)""",
+            (job["assistant_message_id"], job["id"], claim.claim_id, claim.text, claim_order),
+        )
+        if cursor.lastrowid is None:
+            raise RuntimeError("created assistant claim did not return an id")
+        for position, source_id in enumerate(claim.source_ids, start=1):
+            connection.execute(
+                """INSERT INTO assistant_claim_sources (
+                    assistant_message_id, generation_job_id, assistant_claim_id,
+                    assistant_source_snapshot_id, position
+                ) VALUES (?, ?, ?, ?, ?)""",
+                (
+                    job["assistant_message_id"],
+                    job["id"],
+                    cursor.lastrowid,
+                    source_row_ids[source_id],
+                    position,
+                ),
+            )
+    for result_order, result in enumerate(audit.validation_results, start=1):
+        connection.execute(
+            """INSERT INTO assistant_validation_results (
+                assistant_message_id, generation_job_id, result_id, kind, outcome, details_json,
+                result_order
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                job["assistant_message_id"],
+                job["id"],
+                result.result_id,
+                result.kind,
+                result.outcome,
+                json.dumps(result.details, separators=(",", ":"), ensure_ascii=False),
+                result_order,
+            ),
+        )
+
+
+def _source_snapshot_from_row(row: Any) -> AssistantSourceSnapshot:
+    return AssistantSourceSnapshot(
+        source_id=row["source_id"],
+        source_type=row["source_type"],
+        title=row["title"],
+        source_date=row["source_date"],
+        cited_snippet=row["cited_snippet"],
+        citation_order=row["citation_order"],
+        note_id=row["note_id"],
+        source_start=row["source_start"],
+        source_end=row["source_end"],
+        note_version_updated_at=row["note_version_updated_at"],
+        url=row["url"],
+    )
+
+
+def _claims_from_rows(rows: list[Any]) -> list[AssistantClaim]:
+    claims: list[AssistantClaim] = []
+    current_id: int | None = None
+    current_claim: dict[str, Any] | None = None
+    source_ids: list[str] = []
+    for row in rows:
+        if row["id"] != current_id:
+            if current_claim is not None:
+                claims.append(AssistantClaim(**current_claim, source_ids=source_ids))
+            current_id = row["id"]
+            current_claim = {"claim_id": row["claim_id"], "text": row["claim_text"]}
+            source_ids = []
+        if row["source_id"] is not None:
+            source_ids.append(row["source_id"])
+    if current_claim is not None:
+        claims.append(AssistantClaim(**current_claim, source_ids=source_ids))
+    return claims
+
+
+def _validation_result_from_row(row: Any) -> AssistantValidationResult:
+    return AssistantValidationResult(
+        result_id=row["result_id"],
+        kind=row["kind"],
+        outcome=row["outcome"],
+        details=json.loads(row["details_json"]),
     )
 
 
@@ -512,9 +682,7 @@ def _message_from_row(row: Any) -> ChatMessageRead:
         evidence_summary=AskEvidenceSummary.model_validate_json(row["evidence_summary_json"])
         if row["evidence_summary_json"]
         else None,
-        sources=[AskSource.model_validate(item) for item in json.loads(row["sources_json"])]
-        if row["sources_json"]
-        else [],
+        sources=[],
     )
 
 

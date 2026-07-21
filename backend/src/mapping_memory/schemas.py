@@ -1,3 +1,4 @@
+import json
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -339,6 +340,143 @@ class AskResponse(BaseModel):
     evidence_summary: AskEvidenceSummary
     sources: list[AskSource]
     memory_updates: int = 0
+
+
+class AssistantSourceSnapshot(BaseModel):
+    source_id: str
+    source_type: Literal["note", "web"]
+    title: str
+    source_date: str | None = None
+    cited_snippet: str = Field(max_length=360)
+    citation_order: int = Field(ge=1)
+    note_id: int | None = None
+    source_start: int | None = None
+    source_end: int | None = None
+    note_version_updated_at: str | None = None
+    url: str | None = None
+
+    @field_validator("source_id", "title", "cited_snippet")
+    @classmethod
+    def required_text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("value must not be blank")
+        return value
+
+    @field_validator("source_date", "note_version_updated_at", "url")
+    @classmethod
+    def optional_text_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("value must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def source_type_must_match_identity(self) -> "AssistantSourceSnapshot":
+        note_values = (
+            self.note_id,
+            self.source_start,
+            self.source_end,
+            self.note_version_updated_at,
+        )
+        if self.source_type == "note":
+            if (
+                self.note_id is None
+                or self.note_id < 1
+                or self.source_start is None
+                or self.source_start < 0
+                or self.source_end is None
+                or self.source_end < self.source_start
+                or self.note_version_updated_at is None
+                or self.url is not None
+            ):
+                raise ValueError("note sources require note identity and cannot have a URL")
+        elif self.url is None or any(value is not None for value in note_values):
+            raise ValueError("web sources require a URL and cannot have note identity")
+        return self
+
+
+class AssistantClaim(BaseModel):
+    claim_id: str
+    text: str
+    source_ids: list[str]
+
+    @field_validator("claim_id", "text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("value must not be blank")
+        return value
+
+    @field_validator("source_ids")
+    @classmethod
+    def source_ids_must_be_unique_and_nonblank(cls, value: list[str]) -> list[str]:
+        if not value:
+            raise ValueError("claims must reference at least one source")
+        normalized = [source_id.strip() for source_id in value]
+        if any(not source_id for source_id in normalized):
+            raise ValueError("source IDs must not be blank")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("claim source IDs must be unique")
+        return normalized
+
+
+class AssistantValidationResult(BaseModel):
+    result_id: str
+    kind: Literal["code", "semantic"]
+    outcome: Literal["passed", "failed"]
+    details: dict[str, Any]
+
+    @field_validator("result_id")
+    @classmethod
+    def result_id_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("result_id must not be blank")
+        return value
+
+    @field_validator("details")
+    @classmethod
+    def details_must_fit_storage_limit(cls, value: dict[str, Any]) -> dict[str, Any]:
+        try:
+            serialized = json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+        except (TypeError, ValueError) as error:
+            raise ValueError("details must be JSON serializable") from error
+        if len(serialized.encode()) > 4096:
+            raise ValueError("details must serialize to at most 4 KiB")
+        return value
+
+
+class AssistantReplyAudit(BaseModel):
+    sources: list[AssistantSourceSnapshot] = Field(default_factory=list)
+    claims: list[AssistantClaim] = Field(default_factory=list)
+    validation_results: list[AssistantValidationResult] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def audit_ids_and_mappings_must_be_consistent(self) -> "AssistantReplyAudit":
+        source_ids = [source.source_id for source in self.sources]
+        claim_ids = [claim.claim_id for claim in self.claims]
+        result_ids = [result.result_id for result in self.validation_results]
+        citation_orders = [source.citation_order for source in self.sources]
+        if len(set(source_ids)) != len(source_ids):
+            raise ValueError("source IDs must be unique within an assistant reply")
+        if len(set(citation_orders)) != len(citation_orders):
+            raise ValueError("citation orders must be unique within an assistant reply")
+        if len(set(claim_ids)) != len(claim_ids):
+            raise ValueError("claim IDs must be unique within an assistant reply")
+        if len(set(result_ids)) != len(result_ids):
+            raise ValueError("validation result IDs must be unique within an assistant reply")
+        known_sources = set(source_ids)
+        if any(
+            source_id not in known_sources
+            for claim in self.claims
+            for source_id in claim.source_ids
+        ):
+            raise ValueError("claims must reference a known source ID")
+        return self
 
 
 class ChatMessageRead(BaseModel):

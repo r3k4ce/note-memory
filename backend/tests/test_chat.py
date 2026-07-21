@@ -11,6 +11,7 @@ from mapping_memory.chat import (
     create_generation_turn,
     delete_chat_thread,
     fail_generation_job,
+    get_assistant_reply_audit,
     get_chat_thread,
     get_generation_job,
     get_turn_scope,
@@ -21,8 +22,15 @@ from mapping_memory.chat import (
     set_generation_job_progress,
     update_chat_thread,
 )
-from mapping_memory.db import init_db
-from mapping_memory.schemas import AskEvidenceSummary, AskResponse
+from mapping_memory.db import connect_db, init_db
+from mapping_memory.schemas import (
+    AskEvidenceSummary,
+    AskResponse,
+    AssistantClaim,
+    AssistantReplyAudit,
+    AssistantSourceSnapshot,
+    AssistantValidationResult,
+)
 
 
 def _response() -> AskResponse:
@@ -34,6 +42,52 @@ def _response() -> AskResponse:
         ),
         sources=[],
         memory_updates=1,
+    )
+
+
+def _audit() -> AssistantReplyAudit:
+    return AssistantReplyAudit(
+        sources=[
+            AssistantSourceSnapshot(
+                source_id="web-1",
+                source_type="web",
+                title="Release notes",
+                source_date="2026-07-02",
+                cited_snippet="The rollout starts on Monday.",
+                citation_order=2,
+                url="https://example.com/release-notes",
+            ),
+            AssistantSourceSnapshot(
+                source_id="note-1",
+                source_type="note",
+                title="Launch checklist",
+                source_date="2026-07-01",
+                cited_snippet="Ship the checklist before the rollout.",
+                citation_order=1,
+                note_id=1,
+                source_start=10,
+                source_end=47,
+                note_version_updated_at="2026-07-01T12:00:00+00:00",
+            ),
+        ],
+        claims=[
+            AssistantClaim(
+                claim_id="claim-1",
+                text="The checklist ships before rollout.",
+                source_ids=["note-1", "web-1"],
+            )
+        ],
+        validation_results=[
+            AssistantValidationResult(
+                result_id="code-1", kind="code", outcome="passed", details={"rule": "citations"}
+            ),
+            AssistantValidationResult(
+                result_id="semantic-1",
+                kind="semantic",
+                outcome="failed",
+                details={"reason": "unsupported claim"},
+            ),
+        ],
     )
 
 
@@ -190,6 +244,77 @@ def test_generation_job_lifecycle_errors_and_cancellation(tmp_path: Path) -> Non
     assert cancellation.status == "cancelled"
     assert cancellation.cancel_requested is True
     assert cancellation.error_category == "cancelled"
+
+
+def test_tool_backed_audit_round_trips_in_normalized_order_and_cascades(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "audit.sqlite"
+    init_db(sqlite_path)
+    with connect_db(sqlite_path) as connection:
+        connection.execute(
+            """INSERT INTO notes (
+                id, original_text, ai_title, short_summary, tags_json, date_added, updated_at
+            ) VALUES (1, 'Note', 'Title', 'Summary', '[]', '2026-07-01', '2026-07-01')"""
+        )
+        connection.commit()
+    job = create_generation_turn(sqlite_path, "owner-a", "Question")
+    assert mark_generation_job_running(sqlite_path, "owner-a", job.id)
+    assert complete_generation_job(sqlite_path, "owner-a", job.id, _response(), audit=_audit())
+
+    stored = get_assistant_reply_audit(sqlite_path, "owner-a", job.assistant_message_id)
+    assert stored is not None
+    assert [source.source_id for source in stored.sources] == ["note-1", "web-1"]
+    assert stored.sources[0].note_version_updated_at == "2026-07-01T12:00:00+00:00"
+    assert stored.sources[1].url == "https://example.com/release-notes"
+    assert stored.claims[0].source_ids == ["note-1", "web-1"]
+    assert [
+        (result.kind, result.outcome, result.details) for result in stored.validation_results
+    ] == [
+        ("code", "passed", {"rule": "citations"}),
+        ("semantic", "failed", {"reason": "unsupported claim"}),
+    ]
+    assert list_chat_messages(sqlite_path, "owner-a")[1].sources == []
+
+    with connect_db(sqlite_path) as connection:
+        connection.execute("DELETE FROM notes WHERE id = 1")
+        connection.commit()
+        snapshot_after_note_delete = connection.execute(
+            "SELECT note_id FROM assistant_source_snapshots WHERE assistant_message_id = ?",
+            (job.assistant_message_id,),
+        ).fetchone()
+        connection.execute("DELETE FROM chat_messages WHERE id = ?", (job.assistant_message_id,))
+        connection.commit()
+        audit_counts = [
+            connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in (
+                "assistant_source_snapshots",
+                "assistant_claims",
+                "assistant_claim_sources",
+                "assistant_validation_results",
+            )
+        ]
+
+    assert snapshot_after_note_delete is not None
+    assert snapshot_after_note_delete["note_id"] == 1
+    assert audit_counts == [0, 0, 0, 0]
+
+
+def test_direct_reply_creates_no_audit_rows(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "direct.sqlite"
+    init_db(sqlite_path)
+    append_chat_turn(sqlite_path, "owner-a", "Question", _response())
+
+    with connect_db(sqlite_path) as connection:
+        counts = [
+            connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in (
+                "assistant_source_snapshots",
+                "assistant_claims",
+                "assistant_claim_sources",
+                "assistant_validation_results",
+            )
+        ]
+
+    assert counts == [0, 0, 0, 0]
 
 
 def test_generation_job_rejects_incompatible_terminal_error(tmp_path: Path) -> None:
