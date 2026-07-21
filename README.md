@@ -143,9 +143,17 @@ The backend reads `backend/.env` on startup. Copy `backend/.env.example` to
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GROQ_API_KEY` | _empty_ | Enables note organization and Ask answer generation. |
-| `GROQ_MODEL` | `openai/gpt-oss-120b` | Groq model used for organization, Ask answers, and Mem0 extraction. |
-| `GROQ_REASONING_EFFORT` | `medium` | Groq reasoning effort. |
+| `GROQ_API_KEY` | _empty_ | Enables Groq-backed features. |
+| `GROQ_CHAT_MODEL` | `openai/gpt-oss-120b` | Grounded Ask model; must support Groq local/remote tool calling. |
+| `GROQ_CHAT_REASONING_EFFORT` | `high` | Grounded Ask reasoning effort. |
+| `GROQ_UTILITY_MODEL` | `openai/gpt-oss-20b` | Note organization and Mem0 extraction model. |
+| `GROQ_UTILITY_REASONING_EFFORT` | `medium` | Utility reasoning effort. |
+| `GROQ_VALIDATION_MODEL` | `openai/gpt-oss-20b` | Reserved validation-role model. |
+| `GROQ_VALIDATION_REASONING_EFFORT` | `medium` | Reserved validation reasoning effort. |
+| `GROQ_WEB_MODEL` | `openai/gpt-oss-120b` | Reserved web-role model. |
+| `GROQ_WEB_REASONING_EFFORT` | `high` | Reserved web reasoning effort. |
+| `GROQ_MODEL` | deprecated | Legacy fallback for any missing role model; removed in the next breaking configuration release. |
+| `GROQ_REASONING_EFFORT` | deprecated | Legacy fallback for any missing role reasoning effort; removed in the next breaking configuration release. |
 | `GROQ_TIMEOUT_SECONDS` | `60` | Groq request timeout. |
 | `GROQ_MAX_RETRIES` | `1` | Groq SDK retry limit. |
 | `VOYAGE_API_KEY` | _empty_ | Enables semantic indexing/search and Ask semantic retrieval/reranking. |
@@ -165,6 +173,11 @@ The frontend reads `VITE_BACKEND_BASE_URL` at build time. If unset, it defaults 
 With neither key, storage, fallback metadata, and exact/fuzzy search work. Groq alone
 adds organization and locally grounded Ask. Voyage alone adds semantic indexing and
 sidebar search. Both keys enable the full Ask reranking and learned-memory flow.
+
+Role-specific settings override the deprecated `GROQ_MODEL` and
+`GROQ_REASONING_EFFORT` fallbacks. Startup rejects an unsupported chat model before
+serving health, so Ask is never reported healthy with a chat model that cannot support
+future tool use.
 
 ## Run
 

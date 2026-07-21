@@ -39,14 +39,16 @@ def request_structured_output[StructuredModel: BaseModel](
     response_model: type[StructuredModel],
     *,
     settings: Settings,
+    model: str,
+    reasoning_effort: str,
     client: Any | None = None,
 ) -> StructuredModel:
     groq_client = client or create_groq_client(settings)
     try:
         completion = groq_client.chat.completions.create(
-            model=settings.groq_model,
+            model=model,
             messages=messages,
-            reasoning_effort=settings.groq_reasoning_effort,
+            reasoning_effort=reasoning_effort,
             response_format={
                 "type": "json_schema",
                 "json_schema": {

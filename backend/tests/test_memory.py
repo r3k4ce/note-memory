@@ -130,8 +130,8 @@ def test_memory_adapter_builds_dedicated_persistent_mem0_config(
         "provider": "groq",
         "config": {
             "api_key": "test-groq-key",
-            "model": settings.groq_model,
-            "reasoning_effort": settings.groq_reasoning_effort,
+            "model": settings.groq_utility_model,
+            "reasoning_effort": settings.groq_utility_reasoning_effort,
         },
     }
     assert captured["embedder"] == {
@@ -383,12 +383,15 @@ def test_mem0_groq_client_injects_reasoning_effort(
     )
 
     _configure_mem0_groq_client(memory, settings)
-    response = memory.llm.client.chat.completions.create(model=settings.groq_model)
+    response = memory.llm.client.chat.completions.create(model=settings.groq_utility_model)
 
     assert response == "response"
     assert configured_settings == [settings]
     assert calls == [
-        {"model": settings.groq_model, "reasoning_effort": settings.groq_reasoning_effort}
+        {
+            "model": settings.groq_utility_model,
+            "reasoning_effort": settings.groq_utility_reasoning_effort,
+        }
     ]
 
 

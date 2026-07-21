@@ -159,8 +159,8 @@ class MemoryAdapter:
                         "provider": "groq",
                         "config": {
                             "api_key": groq_api_key.get_secret_value(),
-                            "model": self.settings.groq_model,
-                            "reasoning_effort": self.settings.groq_reasoning_effort,
+                            "model": self.settings.groq_utility_model,
+                            "reasoning_effort": self.settings.groq_utility_reasoning_effort,
                         },
                     },
                     "embedder": {
@@ -270,7 +270,7 @@ def _configure_mem0_groq_client(
     if llm is None:
         raise RuntimeError("Mem0 did not initialize its Groq provider")
     groq_client = client if client is not None else create_groq_client(settings)
-    llm.client = _ReasoningGroqClient(groq_client, settings.groq_reasoning_effort)
+    llm.client = _ReasoningGroqClient(groq_client, settings.groq_utility_reasoning_effort)
 
 
 def _install_mem0_langchain_core_alias() -> None:

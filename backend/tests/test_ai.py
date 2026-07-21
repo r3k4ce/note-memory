@@ -50,7 +50,7 @@ def test_organize_mapping_text_returns_validated_metadata() -> None:
 
     result = organize_mapping_text(
         "messy notes about route planning labels",
-        settings=Settings(groq_api_key=None, groq_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_utility_model="test-model"),
         client=client,
     )
 
@@ -193,7 +193,11 @@ def test_generate_grounded_answer_delimits_untrusted_memory_context() -> None:
         "What should we do?",
         context="Evidence ID: saved-1\nChunk: Use the saved checklist.",
         memory_context=["Prefers concise answers.", "Uses TypeScript."],
-        settings=Settings(groq_api_key=None, groq_model="test-model"),
+        settings=Settings(
+            groq_api_key=None,
+            groq_chat_model="llama-3.3-70b-versatile",
+            groq_chat_reasoning_effort="low",
+        ),
         client=fake_client,
     )
 
@@ -204,6 +208,8 @@ def test_generate_grounded_answer_delimits_untrusted_memory_context() -> None:
     assert "never evidence for saved-note claims" in user_message
     assert "</user_profile_context>" in user_message
     assert user_message.index("<user_profile_context>") < user_message.index("Saved-note context:")
+    assert fake_client.completions.calls[0]["model"] == "llama-3.3-70b-versatile"
+    assert fake_client.completions.calls[0]["reasoning_effort"] == "low"
 
 
 @pytest.mark.parametrize(

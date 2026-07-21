@@ -161,6 +161,8 @@ def organize_mapping_text(
             ],
             OrganizerMetadata,
             settings=app_settings,
+            model=app_settings.groq_utility_model,
+            reasoning_effort=app_settings.groq_utility_reasoning_effort,
             client=client,
         )
     except GroqResponseError as error:
@@ -200,6 +202,8 @@ def generate_grounded_answer(
             ],
             GroundedAnswer,
             settings=app_settings,
+            model=app_settings.groq_chat_model,
+            reasoning_effort=app_settings.groq_chat_reasoning_effort,
             client=client,
         )
     except GroqResponseError as error:

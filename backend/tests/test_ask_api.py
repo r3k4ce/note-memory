@@ -976,7 +976,7 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
             AskHistoryMessage(role="user", content="What source is relevant?"),
             AskHistoryMessage(role="assistant", content="The saved card is relevant."),
         ],
-        settings=Settings(groq_api_key=None, groq_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_chat_model="llama-3.3-70b-versatile"),
         client=fake_client,
     )
 
@@ -985,7 +985,7 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
         claims=[GroundedClaim(text="Use saved decision.", evidence_ids=["saved-decision"])],
     )
     call = fake_client.chat.completions.calls[0]
-    assert call["model"] == "test-model"
+    assert call["model"] == "llama-3.3-70b-versatile"
     assert call["response_format"]["type"] == "json_schema"
     assert call["response_format"]["json_schema"]["schema"] == GroundedAnswer.model_json_schema()
     assert call["messages"][0] == {"role": "system", "content": ANSWER_SYSTEM_PROMPT}
@@ -1008,7 +1008,7 @@ def test_generate_grounded_answer_includes_only_recent_history_in_prompt() -> No
         "What happened next?",
         context="Card title: Saved card\nRelevant text:\nUse saved decision.",
         history=[AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)],
-        settings=Settings(groq_api_key=None, groq_model="test-model"),
+        settings=Settings(groq_api_key=None, groq_chat_model="llama-3.3-70b-versatile"),
         client=fake_client,
     )
 

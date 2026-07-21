@@ -94,3 +94,15 @@ def test_chroma_index_requires_voyage_key_even_with_compatible_fingerprint(tmp_p
     )
 
     assert chroma_index_ready(configured.model_copy(update={"voyage_api_key": None})) is False
+
+
+def test_memory_fingerprint_uses_utility_role_model(tmp_path: Path) -> None:
+    from mapping_memory.provider_fingerprint import expected_memory_fingerprint
+
+    settings = Settings(
+        memory_path=tmp_path / "memory",
+        groq_model="openai/gpt-oss-120b",
+        groq_utility_model="qwen/qwen3-32b",
+    )
+
+    assert expected_memory_fingerprint(settings)["llm_model"] == "qwen/qwen3-32b"

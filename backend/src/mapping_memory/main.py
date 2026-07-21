@@ -21,6 +21,7 @@ LOCAL_FRONTEND_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     app_settings = settings or Settings()
+    app_settings.validate_chat_model()
     memory_adapter = MemoryAdapter(app_settings)
 
     @asynccontextmanager

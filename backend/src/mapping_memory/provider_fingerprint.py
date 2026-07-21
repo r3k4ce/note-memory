@@ -45,7 +45,7 @@ def memory_fingerprint_path(settings: Settings) -> Path:
 def expected_memory_fingerprint(settings: Settings) -> ProviderFingerprint:
     return {
         "llm_provider": "groq",
-        "llm_model": settings.groq_model,
+        "llm_model": settings.groq_utility_model,
         "embedding_provider": "voyage",
         "embedding_model": settings.voyage_embedding_model,
         "embedding_dimensions": settings.voyage_embedding_dimensions,

@@ -7,7 +7,22 @@ uv sync --dev
 ```
 
 The backend starts without `backend/.env` or provider keys. `GROQ_API_KEY` enables
-note organization and Ask generation with `openai/gpt-oss-120b` by default.
+note organization, grounded Ask, and Mem0 extraction with separate role settings:
+Chat uses `openai/gpt-oss-120b` with high reasoning, while Utility uses
+`openai/gpt-oss-20b` with medium reasoning. Validation and Web are reserved roles with
+the same respective defaults. The Chat model is validated at startup against the
+application's Groq local/remote tool-calling allowlist, so an unsupported Chat model
+prevents startup rather than reporting Ask healthy. Role-specific `GROQ_*` settings
+override the deprecated `GROQ_MODEL` and `GROQ_REASONING_EFFORT` fallbacks; the legacy
+variables remain for one release and are removed in the next breaking configuration
+release.
+
+| Role | Model default | Reasoning default | Current owner |
+| --- | --- | --- | --- |
+| Chat | `openai/gpt-oss-120b` | `high` | Grounded Ask; validated for local/remote tool support. |
+| Utility | `openai/gpt-oss-20b` | `medium` | Note organization and Mem0 extraction. |
+| Validation | `openai/gpt-oss-20b` | `medium` | Reserved for validation work. |
+| Web | `openai/gpt-oss-120b` | `high` | Reserved for web work. |
 `VOYAGE_API_KEY` enables 1024-dimensional `voyage-4-large` document/query embeddings,
 semantic search, and Ask-only `rerank-2.5` reranking. Learned Mem0 memory requires both
 keys. Notes always save to SQLite and the Markdown vault; provider failures do not roll

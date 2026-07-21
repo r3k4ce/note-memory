@@ -47,7 +47,7 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
 
     def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
         calls.append(original_text)
-        assert settings.groq_model == "test-model"
+        assert settings.groq_utility_model == "test-model"
         return OrganizerMetadata(
             title="AI route labels",
             summary="AI summary for route label notes.",
@@ -75,7 +75,7 @@ def test_post_notes_creates_note_with_ai_metadata_when_organizer_succeeds(
             groq_api_key=SecretStr("test-key"),
             voyage_api_key=SecretStr("test-voyage-key"),
             memory_enabled=False,
-            groq_model="test-model",
+            groq_utility_model="test-model",
         )
     )
 
@@ -405,7 +405,7 @@ def test_post_notes_organize_returns_ai_metadata_for_body_draft(
 
     def organize_mapping_text(original_text: str, *, settings: Settings) -> OrganizerMetadata:
         calls.append(original_text)
-        assert settings.groq_model == "test-model"
+        assert settings.groq_utility_model == "test-model"
         return OrganizerMetadata(
             title="Regenerated title",
             summary="Regenerated summary.",
@@ -423,7 +423,7 @@ def test_post_notes_organize_returns_ai_metadata_for_body_draft(
             groq_api_key=SecretStr("test-key"),
             voyage_api_key=SecretStr("test-voyage-key"),
             memory_enabled=False,
-            groq_model="test-model",
+            groq_utility_model="test-model",
         )
     )
 

@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-21T21:16:07Z"
+    time_local: "2026-07-21T18:16:07-0300"
+    summary: "Added Groq model roles and Chat tool-support startup validation."
+    changed:
+      - "Configured Chat, Utility, Validation, and Web model/reasoning settings with role defaults; deprecated legacy GROQ_MODEL and GROQ_REASONING_EFFORT as one-release fallbacks."
+      - "Validated Chat against the static eight-model Groq local/remote tool-calling allowlist before app assembly, while routing organization and Mem0 through Utility and grounded Ask through Chat."
+      - "Updated configuration templates/docs and offline coverage for role precedence, sanitized validation, health startup rejection, and provider fingerprints."
+    verification:
+      - "Ran Ruff format check and lint, Pyright (0 errors), and focused backend pytest: 130 passed, 2 opt-in live Mem0 tests skipped."
   - time_utc: "2026-07-19T01:41:10Z"
     time_local: "2026-07-18T22:41:10-03:00"
     summary: "Disabled Mem0 anonymous telemetry."

@@ -26,17 +26,19 @@ class FakeCompletions:
         )
 
 
-def test_request_structured_output_uses_strict_schema_and_configured_reasoning() -> None:
+def test_request_structured_output_uses_strict_schema_and_explicit_model_and_reasoning() -> None:
     from mapping_memory.groq_ai import request_structured_output
 
     completions = FakeCompletions()
     client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
-    settings = Settings(groq_api_key=None, groq_model="test-model", groq_reasoning_effort="high")
+    settings = Settings(groq_api_key=None)
 
     result = request_structured_output(
         [{"role": "user", "content": "return data"}],
         StructuredResult,
         settings=settings,
+        model="test-model",
+        reasoning_effort="high",
         client=client,
     )
 
@@ -65,6 +67,8 @@ def test_request_structured_output_rejects_missing_or_invalid_data(content: str 
             [{"role": "user", "content": "return data"}],
             StructuredResult,
             settings=Settings(groq_api_key=None),
+            model="test-model",
+            reasoning_effort="medium",
             client=client,
         )
 
@@ -82,6 +86,8 @@ def test_request_structured_output_translates_provider_failure() -> None:
             [{"role": "user", "content": "secret request body"}],
             StructuredResult,
             settings=Settings(groq_api_key=None),
+            model="test-model",
+            reasoning_effort="medium",
             client=client,
         )
 

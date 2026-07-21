@@ -20,6 +20,15 @@ def test_blank_provider_keys_are_unconfigured() -> None:
     assert settings.voyage_api_key is None
 
 
+def test_create_app_rejects_invalid_chat_model_before_serving_health(tmp_path: Path) -> None:
+    invalid_settings = Settings(sqlite_path=tmp_path / "health.sqlite").model_copy(
+        update={"groq_chat_model": "unsupported-model"}
+    )
+
+    with pytest.raises(ValueError, match="GROQ_CHAT_MODEL must be one of the supported"):
+        create_app(invalid_settings)
+
+
 @pytest.mark.parametrize(
     ("groq", "voyage", "expected"),
     [
