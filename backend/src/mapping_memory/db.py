@@ -95,8 +95,15 @@ def _legacy_chat_schema_exists(connection: sqlite3.Connection) -> bool:
         "generation_jobs",
         "chat_turn_scopes",
         "chat_turn_scope_note_ids",
+        "chat_thread_summaries",
+        "automatic_memory_change_provenance",
     }
     if not required_tables.issubset(tables):
+        return True
+    thread_columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(chat_threads)").fetchall()
+    }
+    if "title_origin" not in thread_columns:
         return True
     message_sql = connection.execute(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_messages'"
@@ -105,6 +112,8 @@ def _legacy_chat_schema_exists(connection: sqlite3.Connection) -> bool:
 
 
 def _reset_chat_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS automatic_memory_change_provenance")
+    connection.execute("DROP TABLE IF EXISTS chat_thread_summaries")
     connection.execute("DROP TABLE IF EXISTS assistant_claim_sources")
     connection.execute("DROP TABLE IF EXISTS assistant_claims")
     connection.execute("DROP TABLE IF EXISTS assistant_validation_results")
@@ -124,6 +133,7 @@ def _create_chat_tables(connection: sqlite3.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
             title TEXT NOT NULL,
+            title_origin TEXT NOT NULL CHECK (title_origin IN ('automatic', 'manual')),
             scope_json TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -219,6 +229,49 @@ def _create_chat_tables(connection: sqlite3.Connection) -> None:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_generation_jobs_thread_created "
         "ON generation_jobs(thread_id, created_at, id)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_thread_summaries (
+            thread_id INTEGER PRIMARY KEY REFERENCES chat_threads(id) ON DELETE CASCADE,
+            summary TEXT NOT NULL,
+            last_summarized_message_id INTEGER NOT NULL
+                REFERENCES chat_messages(id) ON DELETE CASCADE,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS automatic_memory_change_provenance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            thread_id INTEGER NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+            user_message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+            generation_job_id INTEGER NOT NULL REFERENCES generation_jobs(id) ON DELETE CASCADE,
+            operation TEXT NOT NULL CHECK (operation IN ('ADD', 'UPDATE')),
+            provider_memory_id TEXT NOT NULL CHECK (length(trim(provider_memory_id)) > 0),
+            prior_content TEXT,
+            resulting_content TEXT NOT NULL CHECK (length(trim(resulting_content)) > 0),
+            prior_content_fingerprint TEXT,
+            resulting_content_fingerprint TEXT NOT NULL
+                CHECK (length(trim(resulting_content_fingerprint)) > 0),
+            created_at TEXT NOT NULL,
+            CHECK (
+                (operation = 'ADD' AND prior_content IS NULL AND prior_content_fingerprint IS NULL)
+                OR (operation = 'UPDATE' AND prior_content IS NOT NULL
+                    AND prior_content_fingerprint IS NOT NULL)
+            )
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_automatic_memory_change_provenance_turn "
+        "ON automatic_memory_change_provenance(thread_id, user_message_id, generation_job_id, id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_automatic_memory_change_provenance_user_memory "
+        "ON automatic_memory_change_provenance(user_id, provider_memory_id, id)"
     )
     connection.execute(
         """

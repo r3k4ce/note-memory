@@ -199,7 +199,7 @@ def test_groq_only_ask_skips_memory_and_answers_from_local_evidence(tmp_path, mo
     assert memory_calls == []
 
 
-def test_ask_persists_turn_to_requested_thread_and_titles_first_question(
+def test_ask_persists_turn_to_requested_thread_without_copying_first_question_to_title(
     tmp_path, monkeypatch
 ) -> None:
     from mapping_memory.ask import create_ask_router
@@ -248,7 +248,7 @@ def test_ask_persists_turn_to_requested_thread_and_titles_first_question(
     assert list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID, other_thread.id) == []
     updated_thread = get_chat_thread(settings.sqlite_path, LOCAL_OWNER_ID, thread.id)
     assert updated_thread is not None
-    assert updated_thread.title == "What should launch use?"
+    assert updated_thread.title == "Untitled chat"
 
 
 def test_ask_rejects_missing_thread_before_retrieval(tmp_path, monkeypatch) -> None:

@@ -48,6 +48,34 @@ def test_init_db_creates_categories_table(tmp_path) -> None:
     assert "UNIQUE" in create_sql[0].upper()
 
 
+def test_init_db_creates_summary_and_memory_provenance_schema(tmp_path) -> None:
+    sqlite_path = tmp_path / "mapping_memory.sqlite"
+    init_db(sqlite_path)
+
+    with sqlite3.connect(sqlite_path) as connection:
+        thread_columns = {
+            row[1]: (row[2], row[3])
+            for row in connection.execute("PRAGMA table_info(chat_threads)")
+        }
+        summary_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_thread_summaries'"
+        ).fetchone()[0]
+        provenance_sql = connection.execute(
+            """SELECT sql FROM sqlite_master
+               WHERE type = 'table' AND name = 'automatic_memory_change_provenance'"""
+        ).fetchone()[0]
+        provenance_indexes = {
+            row[1]
+            for row in connection.execute("PRAGMA index_list(automatic_memory_change_provenance)")
+        }
+
+    assert thread_columns["title_origin"] == ("TEXT", 1)
+    assert "automatic" in provenance_sql and "UPDATE" in provenance_sql
+    assert "ON DELETE CASCADE" in summary_sql
+    assert "idx_automatic_memory_change_provenance_turn" in provenance_indexes
+    assert "idx_automatic_memory_change_provenance_user_memory" in provenance_indexes
+
+
 def test_init_db_creates_notes_fts_table(tmp_path) -> None:
     sqlite_path = tmp_path / "mapping_memory.sqlite"
 

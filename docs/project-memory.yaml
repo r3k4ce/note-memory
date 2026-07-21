@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-21T22:57:17Z"
+    time_local: "2026-07-21T19:57:17-0300"
+    summary: "Added internal chat summaries, title origins, and automatic-memory provenance storage."
+    changed:
+      - "Extended chat storage with automatic/manual title origin, per-thread summaries, and exact SHA-256-backed ADD/UPDATE memory-change provenance without changing ordinary HTTP responses or Memory Manager CRUD."
+      - "Startup now recognizes the immediately prior chat schema as legacy and resets only chat-owned tables while preserving notes, categories, memory settings, and the external Mem0 store."
+      - "Removed first-question title copying; new threads remain Untitled chat until manually renamed, while an internal automatic-title setter remains guarded by title origin."
+    verification:
+      - "Ran focused database, chat, Ask, and Memory Manager tests; backend Ruff format/lint and Pyright reported no errors."
+      - "Started ./scripts/check.sh: formatter, lint, and Pyright completed cleanly before the terminal capped its longer backend-suite process."
   - time_utc: "2026-07-21T22:40:16Z"
     time_local: "2026-07-21T19:40:16-0300"
     summary: "Replaced legacy assistant source JSON with normalized reply audit records."

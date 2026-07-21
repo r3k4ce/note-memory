@@ -2,6 +2,7 @@
 import json
 from contextlib import closing
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal
 
@@ -37,6 +38,7 @@ ErrorCategory = Literal[
     "cancelled",
 ]
 TerminalFailureStatus = Literal["failed", "timed_out", "interrupted", "cancelled"]
+MemoryChangeOperation = Literal["ADD", "UPDATE"]
 
 
 class GenerationJobRead(BaseModel):
@@ -56,6 +58,28 @@ class GenerationJobRead(BaseModel):
     user_facing_error: str | None = None
 
 
+class ThreadSummaryRead(BaseModel):
+    thread_id: int
+    summary: str
+    last_summarized_message_id: int
+    updated_at: str
+
+
+class AutomaticMemoryChangeRead(BaseModel):
+    id: int
+    user_id: str
+    thread_id: int
+    user_message_id: int
+    generation_job_id: int
+    operation: MemoryChangeOperation
+    provider_memory_id: str
+    prior_content: str | None = None
+    resulting_content: str
+    prior_content_fingerprint: str | None = None
+    resulting_content_fingerprint: str
+    created_at: str
+
+
 def create_chat_thread(
     sqlite_path: Path,
     user_id: str,
@@ -66,11 +90,13 @@ def create_chat_thread(
     now = _now()
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
-            """INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO chat_threads
+               (user_id, title, title_origin, scope_json, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
             (
                 user_id,
                 _normalize_thread_title(title or DEFAULT_THREAD_TITLE),
+                "manual" if title is not None else "automatic",
                 _scope_json(_normalize_scope(scope)),
                 now,
                 now,
@@ -117,6 +143,7 @@ def update_chat_thread(
     if title is not None:
         updates.append("title = ?")
         values.append(_normalize_thread_title(title))
+        updates.append("title_origin = 'manual'")
     if scope is not None:
         updates.append("scope_json = ?")
         values.append(_scope_json(_normalize_scope(scope)))
@@ -130,6 +157,19 @@ def update_chat_thread(
     return get_chat_thread(sqlite_path, user_id, thread_id) if cursor.rowcount else None
 
 
+def set_automatic_thread_title(
+    sqlite_path: Path, user_id: str, thread_id: int, title: str
+) -> ChatThreadRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        cursor = connection.execute(
+            """UPDATE chat_threads SET title = ?, updated_at = ?
+               WHERE user_id = ? AND id = ? AND title_origin = 'automatic'""",
+            (_normalize_thread_title(title), _now(), user_id, thread_id),
+        )
+        connection.commit()
+    return get_chat_thread(sqlite_path, user_id, thread_id) if cursor.rowcount else None
+
+
 def delete_chat_thread(sqlite_path: Path, user_id: str, thread_id: int) -> bool:
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
@@ -137,6 +177,144 @@ def delete_chat_thread(sqlite_path: Path, user_id: str, thread_id: int) -> bool:
         )
         connection.commit()
     return cursor.rowcount > 0
+
+
+def get_thread_summary(sqlite_path: Path, user_id: str, thread_id: int) -> ThreadSummaryRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            """SELECT summaries.* FROM chat_thread_summaries AS summaries
+               JOIN chat_threads AS threads ON threads.id = summaries.thread_id
+               WHERE threads.user_id = ? AND summaries.thread_id = ?""",
+            (user_id, thread_id),
+        ).fetchone()
+    return _thread_summary_from_row(row) if row else None
+
+
+def upsert_thread_summary(
+    sqlite_path: Path,
+    user_id: str,
+    thread_id: int,
+    summary: str,
+    last_summarized_message_id: int,
+) -> ThreadSummaryRead:
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            marker = connection.execute(
+                """SELECT messages.id FROM chat_messages AS messages
+                   JOIN chat_threads AS threads ON threads.id = messages.thread_id
+                   WHERE messages.id = ? AND messages.thread_id = ? AND threads.user_id = ?""",
+                (last_summarized_message_id, thread_id, user_id),
+            ).fetchone()
+            if marker is None:
+                raise ValueError("summarized message must belong to the owner's thread")
+            now = _now()
+            connection.execute(
+                """INSERT INTO chat_thread_summaries
+                   (thread_id, summary, last_summarized_message_id, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(thread_id) DO UPDATE SET summary = excluded.summary,
+                       last_summarized_message_id = excluded.last_summarized_message_id,
+                       updated_at = excluded.updated_at""",
+                (thread_id, summary, last_summarized_message_id, now),
+            )
+        row = connection.execute(
+            "SELECT * FROM chat_thread_summaries WHERE thread_id = ?", (thread_id,)
+        ).fetchone()
+    if row is None:
+        raise RuntimeError("upserted thread summary could not be read")
+    return _thread_summary_from_row(row)
+
+
+def record_automatic_memory_change(
+    sqlite_path: Path,
+    user_id: str,
+    thread_id: int,
+    user_message_id: int,
+    generation_job_id: int,
+    *,
+    operation: MemoryChangeOperation,
+    provider_memory_id: str,
+    prior_content: str | None,
+    resulting_content: str,
+) -> AutomaticMemoryChangeRead:
+    _validate_memory_change(operation, provider_memory_id, prior_content, resulting_content)
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            turn = connection.execute(
+                """SELECT jobs.id FROM generation_jobs AS jobs
+                   JOIN chat_messages AS messages ON messages.id = jobs.user_message_id
+                   WHERE jobs.id = ? AND jobs.user_id = ? AND jobs.thread_id = ?
+                     AND jobs.user_message_id = ? AND messages.user_id = ?
+                     AND messages.thread_id = ? AND messages.role = 'user'""",
+                (generation_job_id, user_id, thread_id, user_message_id, user_id, thread_id),
+            ).fetchone()
+            if turn is None:
+                raise ValueError("generation job and user message must belong to the same thread")
+            cursor = connection.execute(
+                """INSERT INTO automatic_memory_change_provenance (
+                    user_id, thread_id, user_message_id, generation_job_id, operation,
+                    provider_memory_id, prior_content, resulting_content,
+                    prior_content_fingerprint, resulting_content_fingerprint, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    user_id,
+                    thread_id,
+                    user_message_id,
+                    generation_job_id,
+                    operation,
+                    provider_memory_id,
+                    prior_content,
+                    resulting_content,
+                    _content_fingerprint(prior_content) if prior_content is not None else None,
+                    _content_fingerprint(resulting_content),
+                    _now(),
+                ),
+            )
+        row = connection.execute(
+            "SELECT * FROM automatic_memory_change_provenance WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+    if row is None:
+        raise RuntimeError("recorded memory provenance could not be read")
+    return _automatic_memory_change_from_row(row)
+
+
+def get_automatic_memory_change(
+    sqlite_path: Path, user_id: str, provenance_id: int
+) -> AutomaticMemoryChangeRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            """SELECT * FROM automatic_memory_change_provenance
+               WHERE user_id = ? AND id = ?""",
+            (user_id, provenance_id),
+        ).fetchone()
+    return _automatic_memory_change_from_row(row) if row else None
+
+
+def list_automatic_memory_changes_for_turn(
+    sqlite_path: Path, user_id: str, user_message_id: int
+) -> list[AutomaticMemoryChangeRead]:
+    with closing(connect_db(sqlite_path)) as connection:
+        rows = connection.execute(
+            """SELECT * FROM automatic_memory_change_provenance
+               WHERE user_id = ? AND user_message_id = ? ORDER BY id""",
+            (user_id, user_message_id),
+        ).fetchall()
+    return [_automatic_memory_change_from_row(row) for row in rows]
+
+
+def automatic_memory_change_matches_current_memory(
+    sqlite_path: Path,
+    user_id: str,
+    provenance_id: int,
+    provider_memory_id: str,
+    current_content: str,
+) -> bool:
+    change = get_automatic_memory_change(sqlite_path, user_id, provenance_id)
+    return bool(
+        change
+        and change.provider_memory_id == provider_memory_id
+        and change.resulting_content_fingerprint == _content_fingerprint(current_content)
+    )
 
 
 def create_generation_turn(
@@ -440,15 +618,7 @@ def _create_generation_turn(
            status, progress_stage, created_at, updated_at) VALUES (?, ?, ?, ?, 'queued', 'queued', ?, ?)""",
         (user_id, thread["id"], user_message.lastrowid, assistant_message.lastrowid, now, now),
     )
-    title = (
-        _title_from_question(question)
-        if thread["title"] == DEFAULT_THREAD_TITLE
-        and _thread_user_message_count(connection, user_id, thread["id"]) == 1
-        else thread["title"]
-    )
-    connection.execute(
-        "UPDATE chat_threads SET title = ?, updated_at = ? WHERE id = ?", (title, now, thread["id"])
-    )
+    connection.execute("UPDATE chat_threads SET updated_at = ? WHERE id = ?", (now, thread["id"]))
     if job.lastrowid is None:
         raise RuntimeError("created generation job did not return an id")
     return int(job.lastrowid)
@@ -469,8 +639,9 @@ def _resolve_thread(connection: Any, user_id: str, thread_id: int | None, now: s
     if thread is not None:
         return thread
     cursor = connection.execute(
-        """INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)""",
+        """INSERT INTO chat_threads
+        (user_id, title, title_origin, scope_json, created_at, updated_at)
+        VALUES (?, ?, 'automatic', ?, ?, ?)""",
         (user_id, DEFAULT_THREAD_TITLE, _scope_json(DEFAULT_SCOPE), now, now),
     )
     return connection.execute(
@@ -696,15 +867,19 @@ def _chat_thread_from_row(row: Any) -> ChatThreadRead:
     )
 
 
+def _thread_summary_from_row(row: Any) -> ThreadSummaryRead:
+    return ThreadSummaryRead(**dict(row))
+
+
+def _automatic_memory_change_from_row(row: Any) -> AutomaticMemoryChangeRead:
+    return AutomaticMemoryChangeRead(**dict(row))
+
+
 def _normalize_thread_title(title: str) -> str:
     normalized = " ".join(title.split())
     if not normalized:
         raise ValueError("title must not be blank")
     return normalized[:MAX_THREAD_TITLE_LENGTH]
-
-
-def _title_from_question(question: str) -> str:
-    return _normalize_thread_title(question)
 
 
 def _normalize_scope(scope: dict[str, Any] | None) -> dict[str, Any]:
@@ -730,13 +905,23 @@ def _scope_json(scope: dict[str, Any]) -> str:
     return json.dumps(scope, separators=(",", ":"))
 
 
-def _thread_user_message_count(connection: Any, user_id: str, thread_id: int) -> int:
-    return int(
-        connection.execute(
-            "SELECT COUNT(*) FROM chat_messages WHERE user_id = ? AND thread_id = ? AND role = 'user'",
-            (user_id, thread_id),
-        ).fetchone()[0]
-    )
+def _validate_memory_change(
+    operation: str, provider_memory_id: str, prior_content: str | None, resulting_content: str
+) -> None:
+    if operation not in {"ADD", "UPDATE"}:
+        raise ValueError("operation must be ADD or UPDATE")
+    if not provider_memory_id.strip():
+        raise ValueError("provider memory id must not be blank")
+    if not resulting_content.strip():
+        raise ValueError("resulting content must not be blank")
+    if operation == "ADD" and prior_content is not None:
+        raise ValueError("ADD provenance must not include prior content")
+    if operation == "UPDATE" and prior_content is None:
+        raise ValueError("UPDATE provenance requires prior content")
+
+
+def _content_fingerprint(content: str) -> str:
+    return sha256(content.encode()).hexdigest()
 
 
 def _now() -> str:

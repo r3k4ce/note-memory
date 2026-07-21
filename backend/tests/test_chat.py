@@ -5,6 +5,7 @@ import pytest
 
 from mapping_memory.chat import (
     append_chat_turn,
+    automatic_memory_change_matches_current_memory,
     clear_chat,
     complete_generation_job,
     create_chat_thread,
@@ -12,15 +13,21 @@ from mapping_memory.chat import (
     delete_chat_thread,
     fail_generation_job,
     get_assistant_reply_audit,
+    get_automatic_memory_change,
     get_chat_thread,
     get_generation_job,
+    get_thread_summary,
     get_turn_scope,
+    list_automatic_memory_changes_for_turn,
     list_chat_messages,
     list_chat_threads,
     mark_generation_job_running,
+    record_automatic_memory_change,
     request_generation_job_cancellation,
+    set_automatic_thread_title,
     set_generation_job_progress,
     update_chat_thread,
+    upsert_thread_summary,
 )
 from mapping_memory.db import connect_db, init_db
 from mapping_memory.schemas import (
@@ -177,6 +184,164 @@ def test_chat_thread_validation_rejects_blank_titles_and_invalid_scopes(tmp_path
     ]:
         with pytest.raises(ValueError, match=r"scope|note_ids"):
             update_chat_thread(sqlite_path, "owner-a", thread.id, scope=scope)
+
+
+def test_thread_title_origin_stays_internal_and_prevents_first_question_copy(
+    tmp_path: Path,
+) -> None:
+    sqlite_path = tmp_path / "threads.sqlite"
+    init_db(sqlite_path)
+
+    automatic = create_chat_thread(sqlite_path, "owner-a")
+    manual = create_chat_thread(sqlite_path, "owner-a", title="Launch")
+    assert set_automatic_thread_title(sqlite_path, "owner-a", automatic.id, "Generated")
+    assert get_chat_thread(sqlite_path, "owner-a", automatic.id).title == "Generated"  # type: ignore[union-attr]
+    assert set_automatic_thread_title(sqlite_path, "owner-a", manual.id, "Ignored") is None
+
+    renamed = update_chat_thread(sqlite_path, "owner-a", automatic.id, title="Renamed")
+    assert renamed is not None
+    assert update_chat_thread(sqlite_path, "owner-a", automatic.id, scope={"mode": "all"})
+    assert set_automatic_thread_title(sqlite_path, "owner-a", automatic.id, "Ignored") is None
+
+    implicit_job = create_generation_turn(sqlite_path, "owner-b", "First question")
+    implicit_thread = get_chat_thread(sqlite_path, "owner-b", implicit_job.thread_id)
+    assert implicit_thread is not None and implicit_thread.title == "Untitled chat"
+
+    with connect_db(sqlite_path) as connection:
+        origins = {
+            row["id"]: row["title_origin"]
+            for row in connection.execute("SELECT id, title_origin FROM chat_threads")
+        }
+    assert origins[automatic.id] == "manual"
+    assert origins[manual.id] == "manual"
+    assert origins[implicit_job.thread_id] == "automatic"
+
+
+def test_thread_summaries_are_owner_and_thread_scoped_and_cascade(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "summaries.sqlite"
+    init_db(sqlite_path)
+    first = create_chat_thread(sqlite_path, "owner-a")
+    second = create_chat_thread(sqlite_path, "owner-a")
+    other = create_chat_thread(sqlite_path, "owner-b")
+    first_job = create_generation_turn(sqlite_path, "owner-a", "First", thread_id=first.id)
+    second_job = create_generation_turn(sqlite_path, "owner-a", "Second", thread_id=second.id)
+    other_job = create_generation_turn(sqlite_path, "owner-b", "Other", thread_id=other.id)
+
+    stored = upsert_thread_summary(
+        sqlite_path, "owner-a", first.id, "First summary", first_job.user_message_id
+    )
+    assert stored.summary == "First summary"
+    assert stored.last_summarized_message_id == first_job.user_message_id
+    replaced = upsert_thread_summary(
+        sqlite_path, "owner-a", first.id, "Replacement", first_job.assistant_message_id
+    )
+    assert replaced.summary == "Replacement"
+    assert replaced.last_summarized_message_id == first_job.assistant_message_id
+    assert get_thread_summary(sqlite_path, "owner-a", first.id) == replaced
+
+    with pytest.raises(ValueError, match="thread"):
+        upsert_thread_summary(sqlite_path, "owner-a", first.id, "Wrong", second_job.user_message_id)
+    with pytest.raises(ValueError, match="thread"):
+        upsert_thread_summary(sqlite_path, "owner-a", first.id, "Wrong", other_job.user_message_id)
+    assert get_thread_summary(sqlite_path, "owner-b", first.id) is None
+
+    assert delete_chat_thread(sqlite_path, "owner-a", first.id)
+    with connect_db(sqlite_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM chat_thread_summaries").fetchone()[0] == 0
+
+
+def test_automatic_memory_change_provenance_tracks_exact_current_memory(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "provenance.sqlite"
+    init_db(sqlite_path)
+    thread = create_chat_thread(sqlite_path, "owner-a")
+    job = create_generation_turn(sqlite_path, "owner-a", "Remember this", thread_id=thread.id)
+
+    added = record_automatic_memory_change(
+        sqlite_path,
+        "owner-a",
+        thread.id,
+        job.user_message_id,
+        job.id,
+        operation="ADD",
+        provider_memory_id="mem-1",
+        prior_content=None,
+        resulting_content="Likes tea",
+    )
+    updated = record_automatic_memory_change(
+        sqlite_path,
+        "owner-a",
+        thread.id,
+        job.user_message_id,
+        job.id,
+        operation="UPDATE",
+        provider_memory_id="mem-1",
+        prior_content="Likes tea",
+        resulting_content="Likes oolong tea",
+    )
+    assert added.prior_content is None
+    assert updated.prior_content == "Likes tea"
+    assert updated.resulting_content_fingerprint != updated.prior_content_fingerprint
+    assert get_automatic_memory_change(sqlite_path, "owner-a", updated.id) == updated
+    assert list_automatic_memory_changes_for_turn(sqlite_path, "owner-a", job.user_message_id) == [
+        added,
+        updated,
+    ]
+    assert automatic_memory_change_matches_current_memory(
+        sqlite_path, "owner-a", updated.id, "mem-1", "Likes oolong tea"
+    )
+    assert not automatic_memory_change_matches_current_memory(
+        sqlite_path, "owner-a", updated.id, "mem-2", "Likes oolong tea"
+    )
+    assert not automatic_memory_change_matches_current_memory(
+        sqlite_path, "owner-a", updated.id, "mem-1", "Manually edited"
+    )
+
+    with pytest.raises(ValueError, match="ADD"):
+        record_automatic_memory_change(
+            sqlite_path,
+            "owner-a",
+            thread.id,
+            job.user_message_id,
+            job.id,
+            operation="ADD",
+            provider_memory_id="mem-2",
+            prior_content="old",
+            resulting_content="new",
+        )
+    with pytest.raises(ValueError, match="UPDATE"):
+        record_automatic_memory_change(
+            sqlite_path,
+            "owner-a",
+            thread.id,
+            job.user_message_id,
+            job.id,
+            operation="UPDATE",
+            provider_memory_id="mem-2",
+            prior_content=None,
+            resulting_content="new",
+        )
+    other_thread = create_chat_thread(sqlite_path, "owner-a")
+    with pytest.raises(ValueError, match="same thread"):
+        record_automatic_memory_change(
+            sqlite_path,
+            "owner-a",
+            other_thread.id,
+            job.user_message_id,
+            job.id,
+            operation="ADD",
+            provider_memory_id="mem-3",
+            prior_content=None,
+            resulting_content="new",
+        )
+
+    assert delete_chat_thread(sqlite_path, "owner-a", thread.id)
+    with connect_db(sqlite_path) as connection:
+        assert (
+            connection.execute(
+                "SELECT COUNT(*) FROM automatic_memory_change_provenance"
+            ).fetchone()[0]
+            == 0
+        )
 
 
 def test_generation_turn_persists_immutable_ordered_scope_snapshot(tmp_path: Path) -> None:
