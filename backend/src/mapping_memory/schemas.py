@@ -346,7 +346,9 @@ class ChatMessageRead(BaseModel):
     role: Literal["user", "assistant"]
     content: str
     created_at: str
-    status: Literal["answered", "no_evidence"] | None = None
+    status: (
+        Literal["pending", "completed", "failed", "timed_out", "interrupted", "cancelled"] | None
+    ) = None
     evidence_summary: AskEvidenceSummary | None = None
     sources: list[AskSource] = Field(default_factory=list)
 

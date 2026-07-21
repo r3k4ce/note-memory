@@ -49,7 +49,7 @@ const restoredMessages: StoredChatMessage[] = [
     role: "assistant",
     content: "Restored answer.",
     created_at: "2026-07-01T00:00:01Z",
-    status: "answered",
+    status: "completed",
     evidence_summary: { source_count: 0, snippet_count: 0, match_types: [] },
     sources: [],
   },

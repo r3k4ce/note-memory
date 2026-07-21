@@ -111,7 +111,7 @@ function storedMessageToChatMessage(message: StoredChatMessage): ChatMessage {
     id: message.id,
     role: "assistant",
     content: message.content,
-    status: message.status,
+    status: message.status === "completed" ? "answered" : undefined,
     evidenceSummary: message.evidence_summary,
     sources: message.sources ?? [],
   };

@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-21T22:15:00Z"
+    time_local: "2026-07-21T19:15:00-0300"
+    summary: "Replaced disposable development chat persistence with job-backed turns and immutable relational scope snapshots."
+    changed:
+      - "Added constrained generation jobs, lifecycle message statuses, ordered custom/all scope snapshots, owner-scoped job reads, and atomic synchronous compatibility persistence."
+      - "Made startup atomically reset only pre-slice chat tables while preserving notes, categories, memory settings, vault files, Chroma, and Mem0; added an explicitly guarded chat reset helper."
+      - "Kept Ask routes and response status unchanged while adapting restored frontend transcripts to lifecycle storage status."
+    verification:
+      - "Ran backend Ruff format/lint, Pyright, and the full backend pytest suite; ran 183 frontend tests, ESLint, and production build."
+      - "Applied initialization to a SQLite checkpoint copy: integrity_check ok, with 14 notes and 2 categories preserved and chat reset."
   - time_utc: "2026-07-21T21:38:35Z"
     time_local: "2026-07-21T18:38:35-0300"
     summary: "Added role-aware Groq chat, streaming, structured-output, and tool-call request primitives."

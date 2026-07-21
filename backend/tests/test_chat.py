@@ -1,3 +1,4 @@
+# ruff: noqa: PT018
 from pathlib import Path
 
 import pytest
@@ -5,11 +6,19 @@ import pytest
 from mapping_memory.chat import (
     append_chat_turn,
     clear_chat,
+    complete_generation_job,
     create_chat_thread,
+    create_generation_turn,
     delete_chat_thread,
+    fail_generation_job,
     get_chat_thread,
+    get_generation_job,
+    get_turn_scope,
     list_chat_messages,
     list_chat_threads,
+    mark_generation_job_running,
+    request_generation_job_cancellation,
+    set_generation_job_progress,
     update_chat_thread,
 )
 from mapping_memory.db import init_db
@@ -39,7 +48,7 @@ def test_chat_transcript_persists_successful_turns_by_user_and_clears_independen
 
     messages = list_chat_messages(sqlite_path, "owner-a")
     assert [message.role for message in messages] == ["user", "assistant"]
-    assert messages[1].status == "answered"
+    assert messages[1].status == "completed"
     assert messages[1].evidence_summary is not None
     assert messages[1].created_at
 
@@ -109,9 +118,90 @@ def test_chat_thread_validation_rejects_blank_titles_and_invalid_scopes(tmp_path
         update_chat_thread(sqlite_path, "owner-a", thread.id, title=" ")
 
     for scope in [
-        {"mode": "custom", "note_ids": []},
         {"mode": "custom", "note_ids": [0]},
         {"mode": "missing"},
     ]:
         with pytest.raises(ValueError, match=r"scope|note_ids"):
             update_chat_thread(sqlite_path, "owner-a", thread.id, scope=scope)
+
+
+def test_generation_turn_persists_immutable_ordered_scope_snapshot(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "jobs.sqlite"
+    init_db(sqlite_path)
+    thread = create_chat_thread(
+        sqlite_path,
+        "owner-a",
+        scope={"mode": "custom", "note_ids": [3, 1, 3]},
+    )
+
+    job = create_generation_turn(sqlite_path, "owner-a", "Question", thread_id=thread.id)
+
+    assert job.status == "queued"
+    assert job.progress_stage == "queued"
+    assert get_turn_scope(sqlite_path, "owner-a", job.user_message_id) == {
+        "mode": "custom",
+        "note_ids": [3, 1],
+    }
+    assert update_chat_thread(sqlite_path, "owner-a", thread.id, scope={"mode": "all"})
+    assert get_turn_scope(sqlite_path, "owner-a", job.user_message_id) == {
+        "mode": "custom",
+        "note_ids": [3, 1],
+    }
+
+
+def test_generation_turn_all_and_empty_custom_scope_snapshots(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "jobs.sqlite"
+    init_db(sqlite_path)
+    all_thread = create_chat_thread(sqlite_path, "owner-a")
+    empty_custom = create_chat_thread(
+        sqlite_path, "owner-a", scope={"mode": "custom", "note_ids": []}
+    )
+
+    all_job = create_generation_turn(sqlite_path, "owner-a", "All", thread_id=all_thread.id)
+    empty_job = create_generation_turn(sqlite_path, "owner-a", "None", thread_id=empty_custom.id)
+
+    assert get_turn_scope(sqlite_path, "owner-a", all_job.user_message_id) == {"mode": "all"}
+    assert get_turn_scope(sqlite_path, "owner-a", empty_job.user_message_id) == {
+        "mode": "custom",
+        "note_ids": [],
+    }
+
+
+def test_generation_job_lifecycle_errors_and_cancellation(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "jobs.sqlite"
+    init_db(sqlite_path)
+    job = create_generation_turn(sqlite_path, "owner-a", "Question")
+
+    with pytest.raises(ValueError, match="running"):
+        set_generation_job_progress(sqlite_path, "owner-a", job.id, "retrieving")
+    running = mark_generation_job_running(sqlite_path, "owner-a", job.id)
+    assert running is not None and running.started_at is not None
+    retrieving = set_generation_job_progress(sqlite_path, "owner-a", job.id, "retrieving")
+    assert retrieving is not None and retrieving.progress_stage == "retrieving"
+    completed = complete_generation_job(sqlite_path, "owner-a", job.id, _response())
+    assert completed is not None and completed.status == "completed"
+    assert completed.finished_at is not None and completed.error_category is None
+    with pytest.raises(ValueError, match="terminal"):
+        fail_generation_job(sqlite_path, "owner-a", job.id, "failed", "internal", "Nope")
+
+    cancelled = create_generation_turn(sqlite_path, "owner-a", "Cancel")
+    cancellation = request_generation_job_cancellation(sqlite_path, "owner-a", cancelled.id)
+    assert cancellation is not None
+    assert cancellation.status == "cancelled"
+    assert cancellation.cancel_requested is True
+    assert cancellation.error_category == "cancelled"
+
+
+def test_generation_job_rejects_incompatible_terminal_error(tmp_path: Path) -> None:
+    sqlite_path = tmp_path / "jobs.sqlite"
+    init_db(sqlite_path)
+    job = create_generation_turn(sqlite_path, "owner-a", "Question")
+    assert mark_generation_job_running(sqlite_path, "owner-a", job.id)
+
+    with pytest.raises(ValueError, match="compatible"):
+        fail_generation_job(sqlite_path, "owner-a", job.id, "timed_out", "provider", "Timed out")
+    failed = fail_generation_job(
+        sqlite_path, "owner-a", job.id, "timed_out", "timeout", "Timed out"
+    )
+    assert failed is not None and failed.status == "timed_out"
+    assert get_generation_job(sqlite_path, "owner-a", job.id) == failed

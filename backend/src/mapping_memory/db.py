@@ -1,4 +1,4 @@
-import json
+# ruff: noqa: E501
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -16,75 +16,207 @@ def connect_db(sqlite_path: Path) -> sqlite3.Connection:
 
 def init_db(sqlite_path: Path) -> None:
     with closing(connect_db(sqlite_path)) as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                slug TEXT NOT NULL UNIQUE,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS notes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                original_text TEXT NOT NULL,
-                ai_title TEXT NOT NULL,
-                short_summary TEXT NOT NULL,
-                tags_json TEXT NOT NULL,
-                date_added TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                category_id INTEGER REFERENCES categories(id),
-                markdown_path TEXT,
-                needs_ai_organization INTEGER NOT NULL DEFAULT 0
-            )
-            """
-        )
+        _create_non_chat_tables(connection)
         _migrate_notes_category_id(connection)
         _migrate_notes_markdown_path(connection)
         _migrate_notes_ai_organization(connection)
         init_notes_fts(connection)
         backfill_notes_fts_if_empty(connection)
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS chat_threads (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                scope_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS chat_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-                content TEXT NOT NULL,
-                thread_id INTEGER REFERENCES chat_threads(id) ON DELETE CASCADE,
-                status TEXT,
-                evidence_summary_json TEXT,
-                sources_json TEXT,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        _migrate_chat_threads(connection)
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS memory_settings (
-                user_id TEXT PRIMARY KEY,
-                learning_enabled INTEGER NOT NULL DEFAULT 1
-            )
-            """
-        )
+        _create_memory_settings(connection)
+        if _legacy_chat_schema_exists(connection):
+            connection.commit()
+            connection.execute("BEGIN IMMEDIATE")
+            _reset_chat_tables(connection)
+        else:
+            _create_chat_tables(connection)
         connection.commit()
+
+
+def reset_development_chat_data(sqlite_path: Path, *, allowed: bool) -> None:
+    if not allowed:
+        raise ValueError("reset_development_chat_data requires allowed=True")
+    with closing(connect_db(sqlite_path)) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        _reset_chat_tables(connection)
+        connection.commit()
+
+
+def _create_non_chat_tables(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            slug TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            original_text TEXT NOT NULL,
+            ai_title TEXT NOT NULL,
+            short_summary TEXT NOT NULL,
+            tags_json TEXT NOT NULL,
+            date_added TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            category_id INTEGER REFERENCES categories(id),
+            markdown_path TEXT,
+            needs_ai_organization INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+
+
+def _create_memory_settings(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_settings (
+            user_id TEXT PRIMARY KEY,
+            learning_enabled INTEGER NOT NULL DEFAULT 1
+        )
+        """
+    )
+
+
+def _legacy_chat_schema_exists(connection: sqlite3.Connection) -> bool:
+    tables = {
+        row["name"]
+        for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    if "chat_messages" not in tables:
+        return False
+    required_tables = {
+        "chat_threads",
+        "chat_messages",
+        "generation_jobs",
+        "chat_turn_scopes",
+        "chat_turn_scope_note_ids",
+    }
+    if not required_tables.issubset(tables):
+        return True
+    message_sql = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_messages'"
+    ).fetchone()["sql"]
+    return "'completed'" not in message_sql
+
+
+def _reset_chat_tables(connection: sqlite3.Connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS chat_turn_scope_note_ids")
+    connection.execute("DROP TABLE IF EXISTS chat_turn_scopes")
+    connection.execute("DROP TABLE IF EXISTS generation_jobs")
+    connection.execute("DROP TABLE IF EXISTS chat_messages")
+    connection.execute("DROP TABLE IF EXISTS chat_threads")
+    _create_chat_tables(connection)
+
+
+def _create_chat_tables(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_threads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            scope_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            thread_id INTEGER NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+            status TEXT NOT NULL CHECK (
+                (role = 'user' AND status = 'completed')
+                OR (role = 'assistant' AND status IN (
+                    'pending', 'completed', 'failed', 'timed_out', 'interrupted', 'cancelled'
+                ))
+            ),
+            evidence_summary_json TEXT,
+            sources_json TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS generation_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            thread_id INTEGER NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+            user_message_id INTEGER NOT NULL UNIQUE REFERENCES chat_messages(id) ON DELETE CASCADE,
+            assistant_message_id INTEGER NOT NULL UNIQUE REFERENCES chat_messages(id) ON DELETE CASCADE,
+            status TEXT NOT NULL CHECK (status IN (
+                'queued', 'running', 'completed', 'failed', 'timed_out', 'interrupted', 'cancelled'
+            )),
+            progress_stage TEXT NOT NULL CHECK (progress_stage IN (
+                'queued', 'retrieving', 'generating', 'finalizing'
+            )),
+            cancel_requested INTEGER NOT NULL DEFAULT 0 CHECK (cancel_requested IN (0, 1)),
+            error_category TEXT CHECK (error_category IN (
+                'retrieval', 'provider', 'rate_limited', 'validation', 'internal', 'timeout',
+                'interrupted', 'cancelled'
+            )),
+            user_facing_error TEXT,
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            finished_at TEXT,
+            updated_at TEXT NOT NULL,
+            cancel_requested_at TEXT,
+            CHECK (
+                (status = 'completed' AND finished_at IS NOT NULL AND error_category IS NULL
+                    AND user_facing_error IS NULL)
+                OR (status IN ('failed', 'timed_out', 'interrupted', 'cancelled')
+                    AND finished_at IS NOT NULL AND error_category IS NOT NULL
+                    AND length(trim(user_facing_error)) > 0)
+                OR (status IN ('queued', 'running') AND finished_at IS NULL
+                    AND error_category IS NULL AND user_facing_error IS NULL)
+            ),
+            CHECK (status != 'cancelled' OR cancel_requested = 1)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_turn_scopes (
+            user_message_id INTEGER PRIMARY KEY REFERENCES chat_messages(id) ON DELETE CASCADE,
+            mode TEXT NOT NULL CHECK (mode IN ('all', 'custom'))
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_turn_scope_note_ids (
+            user_message_id INTEGER NOT NULL REFERENCES chat_turn_scopes(user_message_id)
+                ON DELETE CASCADE,
+            position INTEGER NOT NULL CHECK (position >= 0),
+            note_id INTEGER NOT NULL CHECK (note_id > 0),
+            PRIMARY KEY (user_message_id, position)
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_id ON chat_messages(thread_id, id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chat_threads_user_updated ON chat_threads(user_id, updated_at DESC, id DESC)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_generation_jobs_status_created "
+        "ON generation_jobs(status, created_at, id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_generation_jobs_thread_created "
+        "ON generation_jobs(thread_id, created_at, id)"
+    )
 
 
 def _migrate_notes_category_id(connection: sqlite3.Connection) -> None:
@@ -107,65 +239,3 @@ def _migrate_notes_ai_organization(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE notes ADD COLUMN needs_ai_organization INTEGER NOT NULL DEFAULT 0"
         )
-
-
-def _migrate_chat_threads(connection: sqlite3.Connection) -> None:
-    columns = {
-        row["name"] for row in connection.execute("PRAGMA table_info(chat_messages)").fetchall()
-    }
-    if "thread_id" not in columns:
-        connection.execute(
-            """
-            ALTER TABLE chat_messages
-            ADD COLUMN thread_id INTEGER REFERENCES chat_threads(id) ON DELETE CASCADE
-            """
-        )
-
-    user_rows = connection.execute(
-        """
-        SELECT user_id, MIN(created_at) AS created_at, MAX(created_at) AS updated_at
-        FROM chat_messages
-        WHERE thread_id IS NULL
-        GROUP BY user_id
-        """
-    ).fetchall()
-    for user_row in user_rows:
-        user_id = user_row["user_id"]
-        first_user_message = connection.execute(
-            """
-            SELECT content FROM chat_messages
-            WHERE user_id = ? AND role = 'user' AND thread_id IS NULL
-            ORDER BY id
-            LIMIT 1
-            """,
-            (user_id,),
-        ).fetchone()
-        title = (
-            _legacy_chat_title(first_user_message["content"])
-            if first_user_message is not None
-            else "Previous chat"
-        )
-        cursor = connection.execute(
-            """
-            INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                title,
-                json.dumps({"mode": "all"}, separators=(",", ":")),
-                user_row["created_at"],
-                user_row["updated_at"],
-            ),
-        )
-        connection.execute(
-            "UPDATE chat_messages SET thread_id = ? WHERE user_id = ? AND thread_id IS NULL",
-            (cursor.lastrowid, user_id),
-        )
-
-
-def _legacy_chat_title(content: str) -> str:
-    title = " ".join(content.split())
-    if not title:
-        return "Previous chat"
-    return title[:120]

@@ -128,7 +128,13 @@ export type StoredChatMessage = {
   role: "user" | "assistant";
   content: string;
   created_at: string;
-  status?: AskResponse["status"];
+  status?:
+    | "pending"
+    | "completed"
+    | "failed"
+    | "timed_out"
+    | "interrupted"
+    | "cancelled";
   evidence_summary?: AskEvidenceSummary;
   sources?: AskSource[];
 };

@@ -1,8 +1,11 @@
+# ruff: noqa: E501
 import json
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel
 
 from mapping_memory.db import connect_db
 from mapping_memory.schemas import (
@@ -16,6 +19,38 @@ from mapping_memory.schemas import (
 DEFAULT_THREAD_TITLE = "Untitled chat"
 DEFAULT_SCOPE = {"mode": "all"}
 MAX_THREAD_TITLE_LENGTH = 120
+JobStatus = Literal[
+    "queued", "running", "completed", "failed", "timed_out", "interrupted", "cancelled"
+]
+ProgressStage = Literal["queued", "retrieving", "generating", "finalizing"]
+ErrorCategory = Literal[
+    "retrieval",
+    "provider",
+    "rate_limited",
+    "validation",
+    "internal",
+    "timeout",
+    "interrupted",
+    "cancelled",
+]
+TerminalFailureStatus = Literal["failed", "timed_out", "interrupted", "cancelled"]
+
+
+class GenerationJobRead(BaseModel):
+    id: int
+    thread_id: int
+    user_message_id: int
+    assistant_message_id: int
+    status: JobStatus
+    progress_stage: ProgressStage
+    cancel_requested: bool
+    created_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    updated_at: str
+    cancel_requested_at: str | None = None
+    error_category: ErrorCategory | None = None
+    user_facing_error: str | None = None
 
 
 def create_chat_thread(
@@ -25,23 +60,23 @@ def create_chat_thread(
     title: str | None = None,
     scope: dict[str, Any] | None = None,
 ) -> ChatThreadRead:
-    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    normalized_title = _normalize_thread_title(title if title is not None else DEFAULT_THREAD_TITLE)
-    normalized_scope = _normalize_scope(scope)
+    now = _now()
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
-            """
-            INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (user_id, normalized_title, _scope_json(normalized_scope), now, now),
+            """INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (
+                user_id,
+                _normalize_thread_title(title or DEFAULT_THREAD_TITLE),
+                _scope_json(_normalize_scope(scope)),
+                now,
+                now,
+            ),
         )
         connection.commit()
-        thread_id = cursor.lastrowid
-
-    if thread_id is None:
+    if cursor.lastrowid is None:
         raise RuntimeError("created chat thread did not return an id")
-    thread = get_chat_thread(sqlite_path, user_id, thread_id)
+    thread = get_chat_thread(sqlite_path, user_id, cursor.lastrowid)
     if thread is None:
         raise RuntimeError("created chat thread could not be read")
     return thread
@@ -50,11 +85,7 @@ def create_chat_thread(
 def list_chat_threads(sqlite_path: Path, user_id: str) -> list[ChatThreadRead]:
     with closing(connect_db(sqlite_path)) as connection:
         rows = connection.execute(
-            """
-            SELECT * FROM chat_threads
-            WHERE user_id = ?
-            ORDER BY updated_at DESC, id DESC
-            """,
+            "SELECT * FROM chat_threads WHERE user_id = ? ORDER BY updated_at DESC, id DESC",
             (user_id,),
         ).fetchall()
     return [_chat_thread_from_row(row) for row in rows]
@@ -63,8 +94,7 @@ def list_chat_threads(sqlite_path: Path, user_id: str) -> list[ChatThreadRead]:
 def get_chat_thread(sqlite_path: Path, user_id: str, thread_id: int) -> ChatThreadRead | None:
     with closing(connect_db(sqlite_path)) as connection:
         row = connection.execute(
-            "SELECT * FROM chat_threads WHERE user_id = ? AND id = ?",
-            (user_id, thread_id),
+            "SELECT * FROM chat_threads WHERE user_id = ? AND id = ?", (user_id, thread_id)
         ).fetchone()
     return _chat_thread_from_row(row) if row is not None else None
 
@@ -79,7 +109,6 @@ def update_chat_thread(
 ) -> ChatThreadRead | None:
     if title is None and scope is None:
         raise ValueError("at least one update field must be provided")
-
     updates: list[str] = []
     values: list[Any] = []
     if title is not None:
@@ -88,31 +117,181 @@ def update_chat_thread(
     if scope is not None:
         updates.append("scope_json = ?")
         values.append(_scope_json(_normalize_scope(scope)))
-
-    updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     updates.append("updated_at = ?")
-    values.append(updated_at)
-    values.extend([user_id, thread_id])
-
+    values.extend([_now(), user_id, thread_id])
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
-            f"UPDATE chat_threads SET {', '.join(updates)} WHERE user_id = ? AND id = ?",
-            values,
+            f"UPDATE chat_threads SET {', '.join(updates)} WHERE user_id = ? AND id = ?", values
         )
         connection.commit()
-    if cursor.rowcount == 0:
-        return None
-    return get_chat_thread(sqlite_path, user_id, thread_id)
+    return get_chat_thread(sqlite_path, user_id, thread_id) if cursor.rowcount else None
 
 
 def delete_chat_thread(sqlite_path: Path, user_id: str, thread_id: int) -> bool:
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
-            "DELETE FROM chat_threads WHERE user_id = ? AND id = ?",
-            (user_id, thread_id),
+            "DELETE FROM chat_threads WHERE user_id = ? AND id = ?", (user_id, thread_id)
         )
         connection.commit()
     return cursor.rowcount > 0
+
+
+def create_generation_turn(
+    sqlite_path: Path, user_id: str, question: str, *, thread_id: int | None = None
+) -> GenerationJobRead:
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            job_id = _create_generation_turn(connection, user_id, question, thread_id=thread_id)
+        row = _get_job_row(connection, user_id, job_id)
+    if row is None:
+        raise RuntimeError("created generation job could not be read")
+    return _job_from_row(row)
+
+
+def mark_generation_job_running(
+    sqlite_path: Path, user_id: str, job_id: int
+) -> GenerationJobRead | None:
+    return _transition_running(sqlite_path, user_id, job_id)
+
+
+def set_generation_job_progress(
+    sqlite_path: Path, user_id: str, job_id: int, progress_stage: ProgressStage
+) -> GenerationJobRead | None:
+    if progress_stage == "queued":
+        raise ValueError("running jobs cannot return to queued progress")
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            _require_active_job(connection, user_id, job_id, expected="running")
+            connection.execute(
+                "UPDATE generation_jobs SET progress_stage = ?, updated_at = ? WHERE id = ?",
+                (progress_stage, _now(), job_id),
+            )
+        row = _get_job_row(connection, user_id, job_id)
+    return _job_from_row(row) if row else None
+
+
+def complete_generation_job(
+    sqlite_path: Path, user_id: str, job_id: int, response: AskResponse
+) -> GenerationJobRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            job = _require_active_job(connection, user_id, job_id, expected="running")
+            now = _now()
+            connection.execute(
+                """UPDATE chat_messages SET content = ?, status = 'completed', evidence_summary_json = ?,
+                   sources_json = ? WHERE id = ?""",
+                (
+                    response.answer,
+                    response.evidence_summary.model_dump_json(),
+                    json.dumps([source.model_dump(mode="json") for source in response.sources]),
+                    job["assistant_message_id"],
+                ),
+            )
+            connection.execute(
+                """UPDATE generation_jobs SET status = 'completed', progress_stage = 'finalizing',
+                   finished_at = ?, updated_at = ? WHERE id = ?""",
+                (now, now, job_id),
+            )
+        row = _get_job_row(connection, user_id, job_id)
+    return _job_from_row(row) if row else None
+
+
+def fail_generation_job(
+    sqlite_path: Path,
+    user_id: str,
+    job_id: int,
+    status: TerminalFailureStatus,
+    error_category: ErrorCategory,
+    user_facing_error: str,
+) -> GenerationJobRead | None:
+    _validate_terminal_error(status, error_category, user_facing_error)
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            job = _require_active_job(connection, user_id, job_id, expected="running")
+            now = _now()
+            connection.execute(
+                "UPDATE chat_messages SET status = ? WHERE id = ?",
+                (status, job["assistant_message_id"]),
+            )
+            connection.execute(
+                """UPDATE generation_jobs SET status = ?, progress_stage = 'finalizing', error_category = ?,
+                   user_facing_error = ?, finished_at = ?, updated_at = ?,
+                   cancel_requested = CASE WHEN ? = 'cancelled' THEN 1 ELSE cancel_requested END,
+                   cancel_requested_at = CASE WHEN ? = 'cancelled' THEN COALESCE(cancel_requested_at, ?) ELSE cancel_requested_at END
+                   WHERE id = ?""",
+                (
+                    status,
+                    error_category,
+                    user_facing_error.strip(),
+                    now,
+                    now,
+                    status,
+                    status,
+                    now,
+                    job_id,
+                ),
+            )
+        row = _get_job_row(connection, user_id, job_id)
+    return _job_from_row(row) if row else None
+
+
+def request_generation_job_cancellation(
+    sqlite_path: Path, user_id: str, job_id: int
+) -> GenerationJobRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            job = _get_job_row(connection, user_id, job_id)
+            if job is None:
+                return None
+            if job["status"] not in {"queued", "running"}:
+                raise ValueError("terminal generation jobs are immutable")
+            now = _now()
+            if job["status"] == "queued":
+                connection.execute(
+                    "UPDATE chat_messages SET status = 'cancelled' WHERE id = ?",
+                    (job["assistant_message_id"],),
+                )
+                connection.execute(
+                    """UPDATE generation_jobs SET status = 'cancelled', progress_stage = 'finalizing',
+                       cancel_requested = 1, cancel_requested_at = ?, error_category = 'cancelled',
+                       user_facing_error = 'Cancelled', finished_at = ?, updated_at = ? WHERE id = ?""",
+                    (now, now, now, job_id),
+                )
+            else:
+                connection.execute(
+                    """UPDATE generation_jobs SET cancel_requested = 1,
+                       cancel_requested_at = COALESCE(cancel_requested_at, ?), updated_at = ? WHERE id = ?""",
+                    (now, now, job_id),
+                )
+        row = _get_job_row(connection, user_id, job_id)
+    return _job_from_row(row) if row else None
+
+
+def get_generation_job(sqlite_path: Path, user_id: str, job_id: int) -> GenerationJobRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        row = _get_job_row(connection, user_id, job_id)
+    return _job_from_row(row) if row else None
+
+
+def get_turn_scope(sqlite_path: Path, user_id: str, user_message_id: int) -> dict[str, Any] | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        scope = connection.execute(
+            """SELECT scopes.mode FROM chat_turn_scopes AS scopes
+               JOIN chat_messages AS messages ON messages.id = scopes.user_message_id
+               WHERE messages.user_id = ? AND messages.role = 'user' AND messages.id = ?""",
+            (user_id, user_message_id),
+        ).fetchone()
+        if scope is None:
+            return None
+        ids = connection.execute(
+            "SELECT note_id FROM chat_turn_scope_note_ids WHERE user_message_id = ? ORDER BY position",
+            (user_message_id,),
+        ).fetchall()
+    return (
+        {"mode": scope["mode"]}
+        if scope["mode"] == "all"
+        else {"mode": "custom", "note_ids": [row["note_id"] for row in ids]}
+    )
 
 
 def append_chat_turn(
@@ -123,85 +302,10 @@ def append_chat_turn(
     *,
     thread_id: int | None = None,
 ) -> None:
-    created_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    with closing(connect_db(sqlite_path)) as connection:
-        if thread_id is None:
-            latest_thread = connection.execute(
-                """
-                SELECT * FROM chat_threads
-                WHERE user_id = ?
-                ORDER BY updated_at DESC, id DESC
-                LIMIT 1
-                """,
-                (user_id,),
-            ).fetchone()
-            if latest_thread is None:
-                cursor = connection.execute(
-                    """
-                    INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        user_id,
-                        DEFAULT_THREAD_TITLE,
-                        _scope_json(DEFAULT_SCOPE),
-                        created_at,
-                        created_at,
-                    ),
-                )
-                thread_id = cursor.lastrowid
-                if thread_id is None:
-                    raise RuntimeError("created chat thread did not return an id")
-                title = DEFAULT_THREAD_TITLE
-                existing_user_messages = 0
-            else:
-                thread_id = int(latest_thread["id"])
-                title = latest_thread["title"]
-                existing_user_messages = _thread_user_message_count(connection, user_id, thread_id)
-        else:
-            requested_thread_id = thread_id
-            thread = connection.execute(
-                "SELECT * FROM chat_threads WHERE user_id = ? AND id = ?",
-                (user_id, requested_thread_id),
-            ).fetchone()
-            if thread is None:
-                raise ValueError("chat thread not found")
-            thread_id = requested_thread_id
-            title = thread["title"]
-            existing_user_messages = _thread_user_message_count(connection, user_id, thread_id)
-
-        connection.execute(
-            """INSERT INTO chat_messages (user_id, thread_id, role, content, created_at)
-               VALUES (?, ?, 'user', ?, ?)""",
-            (user_id, thread_id, question, created_at),
-        )
-        connection.execute(
-            """INSERT INTO chat_messages
-               (
-                   user_id, thread_id, role, content, status,
-                   evidence_summary_json, sources_json, created_at
-               )
-               VALUES (?, ?, 'assistant', ?, ?, ?, ?, ?)""",
-            (
-                user_id,
-                thread_id,
-                response.answer,
-                response.status,
-                response.evidence_summary.model_dump_json(),
-                json.dumps([source.model_dump(mode="json") for source in response.sources]),
-                created_at,
-            ),
-        )
-        next_title = (
-            _title_from_question(question)
-            if title == DEFAULT_THREAD_TITLE and existing_user_messages == 0
-            else title
-        )
-        connection.execute(
-            "UPDATE chat_threads SET title = ?, updated_at = ? WHERE id = ?",
-            (next_title, created_at, thread_id),
-        )
-        connection.commit()
+    with closing(connect_db(sqlite_path)) as connection, connection:
+        job_id = _create_generation_turn(connection, user_id, question, thread_id=thread_id)
+        _mark_running(connection, user_id, job_id)
+        _complete_job(connection, user_id, job_id, response)
 
 
 def list_chat_messages(
@@ -209,60 +313,30 @@ def list_chat_messages(
 ) -> list[ChatMessageRead]:
     with closing(connect_db(sqlite_path)) as connection:
         if thread_id is None:
-            latest_thread = connection.execute(
-                """
-                SELECT id FROM chat_threads
-                WHERE user_id = ?
-                ORDER BY updated_at DESC, id DESC
-                LIMIT 1
-                """,
+            latest = connection.execute(
+                "SELECT id FROM chat_threads WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1",
                 (user_id,),
             ).fetchone()
-            if latest_thread is None:
+            if latest is None:
                 return []
-            thread_id = latest_thread["id"]
-
+            thread_id = latest["id"]
         rows = connection.execute(
             "SELECT * FROM chat_messages WHERE user_id = ? AND thread_id = ? ORDER BY id",
             (user_id, thread_id),
         ).fetchall()
-    return [
-        ChatMessageRead(
-            id=f"chat:{row['id']}",
-            role=row["role"],
-            content=row["content"],
-            created_at=row["created_at"],
-            status=row["status"],
-            evidence_summary=(
-                AskEvidenceSummary.model_validate_json(row["evidence_summary_json"])
-                if row["evidence_summary_json"]
-                else None
-            ),
-            sources=(
-                [AskSource.model_validate(item) for item in json.loads(row["sources_json"])]
-                if row["sources_json"]
-                else []
-            ),
-        )
-        for row in rows
-    ]
+    return [_message_from_row(row) for row in rows]
 
 
 def clear_chat(sqlite_path: Path, user_id: str) -> None:
     with closing(connect_db(sqlite_path)) as connection:
-        latest_thread = connection.execute(
-            """
-            SELECT id FROM chat_threads
-            WHERE user_id = ?
-            ORDER BY updated_at DESC, id DESC
-            LIMIT 1
-            """,
+        latest = connection.execute(
+            "SELECT id FROM chat_threads WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1",
             (user_id,),
         ).fetchone()
-        if latest_thread is not None:
+        if latest:
             connection.execute(
                 "DELETE FROM chat_messages WHERE user_id = ? AND thread_id = ?",
-                (user_id, latest_thread["id"]),
+                (user_id, latest["id"]),
             )
         connection.commit()
 
@@ -279,10 +353,169 @@ def set_learning_enabled(sqlite_path: Path, user_id: str, enabled: bool) -> None
     with closing(connect_db(sqlite_path)) as connection:
         connection.execute(
             """INSERT INTO memory_settings (user_id, learning_enabled) VALUES (?, ?)
-               ON CONFLICT(user_id) DO UPDATE SET learning_enabled = excluded.learning_enabled""",
+            ON CONFLICT(user_id) DO UPDATE SET learning_enabled = excluded.learning_enabled""",
             (user_id, int(enabled)),
         )
         connection.commit()
+
+
+def _create_generation_turn(
+    connection: Any, user_id: str, question: str, *, thread_id: int | None
+) -> int:
+    now = _now()
+    thread = _resolve_thread(connection, user_id, thread_id, now)
+    scope = _normalize_scope(json.loads(thread["scope_json"]))
+    user_message = connection.execute(
+        """INSERT INTO chat_messages (user_id, thread_id, role, content, status, created_at)
+           VALUES (?, ?, 'user', ?, 'completed', ?)""",
+        (user_id, thread["id"], question, now),
+    )
+    assistant_message = connection.execute(
+        """INSERT INTO chat_messages (user_id, thread_id, role, content, status, created_at)
+           VALUES (?, ?, 'assistant', '', 'pending', ?)""",
+        (user_id, thread["id"], now),
+    )
+    if user_message.lastrowid is None or assistant_message.lastrowid is None:
+        raise RuntimeError("created chat messages did not return ids")
+    connection.execute(
+        "INSERT INTO chat_turn_scopes (user_message_id, mode) VALUES (?, ?)",
+        (user_message.lastrowid, scope["mode"]),
+    )
+    for position, note_id in enumerate(scope.get("note_ids", [])):
+        connection.execute(
+            "INSERT INTO chat_turn_scope_note_ids (user_message_id, position, note_id) VALUES (?, ?, ?)",
+            (user_message.lastrowid, position, note_id),
+        )
+    job = connection.execute(
+        """INSERT INTO generation_jobs (user_id, thread_id, user_message_id, assistant_message_id,
+           status, progress_stage, created_at, updated_at) VALUES (?, ?, ?, ?, 'queued', 'queued', ?, ?)""",
+        (user_id, thread["id"], user_message.lastrowid, assistant_message.lastrowid, now, now),
+    )
+    title = (
+        _title_from_question(question)
+        if thread["title"] == DEFAULT_THREAD_TITLE
+        and _thread_user_message_count(connection, user_id, thread["id"]) == 1
+        else thread["title"]
+    )
+    connection.execute(
+        "UPDATE chat_threads SET title = ?, updated_at = ? WHERE id = ?", (title, now, thread["id"])
+    )
+    if job.lastrowid is None:
+        raise RuntimeError("created generation job did not return an id")
+    return int(job.lastrowid)
+
+
+def _resolve_thread(connection: Any, user_id: str, thread_id: int | None, now: str) -> Any:
+    if thread_id is not None:
+        thread = connection.execute(
+            "SELECT * FROM chat_threads WHERE user_id = ? AND id = ?", (user_id, thread_id)
+        ).fetchone()
+        if thread is None:
+            raise ValueError("chat thread not found")
+        return thread
+    thread = connection.execute(
+        "SELECT * FROM chat_threads WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    if thread is not None:
+        return thread
+    cursor = connection.execute(
+        """INSERT INTO chat_threads (user_id, title, scope_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)""",
+        (user_id, DEFAULT_THREAD_TITLE, _scope_json(DEFAULT_SCOPE), now, now),
+    )
+    return connection.execute(
+        "SELECT * FROM chat_threads WHERE id = ?", (cursor.lastrowid,)
+    ).fetchone()
+
+
+def _transition_running(sqlite_path: Path, user_id: str, job_id: int) -> GenerationJobRead | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        with connection:
+            _mark_running(connection, user_id, job_id)
+        row = _get_job_row(connection, user_id, job_id)
+    return _job_from_row(row) if row else None
+
+
+def _mark_running(connection: Any, user_id: str, job_id: int) -> None:
+    _require_active_job(connection, user_id, job_id, expected="queued")
+    now = _now()
+    connection.execute(
+        "UPDATE generation_jobs SET status = 'running', started_at = ?, updated_at = ? WHERE id = ?",
+        (now, now, job_id),
+    )
+
+
+def _complete_job(connection: Any, user_id: str, job_id: int, response: AskResponse) -> None:
+    job = _require_active_job(connection, user_id, job_id, expected="running")
+    now = _now()
+    connection.execute(
+        """UPDATE chat_messages SET content = ?, status = 'completed', evidence_summary_json = ?, sources_json = ? WHERE id = ?""",
+        (
+            response.answer,
+            response.evidence_summary.model_dump_json(),
+            json.dumps([source.model_dump(mode="json") for source in response.sources]),
+            job["assistant_message_id"],
+        ),
+    )
+    connection.execute(
+        "UPDATE generation_jobs SET status = 'completed', progress_stage = 'finalizing', finished_at = ?, updated_at = ? WHERE id = ?",
+        (now, now, job_id),
+    )
+
+
+def _require_active_job(connection: Any, user_id: str, job_id: int, *, expected: str) -> Any:
+    job = _get_job_row(connection, user_id, job_id)
+    if job is None:
+        raise ValueError("generation job not found")
+    if job["status"] in {"completed", "failed", "timed_out", "interrupted", "cancelled"}:
+        raise ValueError("terminal generation jobs are immutable")
+    if job["status"] != expected:
+        raise ValueError(f"generation job must be {expected}")
+    return job
+
+
+def _get_job_row(connection: Any, user_id: str, job_id: int) -> Any:
+    return connection.execute(
+        "SELECT * FROM generation_jobs WHERE user_id = ? AND id = ?", (user_id, job_id)
+    ).fetchone()
+
+
+def _validate_terminal_error(
+    status: TerminalFailureStatus, category: ErrorCategory, error: str
+) -> None:
+    compatible = {
+        "failed": {"retrieval", "provider", "rate_limited", "validation", "internal"},
+        "timed_out": {"timeout"},
+        "interrupted": {"interrupted"},
+        "cancelled": {"cancelled"},
+    }
+    if category not in compatible[status]:
+        raise ValueError("error category is not compatible with terminal status")
+    if not error.strip():
+        raise ValueError("user-facing error must not be blank")
+
+
+def _job_from_row(row: Any) -> GenerationJobRead:
+    values = dict(row)
+    values["cancel_requested"] = bool(values["cancel_requested"])
+    return GenerationJobRead(**values)
+
+
+def _message_from_row(row: Any) -> ChatMessageRead:
+    return ChatMessageRead(
+        id=f"chat:{row['id']}",
+        role=row["role"],
+        content=row["content"],
+        created_at=row["created_at"],
+        status=row["status"],
+        evidence_summary=AskEvidenceSummary.model_validate_json(row["evidence_summary_json"])
+        if row["evidence_summary_json"]
+        else None,
+        sources=[AskSource.model_validate(item) for item in json.loads(row["sources_json"])]
+        if row["sources_json"]
+        else [],
+    )
 
 
 def _chat_thread_from_row(row: Any) -> ChatThreadRead:
@@ -296,10 +529,10 @@ def _chat_thread_from_row(row: Any) -> ChatThreadRead:
 
 
 def _normalize_thread_title(title: str) -> str:
-    stripped_title = " ".join(title.split())
-    if not stripped_title:
+    normalized = " ".join(title.split())
+    if not normalized:
         raise ValueError("title must not be blank")
-    return stripped_title[:MAX_THREAD_TITLE_LENGTH]
+    return normalized[:MAX_THREAD_TITLE_LENGTH]
 
 
 def _title_from_question(question: str) -> str:
@@ -307,28 +540,22 @@ def _title_from_question(question: str) -> str:
 
 
 def _normalize_scope(scope: dict[str, Any] | None) -> dict[str, Any]:
-    if scope is None:
-        return dict(DEFAULT_SCOPE)
-    if scope.get("mode") == "all":
+    if scope is None or scope.get("mode") == "all":
         return dict(DEFAULT_SCOPE)
     if scope.get("mode") != "custom":
         raise ValueError("scope mode must be all or custom")
-
     note_ids = scope.get("note_ids")
-    if not isinstance(note_ids, list) or not note_ids:
-        raise ValueError("custom scope must include note_ids")
-
-    normalized_note_ids: list[int] = []
-    seen_note_ids: set[int] = set()
+    if not isinstance(note_ids, list):
+        raise ValueError("custom scope note_ids must be a list")
+    normalized: list[int] = []
+    seen: set[int] = set()
     for note_id in note_ids:
         if type(note_id) is not int or note_id < 1:
             raise ValueError("note_ids must contain positive integers")
-        if note_id in seen_note_ids:
-            continue
-        normalized_note_ids.append(note_id)
-        seen_note_ids.add(note_id)
-
-    return {"mode": "custom", "note_ids": normalized_note_ids}
+        if note_id not in seen:
+            normalized.append(note_id)
+            seen.add(note_id)
+    return {"mode": "custom", "note_ids": normalized}
 
 
 def _scope_json(scope: dict[str, Any]) -> str:
@@ -336,12 +563,13 @@ def _scope_json(scope: dict[str, Any]) -> str:
 
 
 def _thread_user_message_count(connection: Any, user_id: str, thread_id: int) -> int:
-    row = connection.execute(
-        """
-        SELECT COUNT(*) AS message_count
-        FROM chat_messages
-        WHERE user_id = ? AND thread_id = ? AND role = 'user'
-        """,
-        (user_id, thread_id),
-    ).fetchone()
-    return int(row["message_count"])
+    return int(
+        connection.execute(
+            "SELECT COUNT(*) FROM chat_messages WHERE user_id = ? AND thread_id = ? AND role = 'user'",
+            (user_id, thread_id),
+        ).fetchone()[0]
+    )
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
