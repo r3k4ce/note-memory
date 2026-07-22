@@ -300,6 +300,38 @@ def test_ask_learns_from_no_evidence_and_memory_failures_never_fail_answer(
     assert "provider detail" not in response.text
 
 
+def test_ask_summary_failure_preserves_the_successful_response_and_turn(
+    tmp_path, monkeypatch
+) -> None:
+    from mapping_memory.ask import create_ask_router
+
+    monkeypatch.setattr(
+        "mapping_memory.ask.prepare_retrieval_context",
+        lambda *_, **__: RagRetrievalContext(sources=(), formatted_context=""),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.ask.summarize_thread_incrementally",
+        lambda *_, **__: (_ for _ in ()).throw(RuntimeError("summary provider failed")),
+    )
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite", groq_api_key=SecretStr("test-groq-key")
+    )
+    init_db(settings.sqlite_path)
+
+    response = _post_ask(
+        _ask_endpoint(create_ask_router(settings)), {"question": "What did I save?"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert [
+        message.role for message in list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID)
+    ] == [
+        "user",
+        "assistant",
+    ]
+
+
 def test_ask_renders_validated_claim_citations_and_only_cited_source_chunks(
     tmp_path, monkeypatch
 ) -> None:

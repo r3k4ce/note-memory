@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-22T03:21:39Z"
+    time_local: "2026-07-22T00:21:39-0300"
+    summary: "Added best-effort persistent summaries for older chat context."
+    changed:
+      - "Added Utility-model incremental and recovery rebuild summarization with strict internal output validation, untrusted-transcript handling, 10-message raw-context retention, and 4,000-character summaries."
+      - "Added owner-scoped qualifying-history snapshots and compare-and-swap publishing so concurrent history changes return stale without overwriting summaries."
+      - "Successful synchronous Ask persistence now attempts an internal summary update without changing Ask responses or failed/cancelled/interrupted job behavior."
+    verification:
+      - "Focused chat summary, chat, assistant-context, and Ask regressions passed (54 tests); backend Ruff format/lint and Pyright completed without errors."
+      - "Started the complete backend pytest suite (358 collected); output capture ended after the early test groups, before a final result was emitted."
   - time_utc: "2026-07-21T23:30:00Z"
     time_local: "2026-07-21T20:30:00-0300"
     summary: "Added canonical provider-free assistant context loading from persisted generation state."

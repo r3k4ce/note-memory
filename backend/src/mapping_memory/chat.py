@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 import json
 from contextlib import closing
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
@@ -63,6 +64,13 @@ class ThreadSummaryRead(BaseModel):
     summary: str
     last_summarized_message_id: int
     updated_at: str
+
+
+@dataclass(frozen=True)
+class ThreadSummarySnapshot:
+    summary: ThreadSummaryRead | None
+    eligible_messages: tuple[tuple[int, str, str], ...]
+    fingerprint: str
 
 
 class AutomaticMemoryChangeRead(BaseModel):
@@ -223,6 +231,45 @@ def upsert_thread_summary(
     if row is None:
         raise RuntimeError("upserted thread summary could not be read")
     return _thread_summary_from_row(row)
+
+
+def get_thread_summary_snapshot(
+    sqlite_path: Path, user_id: str, thread_id: int
+) -> ThreadSummarySnapshot | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        return _thread_summary_snapshot(connection, user_id, thread_id)
+
+
+def replace_thread_summary_if_unchanged(
+    sqlite_path: Path,
+    user_id: str,
+    thread_id: int,
+    expected: ThreadSummarySnapshot,
+    *,
+    summary: str | None,
+    last_summarized_message_id: int | None,
+) -> bool:
+    with closing(connect_db(sqlite_path)) as connection, connection:
+        current = _thread_summary_snapshot(connection, user_id, thread_id)
+        if current != expected:
+            return False
+        if summary is None:
+            connection.execute(
+                "DELETE FROM chat_thread_summaries WHERE thread_id = ?", (thread_id,)
+            )
+            return True
+        if last_summarized_message_id is None:
+            raise ValueError("a summary marker is required")
+        connection.execute(
+            """INSERT INTO chat_thread_summaries
+                   (thread_id, summary, last_summarized_message_id, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(thread_id) DO UPDATE SET summary = excluded.summary,
+                       last_summarized_message_id = excluded.last_summarized_message_id,
+                       updated_at = excluded.updated_at""",
+            (thread_id, summary, last_summarized_message_id, _now()),
+        )
+    return True
 
 
 def record_automatic_memory_change(
@@ -489,11 +536,15 @@ def append_chat_turn(
     *,
     thread_id: int | None = None,
     audit: AssistantReplyAudit | None = None,
-) -> None:
+) -> GenerationJobRead:
     with closing(connect_db(sqlite_path)) as connection, connection:
         job_id = _create_generation_turn(connection, user_id, question, thread_id=thread_id)
         _mark_running(connection, user_id, job_id)
         _complete_job(connection, user_id, job_id, response, audit=audit)
+        row = _get_job_row(connection, user_id, job_id)
+    if row is None:
+        raise RuntimeError("completed chat turn could not be read")
+    return _job_from_row(row)
 
 
 def list_chat_messages(
@@ -513,6 +564,48 @@ def list_chat_messages(
             (user_id, thread_id),
         ).fetchall()
     return [_message_from_row(row) for row in rows]
+
+
+def _thread_summary_snapshot(
+    connection: Any, user_id: str, thread_id: int
+) -> ThreadSummarySnapshot | None:
+    thread = connection.execute(
+        "SELECT id FROM chat_threads WHERE id = ? AND user_id = ?", (thread_id, user_id)
+    ).fetchone()
+    if thread is None:
+        return None
+    summary_row = connection.execute(
+        "SELECT * FROM chat_thread_summaries WHERE thread_id = ?", (thread_id,)
+    ).fetchone()
+    rows = connection.execute(
+        """SELECT id, role, content FROM chat_messages
+           WHERE thread_id = ? AND user_id = ? AND length(trim(content)) > 0
+             AND (role = 'user' OR (role = 'assistant' AND status = 'completed'))
+           ORDER BY id""",
+        (thread_id, user_id),
+    ).fetchall()
+    eligible_messages = tuple((row["id"], row["role"], row["content"]) for row in rows[:-10])
+    fingerprint = sha256(
+        json.dumps(
+            {
+                "summary": (
+                    None
+                    if summary_row is None
+                    else [
+                        summary_row["summary"],
+                        summary_row["last_summarized_message_id"],
+                    ]
+                ),
+                "messages": eligible_messages,
+            },
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    return ThreadSummarySnapshot(
+        summary=_thread_summary_from_row(summary_row) if summary_row else None,
+        eligible_messages=eligible_messages,
+        fingerprint=fingerprint,
+    )
 
 
 def get_assistant_reply_audit(

@@ -13,6 +13,7 @@ from mapping_memory.ai import (
 )
 from mapping_memory.category_scope import CategoryScope, CategoryScopeError, make_category_scope
 from mapping_memory.chat import append_chat_turn, get_chat_thread, learning_enabled
+from mapping_memory.chat_summary import summarize_thread_incrementally
 from mapping_memory.memory import LOCAL_OWNER_ID, MemoryAdapter
 from mapping_memory.notes import get_category
 from mapping_memory.rag import RagContextChunk, RagSource, prepare_retrieval_context
@@ -130,8 +131,9 @@ def _complete_turn(
     settings: Settings,
     adapter: MemoryClient,
 ) -> AskResponse:
+    completed_turn = None
     try:
-        append_chat_turn(
+        completed_turn = append_chat_turn(
             settings.sqlite_path,
             LOCAL_OWNER_ID,
             question,
@@ -140,6 +142,17 @@ def _complete_turn(
         )
     except Exception:
         logger.warning("Chat transcript persistence unavailable")
+
+    if completed_turn is not None:
+        try:
+            summarize_thread_incrementally(
+                settings.sqlite_path,
+                LOCAL_OWNER_ID,
+                completed_turn.thread_id,
+                settings=settings,
+            )
+        except Exception:
+            logger.warning("Chat summary unavailable; continuing without an update")
 
     updates = 0
     try:
