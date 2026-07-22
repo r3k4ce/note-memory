@@ -460,62 +460,6 @@ def test_ask_accepts_note_ids(tmp_path, monkeypatch) -> None:
     assert captured["note_ids"] == [1, 2, 3]
 
 
-def test_ask_passes_history_to_retrieval(tmp_path, monkeypatch) -> None:
-    captured: dict[str, Any] = {}
-    ask_endpoint = _ask_app(
-        tmp_path,
-        monkeypatch,
-        retrieval_context=RagRetrievalContext(sources=(), formatted_context=""),
-        answer=lambda **_: "unexpected",
-        capture=captured,
-    )
-
-    response = _post_ask(
-        ask_endpoint,
-        {
-            "question": "What happened next?",
-            "history": [
-                {"role": "user", "content": "What did we discuss?"},
-                {"role": "assistant", "content": "Source recreation."},
-            ],
-        },
-    )
-
-    assert response.status_code == 200
-    assert [message.model_dump() for message in captured["history"]] == [
-        {"role": "user", "content": "What did we discuss?"},
-        {"role": "assistant", "content": "Source recreation."},
-    ]
-
-
-def test_ask_passes_history_to_answer_generation(tmp_path, monkeypatch) -> None:
-    captured: dict[str, Any] = {}
-    source = _source(note_id=7, title="Source recreation", date_added="2026-07-01T01:00:00Z")
-    ask_endpoint = _ask_app(
-        tmp_path,
-        monkeypatch,
-        retrieval_context=RagRetrievalContext(sources=(source,), formatted_context="context"),
-        answer=lambda **kwargs: captured.update(kwargs) or "Grounded answer.",
-    )
-
-    response = _post_ask(
-        ask_endpoint,
-        {
-            "question": "What happened next?",
-            "history": [
-                {"role": "user", "content": "What did we discuss?"},
-                {"role": "assistant", "content": "Source recreation."},
-            ],
-        },
-    )
-
-    assert response.status_code == 200
-    assert [message.model_dump() for message in captured["history"]] == [
-        {"role": "user", "content": "What did we discuss?"},
-        {"role": "assistant", "content": "Source recreation."},
-    ]
-
-
 def test_ask_empty_note_ids_returns_fallback_and_no_sources(tmp_path, monkeypatch) -> None:
     answer_calls: list[dict[str, Any]] = []
     ask_endpoint = _ask_app_with_real_retrieval(
@@ -793,18 +737,7 @@ def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
         answer=lambda **_: "Grounded answer.",
     )
 
-    response = _post_ask(
-        ask_endpoint,
-        {
-            "question": "What source should be cited?",
-            "history": [
-                {
-                    "role": "assistant",
-                    "content": "Source: fake-note-999, title: History-only source",
-                }
-            ],
-        },
-    )
+    response = _post_ask(ask_endpoint, {"question": "What source should be cited?"})
 
     assert response.status_code == 200
     assert response.json()["sources"] == [
@@ -817,9 +750,7 @@ def test_ask_sources_still_come_only_from_notes(tmp_path, monkeypatch) -> None:
     ]
 
 
-def test_ask_history_alone_cannot_produce_answer_without_note_context(
-    tmp_path, monkeypatch
-) -> None:
+def test_ask_without_note_context_cannot_produce_answer(tmp_path, monkeypatch) -> None:
     calls: list[str] = []
     ask_endpoint = _ask_app(
         tmp_path,
@@ -828,13 +759,7 @@ def test_ask_history_alone_cannot_produce_answer_without_note_context(
         answer=lambda **_: calls.append("called") or "history-only answer",
     )
 
-    response = _post_ask(
-        ask_endpoint,
-        {
-            "question": "What was the decision?",
-            "history": [{"role": "assistant", "content": "The decision was to ship history."}],
-        },
-    )
+    response = _post_ask(ask_endpoint, {"question": "What was the decision?"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -885,7 +810,7 @@ def test_ask_real_retrieval_reports_exact_evidence_when_semantic_misses(
         init_db_first=False,
         vector_results=[],
         answer=lambda **kwargs: captured.update(kwargs) or "Bun found maple-glider.",
-        expected_query="user: maple-glider",
+        expected_query="maple-glider",
     )
 
     response = _post_ask(ask_endpoint, {"question": "maple-glider"})
@@ -930,7 +855,7 @@ def test_ask_real_retrieval_respects_selected_scope_for_local_evidence(
         init_db_first=False,
         vector_results=[],
         answer=lambda **_: "Selected answer.",
-        expected_query="user: Forbidden exact phrase",
+        expected_query="Forbidden exact phrase",
     )
 
     response = _post_ask(
@@ -965,17 +890,12 @@ def test_ask_returns_sanitized_503_when_answer_generation_fails(tmp_path, monkey
 
 def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> None:
     from mapping_memory.ai import ANSWER_SYSTEM_PROMPT, generate_grounded_answer
-    from mapping_memory.schemas import AskHistoryMessage
 
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
 
     answer = generate_grounded_answer(
         "What should we do?",
         context="Card title: Saved card\nRelevant text:\nUse saved decision.",
-        history=[
-            AskHistoryMessage(role="user", content="What source is relevant?"),
-            AskHistoryMessage(role="assistant", content="The saved card is relevant."),
-        ],
         settings=Settings(groq_api_key=None, groq_chat_model="llama-3.3-70b-versatile"),
         client=fake_client,
     )
@@ -991,33 +911,8 @@ def test_generate_grounded_answer_uses_only_supplied_context_and_question() -> N
     assert call["messages"][0] == {"role": "system", "content": ANSWER_SYSTEM_PROMPT}
     user_message = call["messages"][1]["content"]
     assert "Card title: Saved card" in user_message
-    assert "Recent chat history (for question interpretation only):" in user_message
-    assert "user: What source is relevant?" in user_message
-    assert "assistant: The saved card is relevant." in user_message
     assert "What should we do?" in user_message
     assert "full database" not in user_message
-
-
-def test_generate_grounded_answer_includes_only_recent_history_in_prompt() -> None:
-    from mapping_memory.ai import generate_grounded_answer
-    from mapping_memory.schemas import AskHistoryMessage
-
-    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
-
-    generate_grounded_answer(
-        "What happened next?",
-        context="Card title: Saved card\nRelevant text:\nUse saved decision.",
-        history=[AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)],
-        settings=Settings(groq_api_key=None, groq_chat_model="llama-3.3-70b-versatile"),
-        client=fake_client,
-    )
-
-    user_message = fake_client.chat.completions.calls[0]["messages"][1]["content"]
-    assert "user: message 0" not in user_message
-    assert "user: message 1" not in user_message
-    for index in range(2, 8):
-        assert f"user: message {index}" in user_message
-    assert "Current question:\nWhat happened next?" in user_message
 
 
 class FakeCompletions:
@@ -1076,14 +971,12 @@ def _ask_app(
         settings: Settings,
         category_scope=None,
         note_ids=None,
-        history=None,
     ) -> RagRetrievalContext:
         assert question.strip()
         assert settings.sqlite_path
         if capture is not None:
             capture["category_scope"] = category_scope
             capture["note_ids"] = note_ids
-            capture["history"] = history
         return retrieval_context
 
     monkeypatch.setattr(
@@ -1130,7 +1023,7 @@ def _ask_app_with_real_retrieval(
     vector_results: list[VectorSearchResult],
     answer,
     init_db_first: bool = True,
-    expected_query: str = "user: What is scoped?",
+    expected_query: str = "What is scoped?",
 ):
     from mapping_memory.ask import create_ask_router
 

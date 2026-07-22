@@ -8,13 +8,10 @@ from mapping_memory.groq_ai import (
     GroqUnavailableError,
     request_structured_output,
 )
-from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 
 ANSWER_FALLBACK = "I do not have this in the saved notes."
-ANSWER_HISTORY_LIMIT = 6
-ANSWER_SYSTEM_PROMPT = f"""Use chat history only to understand the user's current question.
-Use saved-note context as the only factual source.
+ANSWER_SYSTEM_PROMPT = f"""Use saved-note context as the only factual source.
 Do not use outside knowledge.
 If the saved-note context does not contain the answer, say exactly: {ANSWER_FALLBACK}
 Bun is a notebook companion for a local-first notes app.
@@ -174,7 +171,6 @@ def generate_grounded_answer(
     question: str,
     *,
     context: str,
-    history: list[AskHistoryMessage] | None = None,
     memory_context: list[str] | None = None,
     settings: Settings | None = None,
     client: Any | None = None,
@@ -193,7 +189,6 @@ def generate_grounded_answer(
                     "role": "user",
                     "content": _answer_user_prompt(
                         context=context,
-                        history=history or [],
                         memory_context=memory_context or [],
                         question=question.strip(),
                     ),
@@ -213,7 +208,6 @@ def generate_grounded_answer(
 def _answer_user_prompt(
     *,
     context: str,
-    history: list[AskHistoryMessage],
     memory_context: list[str],
     question: str,
 ) -> str:
@@ -225,15 +219,5 @@ def _answer_user_prompt(
         f"{profile}\n"
         "</user_profile_context>\n\n"
         f"Saved-note context:\n\n{context}\n\n"
-        "Recent chat history (for question interpretation only):\n\n"
-        f"{_format_answer_history(history)}\n\n"
         f"Current question:\n{question}"
     )
-
-
-def _format_answer_history(history: list[AskHistoryMessage]) -> str:
-    recent_history = history[-ANSWER_HISTORY_LIMIT:]
-    if not recent_history:
-        return "No recent chat history."
-
-    return "\n".join(f"{message.role}: {message.content}" for message in recent_history)

@@ -81,16 +81,10 @@ export type StoredAskNoteScope =
   | { mode: "all" }
   | { mode: "custom"; note_ids: number[] };
 
-export type AskHistoryMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
 export type AskRequest = CategoryScopeRequest & {
   question: string;
   thread_id?: number;
   note_ids?: number[];
-  history?: AskHistoryMessage[];
 };
 
 export type AskSource = {

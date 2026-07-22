@@ -1,4 +1,13 @@
 entries:
+  - time_utc: "2026-07-21T23:30:00Z"
+    time_local: "2026-07-21T20:30:00-0300"
+    summary: "Added canonical provider-free assistant context loading from persisted generation state."
+    changed:
+      - "Added immutable owner-scoped assistant context sections for runtime metadata, saved turn scope, non-evidence summary and memories, recent valid transcript messages, current user input, and bounded immutable tool definitions; older jobs exclude future summaries and transcript rows."
+      - "Removed the legacy Ask history request contract from backend schemas, synchronous Ask forwarding, retrieval/prompt construction, frontend request types, and controller payload construction."
+    verification:
+      - "Focused backend regression group passed: 87 tests, plus 4 loader regressions after final review; backend Ruff format/lint and Pyright reported no errors; frontend suite passed 183 tests plus lint and production build."
+      - "./scripts/check.sh cleared formatter, lint, and Pyright and began the 351-test backend suite, but the execution runner ended its output stream before a final suite result."
   - time_utc: "2026-07-21T22:57:17Z"
     time_local: "2026-07-21T19:57:17-0300"
     summary: "Added internal chat summaries, title origins, and automatic-memory provenance storage."

@@ -13,7 +13,6 @@ from mapping_memory.exact_search import ExactSearchMatch, search_notes_exact_mat
 from mapping_memory.fts import tags_to_text
 from mapping_memory.notes import get_note, list_notes
 from mapping_memory.provider_fingerprint import chroma_index_ready
-from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import ChromaVectorStore, build_chunk_id
 from mapping_memory.voyage_reranker import rerank_chunks
@@ -64,7 +63,6 @@ def prepare_retrieval_context(
     settings: Settings,
     category_scope: CategoryScope | None = None,
     note_ids: Sequence[int] | None = None,
-    history: list[AskHistoryMessage] | None = None,
 ) -> RagRetrievalContext:
     query = question.strip()
     if not query:
@@ -89,7 +87,7 @@ def prepare_retrieval_context(
     )
     if accepted_count < RAG_FINAL_CHUNK_LIMIT and chroma_index_ready(settings):
         try:
-            retrieval_query = build_retrieval_query(query, history or [])
+            retrieval_query = build_retrieval_query(query)
             embedding = embed_query(retrieval_query, settings=settings)
             vector_store = ChromaVectorStore(settings=settings)
             _sync_scope_category_metadata(vector_store, settings=settings, category_scope=scope)
@@ -495,11 +493,8 @@ def _significant_terms(text: str) -> set[str]:
     }
 
 
-def build_retrieval_query(question: str, history: list[AskHistoryMessage]) -> str:
-    recent = history[-6:]
-    parts = [f"{message.role}: {message.content}" for message in recent]
-    parts.append(f"user: {question}")
-    return "\n".join(parts)[-4000:]
+def build_retrieval_query(question: str) -> str:
+    return question[-4000:]
 
 
 def _query_hits(

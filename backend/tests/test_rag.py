@@ -6,7 +6,6 @@ import pytest
 from mapping_memory.category_scope import make_category_scope
 from mapping_memory.db import init_db
 from mapping_memory.notes import create_category, create_note
-from mapping_memory.schemas import AskHistoryMessage
 from mapping_memory.settings import Settings
 from mapping_memory.vector_store import VectorSearchResult
 
@@ -80,57 +79,24 @@ def test_prepare_retrieval_context_groups_chunks_by_note(
     assert "Relevant text:\nfirst chunk" in context.formatted_context
 
 
-def test_build_retrieval_query_includes_current_question() -> None:
+def test_build_retrieval_query_uses_current_question() -> None:
     from mapping_memory.rag import build_retrieval_query
 
-    query = build_retrieval_query("What happened next?", [])
+    query = build_retrieval_query("What happened next?")
 
-    assert query == "user: What happened next?"
-
-
-def test_build_retrieval_query_includes_recent_history() -> None:
-    from mapping_memory.rag import build_retrieval_query
-
-    query = build_retrieval_query(
-        "What about that?",
-        [
-            AskHistoryMessage(role="user", content="What did we save?"),
-            AskHistoryMessage(role="assistant", content="A routing decision."),
-        ],
-    )
-
-    assert query == (
-        "user: What did we save?\nassistant: A routing decision.\nuser: What about that?"
-    )
+    assert query == "What happened next?"
 
 
 def test_build_retrieval_query_is_capped() -> None:
     from mapping_memory.rag import build_retrieval_query
 
-    query = build_retrieval_query(
-        "current question",
-        [AskHistoryMessage(role="user", content="x" * 4000)],
-    )
+    query = build_retrieval_query("x" * 4_001)
 
     assert len(query) == 4000
-    assert query.endswith("user: current question")
+    assert query == "x" * 4000
 
 
-def test_build_retrieval_query_uses_only_recent_history() -> None:
-    from mapping_memory.rag import build_retrieval_query
-
-    history = [AskHistoryMessage(role="user", content=f"message {index}") for index in range(8)]
-
-    query = build_retrieval_query("current question", history)
-
-    assert "message 0" not in query
-    assert "message 1" not in query
-    for index in range(2, 8):
-        assert f"user: message {index}" in query
-    assert query.endswith("user: current question")
-
-
-def test_prepare_retrieval_context_embeds_recent_history_query(
+def test_prepare_retrieval_context_embeds_current_question(
     sqlite_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -139,23 +105,12 @@ def test_prepare_retrieval_context_embeds_recent_history_query(
     _install_fakes(
         monkeypatch,
         [_hit(note.id, 0, "included chunk")],
-        expected_query=(
-            "user: What did we discuss?\n"
-            "assistant: We discussed source recreation.\n"
-            "user: source question"
-        ),
+        expected_query="source question",
     )
 
     from mapping_memory.rag import prepare_retrieval_context
 
-    context = prepare_retrieval_context(
-        "source question",
-        settings=settings,
-        history=[
-            AskHistoryMessage(role="user", content="What did we discuss?"),
-            AskHistoryMessage(role="assistant", content="We discussed source recreation."),
-        ],
-    )
+    context = prepare_retrieval_context("source question", settings=settings)
 
     assert [source.note_id for source in context.sources] == [note.id]
 
@@ -198,7 +153,7 @@ def test_prepare_retrieval_context_keeps_exact_evidence_ahead_of_full_semantic_b
             for note in semantic_notes
             for chunk_index in range(2)
         ],
-        expected_query="user: amber-42",
+        expected_query="amber-42",
     )
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -341,9 +296,7 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
             _hit(excluded.id, 0, "excluded chunk"),
             _hit(included.id, 0, "included chunk"),
         ],
-        expected_query=(
-            "user: Which note is selected?\nassistant: The included note.\nuser: source question"
-        ),
+        expected_query="source question",
     )
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -351,10 +304,6 @@ def test_prepare_retrieval_context_filters_selected_note_ids(
     context = prepare_retrieval_context(
         "source question",
         settings=settings,
-        history=[
-            AskHistoryMessage(role="user", content="Which note is selected?"),
-            AskHistoryMessage(role="assistant", content="The included note."),
-        ],
         note_ids=[included.id],
     )
 
@@ -408,7 +357,7 @@ def test_prepare_retrieval_context_rescues_selected_note_context_when_vector_mis
     _install_fakes(
         monkeypatch,
         [],
-        expected_query="user: What does the launch checklist need before release?",
+        expected_query="What does the launch checklist need before release?",
     )
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -437,7 +386,7 @@ def test_prepare_retrieval_context_adds_exact_local_evidence_when_vector_misses(
     )
     create_note(sqlite_path, "Unrelated note body", ai_title="Other note")
     settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
-    _install_fakes(monkeypatch, [], expected_query="user: citron-427")
+    _install_fakes(monkeypatch, [], expected_query="citron-427")
 
     from mapping_memory.rag import prepare_retrieval_context
 
@@ -463,7 +412,7 @@ def test_prepare_retrieval_context_adds_fuzzy_title_or_tag_evidence(
         tags=["launch-plan"],
     )
     settings = Settings(sqlite_path=sqlite_path, voyage_api_key=None)
-    _install_fakes(monkeypatch, [], expected_query="user: cerulean rolluot")
+    _install_fakes(monkeypatch, [], expected_query="cerulean rolluot")
 
     from mapping_memory.rag import prepare_retrieval_context
 
@@ -491,7 +440,7 @@ def test_prepare_retrieval_context_adds_selected_note_rescue_chunk_when_vector_h
     _install_fakes(
         monkeypatch,
         [_hit(selected.id, 1, "semantic hit from selected note but not the answer")],
-        expected_query="user: Who needs to sign off before release?",
+        expected_query="Who needs to sign off before release?",
     )
 
     from mapping_memory.rag import prepare_retrieval_context
@@ -613,7 +562,7 @@ def test_prepare_retrieval_context_returns_empty_context_cleanly(
     assert context.formatted_context == ""
 
 
-def test_prepare_retrieval_context_reranks_only_semantic_hits_with_history_query(
+def test_prepare_retrieval_context_reranks_only_semantic_hits_with_current_query(
     sqlite_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -624,7 +573,7 @@ def test_prepare_retrieval_context_reranks_only_semantic_hits_with_history_query
     _install_fakes(
         monkeypatch,
         hits,
-        expected_query="user: Earlier question\nassistant: Earlier answer\nuser: Current question",
+        expected_query="Current question",
     )
 
     def rerank_chunks(query, candidates, *, settings):
@@ -637,17 +586,12 @@ def test_prepare_retrieval_context_reranks_only_semantic_hits_with_history_query
     from mapping_memory.rag import prepare_retrieval_context
 
     context = prepare_retrieval_context(
-        "Current question",
-        settings=Settings(sqlite_path=sqlite_path),
-        history=[
-            AskHistoryMessage(role="user", content="Earlier question"),
-            AskHistoryMessage(role="assistant", content="Earlier answer"),
-        ],
+        "Current question", settings=Settings(sqlite_path=sqlite_path)
     )
 
     assert [source.note_id for source in context.sources] == [second.id, first.id]
     assert captured == {
-        "query": "user: Earlier question\nassistant: Earlier answer\nuser: Current question",
+        "query": "Current question",
         "documents": ["complete first chunk", "complete second chunk"],
     }
 
@@ -661,7 +605,7 @@ def test_prepare_retrieval_context_preserves_chroma_order_when_reranking_fails(
     _install_fakes(
         monkeypatch,
         [_hit(first.id, 0, "first chunk"), _hit(second.id, 0, "second chunk")],
-        expected_query="user: question",
+        expected_query="question",
     )
     monkeypatch.setattr(
         "mapping_memory.rag.rerank_chunks",
@@ -688,7 +632,7 @@ def _install_fakes(
     results: list[VectorSearchResult],
     *,
     query_errors: list[Exception] | None = None,
-    expected_query: str = "user: source question",
+    expected_query: str = "source question",
 ) -> None:
     def embed_query(text: str, *, settings: Settings) -> list[float]:
         assert text == expected_query

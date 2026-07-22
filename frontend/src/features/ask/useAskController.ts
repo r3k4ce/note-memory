@@ -21,17 +21,12 @@ import {
   toggleAskNoteScope,
 } from "../../askScope";
 import type {
-  AskHistoryMessage,
   AskNoteScope,
   ChatMessage,
   ChatThread,
   StoredAskNoteScope,
   StoredChatMessage,
 } from "../../types";
-
-const ASK_HISTORY_MESSAGE_LIMIT = 6;
-
-type AskHistorySourceMessage = Extract<ChatMessage, { role: "user" | "assistant" }>;
 
 export type UseAskControllerOptions = {
   availableNoteCount: number;
@@ -64,24 +59,6 @@ export type AskController = {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
-}
-
-function buildRecentAskHistory(
-  messages: ChatMessage[],
-  pendingMessageId: string | null,
-): AskHistoryMessage[] {
-  return messages
-    .filter(
-      (message): message is AskHistorySourceMessage =>
-        (message.role === "user" || message.role === "assistant") &&
-        message.id !== pendingMessageId &&
-        message.content.trim().length > 0,
-    )
-    .map((message) => ({
-      role: message.role,
-      content: message.content.trim(),
-    }))
-    .slice(-ASK_HISTORY_MESSAGE_LIMIT);
 }
 
 function storedScopeToAskNoteScope(thread: ChatThread): AskNoteScope {
@@ -233,7 +210,6 @@ export function useAskController({
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     const threadId = activeThreadId;
-    const history = buildRecentAskHistory(messages, pendingMessageIdRef.current);
     const userMessage: ChatMessage = {
       id: createMessageId(),
       role: "user",
@@ -255,7 +231,6 @@ export function useAskController({
       const result = await askQuestion({
         thread_id: threadId,
         question: trimmedQuestion,
-        history,
         ...(noteScope.mode === "custom" ? { note_ids: noteScope.noteIds } : {}),
       });
       if (
@@ -305,7 +280,7 @@ export function useAskController({
         setPendingMessageId(null);
       }
     }
-  }, [activeThreadId, createMessageId, messages, noteScope]);
+  }, [activeThreadId, createMessageId, noteScope]);
 
   const onThreadChange = useCallback(async (threadId: number) => {
     if (pendingMessageIdRef.current !== null || threadId === activeThreadId) {

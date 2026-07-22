@@ -68,7 +68,6 @@ def create_ask_router(
                 settings=settings,
                 category_scope=category_scope,
                 note_ids=request.note_ids,
-                history=request.history,
             )
         except Exception:
             logger.warning("Ask retrieval unavailable")
@@ -90,7 +89,6 @@ def create_ask_router(
             answer = generate_grounded_answer(
                 question=request.question,
                 context=retrieval_context.formatted_context,
-                history=request.history,
                 memory_context=memory_context,
                 settings=settings,
             )

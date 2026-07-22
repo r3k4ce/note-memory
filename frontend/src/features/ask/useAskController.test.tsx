@@ -124,7 +124,7 @@ describe("useAskController", () => {
     expect(onSourceSelect).toHaveBeenCalledWith(11);
   });
 
-  test("switches threads and submits with the active thread scope and recent history", async () => {
+  test("switches threads and submits with the active thread scope", async () => {
     vi.mocked(listChatThreads).mockResolvedValue([generalThread, focusedThread]);
     vi.mocked(getChatThreadMessages).mockImplementation((threadId) =>
       Promise.resolve(
@@ -156,7 +156,6 @@ describe("useAskController", () => {
     expect(askQuestion).toHaveBeenCalledWith({
       thread_id: 2,
       question: "What did I save?",
-      history: [{ role: "user", content: "Focused question" }],
       note_ids: [10],
     });
     expect(result.current.messages.at(-1)).toMatchObject({

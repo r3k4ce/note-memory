@@ -214,35 +214,14 @@ class SearchResult(BaseModel):
     match_type: Literal["exact", "semantic", "hybrid", "fuzzy"]
 
 
-ASK_HISTORY_MAX_MESSAGES = 10
-ASK_HISTORY_CONTENT_MAX_LENGTH = 4000
-
-
-class AskHistoryMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str
-
-    @field_validator("content")
-    @classmethod
-    def content_must_not_be_empty(cls, value: str) -> str:
-        stripped_value = value.strip()
-        if not stripped_value:
-            raise ValueError("history content must not be empty")
-        if len(stripped_value) > ASK_HISTORY_CONTENT_MAX_LENGTH:
-            raise ValueError(
-                f"history content must contain at most {ASK_HISTORY_CONTENT_MAX_LENGTH} characters"
-            )
-
-        return stripped_value
-
-
 class AskRequest(BaseModel):
     question: str
     thread_id: int | None = None
     category_id: int | None = None
     uncategorized: bool = False
     note_ids: list[int] | None = None
-    history: list[AskHistoryMessage] = []
+
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("question")
     @classmethod
@@ -275,16 +254,6 @@ class AskRequest(BaseModel):
             seen_note_ids.add(note_id)
 
         return normalized_note_ids
-
-    @field_validator("history")
-    @classmethod
-    def history_must_not_exceed_max_messages(
-        cls, value: list[AskHistoryMessage]
-    ) -> list[AskHistoryMessage]:
-        if len(value) > ASK_HISTORY_MAX_MESSAGES:
-            raise ValueError(f"history must contain at most {ASK_HISTORY_MAX_MESSAGES} messages")
-
-        return value
 
     @field_validator("category_id")
     @classmethod
