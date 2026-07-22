@@ -332,6 +332,41 @@ def test_ask_summary_failure_preserves_the_successful_response_and_turn(
     ]
 
 
+def test_ask_title_failure_preserves_the_successful_response_and_summary(
+    tmp_path, monkeypatch
+) -> None:
+    from mapping_memory.ask import create_ask_router
+
+    summary_calls: list[int] = []
+    monkeypatch.setattr(
+        "mapping_memory.ask.prepare_retrieval_context",
+        lambda *_, **__: RagRetrievalContext(sources=(), formatted_context=""),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.ask.summarize_thread_incrementally",
+        lambda *_, **__: summary_calls.append(1),
+    )
+    monkeypatch.setattr(
+        "mapping_memory.ask.generate_initial_automatic_thread_title",
+        lambda *_, **__: (_ for _ in ()).throw(RuntimeError("title provider failed")),
+    )
+    settings = Settings(
+        sqlite_path=tmp_path / "ask.sqlite", groq_api_key=SecretStr("test-groq-key")
+    )
+    init_db(settings.sqlite_path)
+
+    response = _post_ask(
+        _ask_endpoint(create_ask_router(settings)), {"question": "What did I save?"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_evidence"
+    assert summary_calls == [1]
+    assert [
+        message.role for message in list_chat_messages(settings.sqlite_path, LOCAL_OWNER_ID)
+    ] == ["user", "assistant"]
+
+
 def test_ask_renders_validated_claim_citations_and_only_cited_source_chunks(
     tmp_path, monkeypatch
 ) -> None:

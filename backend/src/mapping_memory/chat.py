@@ -166,16 +166,75 @@ def update_chat_thread(
 
 
 def set_automatic_thread_title(
-    sqlite_path: Path, user_id: str, thread_id: int, title: str
+    sqlite_path: Path,
+    user_id: str,
+    thread_id: int,
+    title: str,
+    *,
+    expected_title: str | None = None,
 ) -> ChatThreadRead | None:
+    expected_title_clause = "" if expected_title is None else " AND title = ?"
+    values: list[Any] = [_normalize_thread_title(title), _now(), user_id, thread_id]
+    if expected_title is not None:
+        values.append(_normalize_thread_title(expected_title))
     with closing(connect_db(sqlite_path)) as connection:
         cursor = connection.execute(
             """UPDATE chat_threads SET title = ?, updated_at = ?
-               WHERE user_id = ? AND id = ? AND title_origin = 'automatic'""",
-            (_normalize_thread_title(title), _now(), user_id, thread_id),
+               WHERE user_id = ? AND id = ? AND title_origin = 'automatic'"""
+            + expected_title_clause,
+            values,
         )
         connection.commit()
     return get_chat_thread(sqlite_path, user_id, thread_id) if cursor.rowcount else None
+
+
+def get_initial_automatic_thread_title_message(
+    sqlite_path: Path, user_id: str, generation_job_id: int
+) -> str | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            """SELECT first_user_message.content
+               FROM generation_jobs AS job
+               JOIN chat_threads AS threads ON threads.id = job.thread_id
+               JOIN chat_messages AS assistant_message
+                 ON assistant_message.id = job.assistant_message_id
+               JOIN chat_messages AS first_user_message
+                 ON first_user_message.id = (
+                    SELECT messages.id FROM chat_messages AS messages
+                    WHERE messages.thread_id = job.thread_id AND messages.user_id = job.user_id
+                      AND messages.role = 'user'
+                    ORDER BY messages.id LIMIT 1
+                 )
+                 WHERE job.id = ? AND job.user_id = ? AND job.status = 'completed'
+                 AND assistant_message.status = 'completed' AND threads.title_origin = 'automatic'
+                 AND threads.title = ?
+                 AND NOT EXISTS (
+                    SELECT 1 FROM generation_jobs AS earlier_job
+                    JOIN chat_messages AS earlier_assistant
+                      ON earlier_assistant.id = earlier_job.assistant_message_id
+                    WHERE earlier_job.thread_id = job.thread_id
+                      AND earlier_job.status = 'completed'
+                      AND earlier_assistant.status = 'completed'
+                      AND earlier_assistant.id < assistant_message.id
+                 )""",
+            (generation_job_id, user_id, DEFAULT_THREAD_TITLE),
+        ).fetchone()
+    return row["content"] if row else None
+
+
+def get_automatic_thread_first_user_message(
+    sqlite_path: Path, user_id: str, thread_id: int
+) -> str | None:
+    with closing(connect_db(sqlite_path)) as connection:
+        row = connection.execute(
+            """SELECT messages.content FROM chat_messages AS messages
+               JOIN chat_threads AS threads ON threads.id = messages.thread_id
+               WHERE messages.thread_id = ? AND messages.user_id = ? AND messages.role = 'user'
+                 AND threads.title_origin = 'automatic'
+               ORDER BY messages.id LIMIT 1""",
+            (thread_id, user_id),
+        ).fetchone()
+    return row["content"] if row else None
 
 
 def delete_chat_thread(sqlite_path: Path, user_id: str, thread_id: int) -> bool:

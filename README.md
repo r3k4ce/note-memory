@@ -47,8 +47,8 @@ The choice persists in `localStorage`.
   Read Mode toolbar button for in-place rendered preview.
   Edit-mode Markdown uses an Obsidian-lite live preview for common inactive
   Markdown and GFM syntax while preserving raw Markdown.
-- **Right sidebar:** durable Ask/chat threads with per-thread messages, manually
-  named titles, and Ask source scope, plus strictly grounded Markdown answers.
+- **Right sidebar:** durable Ask/chat threads with per-thread messages, automatic
+  titles until manually renamed, and Ask source scope, plus strictly grounded Markdown answers.
   Clickable citations and
   source snippets appear only for note chunks that directly support a claim. The
   header memory manager lists, corrects, and forgets learned profile details and

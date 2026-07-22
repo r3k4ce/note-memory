@@ -221,8 +221,8 @@ last 6 history messages plus the current question, capped to 4,000 characters. H
 not used as answer source material; answers remain grounded only in retrieved saved notes.
 
 Successful answered and no-evidence turns are stored under the internal
-`local-owner` ID. New chat threads start as `Untitled chat` and retain that
-title until renamed. Each thread stores its own scope as
+`local-owner` ID. New chat threads start as `Untitled chat`; after their first
+successful reply, untouched titles are named automatically. Each thread stores its own scope as
 `{"mode":"all"}` or `{"mode":"custom","note_ids":[...]}`. Ask responses include
 `memory_updates`, which is `0` when learning is disabled, nothing durable was
 learned, or Mem0 is unavailable. Memories may adapt interpretation and presentation,

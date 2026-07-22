@@ -1,4 +1,14 @@
 entries:
+  - time_utc: "2026-07-22T03:45:00Z"
+    time_local: "2026-07-22T00:45:00-0300"
+    summary: "Added best-effort automatic titles after each chat thread's first successful reply."
+    changed:
+      - "Added strict Utility-model chat-title generation from only the first user message, with compact JSON input, a 60-character normalized title, and Untitled chat fallback."
+      - "Added owner-scoped first-success and first-message guards, preserving internal automatic/manual title origin and never exposing it through public chat schemas."
+      - "Successful Ask persistence now attempts title generation independently of summaries and memory learning; title failures cannot change the completed response or transcript."
+      - "Updated chat-thread documentation to describe automatic untouched titles."
+    verification:
+      - "Ran focused chat title, chat, and Ask tests: passed."
   - time_utc: "2026-07-22T03:21:39Z"
     time_local: "2026-07-22T00:21:39-0300"
     summary: "Added best-effort persistent summaries for older chat context."
